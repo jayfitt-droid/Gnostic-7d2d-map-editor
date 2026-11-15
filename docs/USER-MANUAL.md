@@ -114,6 +114,8 @@ On an island world, the share of each biome is a share of the land. The coast se
 - Click **Open** (Ctrl+O). Select a project (`.7dmap`), or the `dtm.raw` or `map_info.xml` of a world.
 - Or click **File > Open World Folder** and select the world folder.
 
+Sometimes the editor cannot read an entry in a world file, for example a POI or a spawn point. Then it leaves out that entry and shows a warning. The rest of the world opens. If `biomes.png` or `radiation.png` does not fit the world size, the editor keeps the file as it is and shows a warning in the **World** tab. The map does not show or paint that layer, and export writes the file back with no change.
+
 ### Save your work
 
 Click **Save** (Ctrl+S). The editor saves a project file (`.7dmap`). A project keeps all of the world and all of the Generate settings.
@@ -370,6 +372,8 @@ On an island or a peninsula, sea tiles get no plains, hills or mountains.
 
 Click **Generate** to make the terrain.
 
+New terrain for the whole map removes the planned towns of stage 2 that are not pinned, because their ground changed. A pinned town stays if its ground can still hold it. Undo puts the towns back.
+
 ### Stage 2: Town sites
 
 This stage plans towns and cities, and then builds them. It uses the game's town types and the game's counts for your world size.
@@ -401,6 +405,8 @@ This stage plans towns and cities, and then builds them. It uses the game's town
    - For the selected town, change its type or its number of street tiles. Click **Re-roll** to plan it again, or **Drop** to remove it.
    - Tick **Pinned** to keep a town when you re-roll the stage. The editor pins each town that you add.
 3. Click **Build**. The editor builds all the planned towns: streets, districts, POIs, traders and flat ground. This is one undo step.
+
+After **Build**, you can still click **Plan towns** or **Re-roll**. The editor asks first. Then it removes the built towns that are not pinned, with the highways, wilderness POIs and spawns that use them, and plans new towns. Pinned towns stay. Undo puts everything back.
 
 **Clear** removes all planned towns, pinned towns too.
 
@@ -565,11 +571,13 @@ Press **F1** in the editor to see this list.
 | Word | Meaning |
 |---|---|
 | **Biome** | An area of one type: forest, burnt forest, desert, snow or wasteland. |
+| **Deck** | The road surface of a bridge. |
 | **Footing** | Ground that the editor raises under the pillars of a bridge. |
 | **Land shape** | The outline of the land: land to the edges, one island, several islands or a peninsula. |
 | **POI** | A point of interest: a building or other place that a player can visit. |
 | **Prefab** | An object from the game that you can put on the map: a POI, a street tile or a part. |
 | **Project** | A `.7dmap` file. It keeps the world and all of your settings. |
+| **Ramp** | The road from the end of a bridge deck down to the ground. |
 | **Seed** | A number that controls the random choices. The same seed gives the same result. |
 | **Stage** | One step in the Generate panel. |
 | **Stamp** | A height map from the game that the editor puts on the ground. |
