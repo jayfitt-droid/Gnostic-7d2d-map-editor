@@ -1,6 +1,52 @@
 # Changelog
 
-What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
+What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
+
+## v2.1.0 (2026-11-15)
+
+### New
+
+- **Bridge tool.** Draw your own bridges over the sea between islands, or over a river, canyon or valley inland. Click the start and the end, then press Enter. The editor builds the bridge sections, the footings and a ramp road from each end down to the ground. You can move a bridge, make it longer or shorter, change its deck height, or delete it. The ground comes back as it was. The project keeps your bridges, and the Generate stages keep their roads and POIs off them. ([#3](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/3))
+- **Car wrecks on bridges.** Bridges from stage 4 (Highways) and from the Bridge tool get a car wreck about every 100 to 150 m of deck. To get bare decks, clear **Car wrecks on bridges** in stage 4 or **Car wrecks** in the Bridge tool.
+- **Export Map Image.** **File > Export Map Image** saves the whole map as a PNG, north at the top, with no windows or tools on it. Select the size and the layers and POIs to show. ([#10](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/10))
+- **Friendly names.** The editor shows the game's names, for example **Pine Forest** and **Old West**, for biomes, towns, traders and POIs. Search finds the game name or the file name. ([#8](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/8))
+- **Land closer to the sea edges.** Island, archipelago and peninsula worlds have less empty sea along the map edges. A single island is now a rounded square, so it also fills more of the corners. ([#4](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/4))
+- **The opening quest's trader.** The game's first quest sends each new player to one forest trader. Validate warns if there is no such trader, or if a spawn is 750 m or more from it. Stage 6 (Spawns) has a new setting, **Near the opening quest's trader**, that puts all spawns within 750 m of that trader. ([#30](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/30))
+- **Biome seed.** When you tick **Plan the biomes again for this land** in stage 1 (Terrain), a **Biome seed** row with its own **Re-roll** shows. It makes a new biome layout and does not change the terrain. ([#26](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/26))
+- **Bridges in Validate.** Validate looks at each bridge. It finds steps at the deck ends, missing roads, steep approaches, ground under the deck, bad footings and too little room under the beams. It also finds the bridges in worlds that the editor did not make.
+
+### Fixes
+
+- Undo and redo:
+  - Undo back to the point where you saved no longer asks you to save. ([#25](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/25))
+  - Undo after a **Re-roll** puts back the old seed. Before, Generate then made the re-rolled result again. ([#28](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/28))
+  - Undo of a stage puts back its Done mark, its status, its plan and its seeds, not only the ground. ([#15](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/15))
+  - Changes in the Generate panel mark the project as unsaved. ([#14](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/14))
+- Generate:
+  - **Generate** is off until a world is open. ([#13](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/13))
+  - A new terrain for the whole map deletes the planned towns that are not pinned. ([#12](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/12))
+  - After **Build**, **Plan towns** and **Re-roll** take down the towns that are not pinned and plan new towns. Before, they did nothing. ([#23](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/23))
+  - Stage 4 (Highways) no longer puts a bridge on a highway that it made before. Before, the guard rails blocked the road. ([#29](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/29))
+  - Stage 5 (Wilderness) keeps its POIs and gravel roads off the decks and ramps of the bridges that you drew. ([#31](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/31))
+  - A road between a town and a POI near it meets each at its own ground. Before, the road beside the POI had the town's height and made a bank against the POI's fence. ([#32](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/32))
+  - Stage 5 keeps POIs farther from a town on higher or lower ground, so a road can go up or down between them. ([#33](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/33))
+  - A gravel road that joins a highway meets it at the highway's height and does not lift the highway. ([#34](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/34))
+  - Wilderness POIs keep their part markers in file order, as the game does. ([#21](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/21))
+- Tools:
+  - Lake, river and water stamps always fill with water. After each stamp, the status bar tells you how much the ground and the water changed. ([#24](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/24))
+  - The Stamp tool uses the default stamp when a new game folder does not have the stamp that you selected. ([#19](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/19))
+  - Double-click an issue in the Export dialog to go to it on the map. ([#27](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/27))
+- Damaged files:
+  - The editor skips a bad entry in `prefabs.xml` or `spawnpoints.xml` and shows a warning. The rest of the world opens. ([#20](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/20))
+  - A `biomes.png` or `radiation.png` of the wrong size stays as it was, with a warning. The map works normally. ([#16](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/16))
+  - Game data that the editor cannot read no longer stops later opens and Generate runs. ([#17](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/17))
+  - A problem with the editor's own settings file no longer stops an export, save or open. ([#18](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/18))
+  - Small fixes from a code review. ([#22](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/22))
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
 
 ## v2.0.0 (2026-11-13)
 
@@ -16,25 +62,25 @@ This version contains all the changes in v2.0.0-beta.1, beta.3 and beta.4 below.
 
 ### Fixes
 
-- Some bridges from stage 4 (Highways) had a step in the road at one end. The step was up to 3 m high. The editor now builds a bridge only where the road can go up or down to the ground at each end of the bridge. ([#9](https://github.com/jayfitt-droid/7d2d-map-editor/issues/9))
-- Setup said "already installed" after you used the portable editor. The portable editor kept its POI pictures in the folder that Setup installs to. The editor now keeps the pictures in `%LOCALAPPDATA%\7D2DMapEditor-Cache` and removes the old folder. ([#11](https://github.com/jayfitt-droid/7d2d-map-editor/issues/11))
-- **Help > About** showed version 1.0.0. It now shows the full version, for example 2.0.0. ([#7](https://github.com/jayfitt-droid/7d2d-map-editor/issues/7))
+- Some bridges from stage 4 (Highways) had a step in the road at one end. The step was up to 3 m high. The editor now builds a bridge only where the road can go up or down to the ground at each end of the bridge. ([#9](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/9))
+- Setup said "already installed" after you used the portable editor. The portable editor kept its POI pictures in the folder that Setup installs to. The editor now keeps the pictures in `%LOCALAPPDATA%\7D2DMapEditor-Cache` and removes the old folder. ([#11](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/11))
+- **Help > About** showed version 1.0.0. It now shows the full version, for example 2.0.0. ([#7](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/7))
 
 ### Changes
 
 - The program file is now `Gnostic.exe`. The downloads are `Gnostic-7D2DMapEditor-win-Setup.exe` and `Gnostic-7D2DMapEditor-win-Portable.zip`.
-- In stage 6 (Spawns), the card tells you that **At least** is a minimum. Gravel roads from stage 5 (Wilderness) add spawn points first, with no limit, as in the game. A note shows when stage 5 has not put roads on the map. ([#6](https://github.com/jayfitt-droid/7d2d-map-editor/issues/6))
+- In stage 6 (Spawns), the card tells you that **At least** is a minimum. Gravel roads from stage 5 (Wilderness) add spawn points first, with no limit, as in the game. A note shows when stage 5 has not put roads on the map. ([#6](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/6))
 
 ### Known issues
 
-- Bridges from stage 4 (Highways) leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/7d2d-map-editor/issues/5))
+- Bridges from stage 4 (Highways) leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
 - Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
 
 ## v2.0.0-beta.4 (2026-11-13)
 
 ### Fixes
 
-- In stage 1 (Terrain), **Plan the biomes again for this land** stays ticked when you run the stage again. Before, each run cleared the tick, and the next run kept the old biome layout. Only you can clear the tick. When you open a world, the tick shows if its biome layout does not fit its land. ([#2](https://github.com/jayfitt-droid/7d2d-map-editor/issues/2))
+- In stage 1 (Terrain), **Plan the biomes again for this land** stays ticked when you run the stage again. Before, each run cleared the tick, and the next run kept the old biome layout. Only you can clear the tick. When you open a world, the tick shows if its biome layout does not fit its land. ([#2](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/2))
 - The map shows a plain sea floor under water. Before, the map showed the biome colours under the sea, so the sea between islands had blocky patches of colour.
 
 ### Changes
@@ -43,7 +89,7 @@ This version contains all the changes in v2.0.0-beta.1, beta.3 and beta.4 below.
 
 ### Known issues
 
-- Bridges from stage 4 (Highways) leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/7d2d-map-editor/issues/5))
+- Bridges from stage 4 (Highways) leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
 - Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
 
 ## v2.0.0-beta.3 (2026-11-11)

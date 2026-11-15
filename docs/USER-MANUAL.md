@@ -43,7 +43,7 @@ You need:
 
 ### Install the editor
 
-Download the editor from the [releases page](https://github.com/jayfitt-droid/7d2d-map-editor/releases). Use one of these files:
+Download the editor from the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Use one of these files:
 
 - `Gnostic-7D2DMapEditor-win-Setup.exe` installs the editor for your Windows user. It does not need administrator rights.
 - `Gnostic-7D2DMapEditor-win-Portable.zip` does not install. Unzip it and run `Gnostic - 7D2D Map Editor.exe`.
@@ -69,6 +69,8 @@ The window has five areas.
 | **Status bar** (bottom) | The cursor position, height, biome and prefab under the cursor. It also shows the brush size, the world size, messages and the zoom. |
 
 On a short window, the ribbon becomes one row of icons. To keep the ribbon full or compact, click **View > Ribbon**.
+
+The editor shows the game's own names, for example **Pine Forest** and **Old West**, not `pine_forest` and `oldwest`. A POI shows its game name with its file name below it, and search finds either name. Saved files keep the game's file names.
 
 ### Move around the map
 
@@ -124,6 +126,8 @@ The editor also saves a copy every 5 minutes. If the editor does not close norma
 
 Press **Ctrl+Z** to undo and **Ctrl+Y** to redo. Each stroke, each placed item and each stage run is one undo step.
 
+The editor remembers where you saved. If you undo or redo back to that point, the world has no unsaved changes, and closing does not ask you to save. Undo after a **Re-roll** also puts back the old seed.
+
 If an edit fails, the editor puts the world back as it was and shows a message. A failed road or town keeps its points or plan, so you can try again.
 
 ## 5. The tools
@@ -151,6 +155,8 @@ These tools use a brush. Set the brush size and strength on the left rail. Press
 
 With a square brush, press Q or E to turn the brush.
 
+Lake, river and water stamps always fill with water. For the other stamps, tick **Fill water** to fill them. After each stamp, the status bar tells you how much the ground went down or up, and how much new water it made.
+
 ### Paint
 
 | Tool | Key | What it does |
@@ -164,6 +170,7 @@ With a square brush, press Q or E to turn the brush.
 | Tool | Key | What it does |
 |---|---|---|
 | **Road** | O | Draws a road. See [Roads](#roads). |
+| **Bridge** | U | Builds a bridge with ramps. See [Bridges](#bridges). |
 | **Prefabs** | I | Puts a POI, street tile or part on the map. Select it in the **Prefabs** tab. |
 | **Trader** | A | Puts a trader on the map. Select a trader in the tool options, or click **Random**. |
 | **Town** | G | Makes a whole town in a rectangle that you drag. See [Towns](#towns). |
@@ -195,11 +202,27 @@ The road snaps as you draw:
 
 - A segment within 5° of north, south, east or west becomes straight.
 - Click near the end of a road to continue it. The new road gets the same surface and width.
+- Click near the end of a bridge to start or finish a road on it. The road meets the deck at the deck's height.
 - Hold **Alt** to draw without snapping.
 
 To remove a road, hold **Shift** and drag over it.
 
 Roads make their flat parts level to whole metres. Prefabs also sit at whole metres, so a POI next to a road meets it with no step.
+
+### Bridges
+
+1. Choose the **Bridge** tool. Click where the bridge starts, then click where it ends.
+2. The bridge locks to north-south or east-west, whichever is nearer, and to whole 9 m pieces (at least 2). The preview shows the pieces, the length and the deck height.
+3. Over water the beams are 5 m above the water, as the Highways stage builds them. Over land the deck is level with the higher end's ground. To use another height, change **Deck height** before you build.
+4. Press **Enter** to build it. Press **Esc** to cancel. The bridge, its footings and a ramp road from each end down to the ground are one undo step.
+
+Click a bridge to select it. Drag it to move it along its line. Drag one of its ends to make it longer or shorter. Change **Deck height** to rebuild it at another height. Press **Delete** to take it down: the footings and ramps go too, and the ground comes back as it was.
+
+A ramp that comes to a town or a POI stops at its edge, level with its ground. **Car wrecks** puts a wreck on the deck about every 100 to 150 m. **Rebuild all** builds all your bridges again with the current rules, as one undo step.
+
+The tool lists only its own bridges in the project. The Highways stage keeps its own bridges and does not touch these. The stages keep their roads and POIs off your bridges and their ramps.
+
+In the game, the ground beside a bridge has a small groove where it meets the deck, and a small pit around each pillar. The game makes these gaps, for every bridge: changing the heights does not remove them. They are only a visual problem: vehicles and players cross the ends without catching.
 
 On a hill, a flat building cannot meet a sloped road level. The editor shows a warning. To prevent this, flatten the ground first:
 
@@ -336,7 +359,7 @@ The stage needs a biome map. If the world has no biome map, paint biomes first.
 - **Per biome**: tick a biome to give it its own numbers. A wasteland that you do not tick gets no mountains, as in the game.
 - **Land shape**: the shape of the land, as in **New World**. **Coast seed** and its **Re-roll** button change only the coast. The terrain seed does not change. For an island or a peninsula, the editor does not make edges.
 - **Edges** (only for **Land to the edges**): select an edge type for the north, east, south and west edges. The types are **Land** (rough raised land), **Water** (ocean) and **None** (no change). The editor makes the edges again only when you generate the whole map.
-- **Plan the biomes again for this land**: the editor makes the biome layout from **New World** again, for the land shape. The editor ticks this setting when you change the shape. It replaces the biomes that you painted. Undo puts them back. This setting shows only for a world with a generated biome layout from **New World**.
+- **Plan the biomes again for this land**: the editor makes the biome layout from **New World** again, for the land shape. The editor ticks this setting when you change the shape. It replaces the biomes that you painted. Undo puts them back. This setting shows only for a world with a generated biome layout from **New World**. When you tick it, a **Biome seed** row shows. Its **Re-roll** makes a new biome layout on the ground that you have, and the terrain does not change.
 - **Where**:
   - **Whole map** makes all of the terrain again.
   - **Only an area** makes only the tiles in a rectangle. Click **Select area**, then drag on the map. The new tiles blend into the land around them. Prefabs and roads do not move.
@@ -420,6 +443,7 @@ The game's rules connect each town exit to the nearest of its three nearest town
 - **Longest bridge over water**: the maximum length of water that a bridge crosses, in metres.
 - **Shortcut bridges**: the editor first connects all the islands. Then it adds a direct bridge between two islands if the route between them crosses three or more bridges.
 - **Allow a second road between two towns**: the game can connect two towns with two highways side by side. Off: one highway connects two towns.
+- **Car wrecks on bridges**: puts a car wreck on the deck about every 100 to 150 m. On by default.
 
 The bottom of each bridge is 5 m above the water, so boats can go under it. The editor puts a footing under each row of pillars. The footing stays under the water.
 
@@ -437,7 +461,7 @@ In each biome, the editor first uses free 150 m cells far from towns. Each cell 
 
 - **Game count**: select the game's **Few**, **Default** or **Many** count. Then set **×%** to multiply that count. 100% is the game's count.
 - **Tiers**: move the slider left for easier POIs or right for harder POIs. The middle is the game's mix.
-- **Gap from towns and roads**: the minimum distance from towns and roads, in metres.
+- **Gap from towns and roads**: the minimum distance from towns and roads, in metres. A POI on ground that is higher or lower than a town stays farther away: 4 m for each metre of difference, plus 6 m. This gives a road room to go up or down between them.
 - **Gravel roads**: a gravel road goes from the road exit of each POI to the nearest road. Any road counts, also a road that you drew.
 - **Longest road**: a POI farther from a road than this gets no gravel road.
 
@@ -458,6 +482,7 @@ The stage uses all traders in the world. These can come from stage 2, from the T
 - **At least**: the minimum number of spawns. Spawns that are already in the world count. The game uses 12.
 - **At most**: the maximum number of spawns. Set 0 for no limit, as in the game.
 - **Road spawns within this of a trader**: the maximum distance from a trader, in metres. The game uses 900.
+- **Near the opening quest's trader**: the game's first quest sends each new player to one trader. With this setting, all spawns are within 750 m of that trader. On for new projects.
 
 **Edit on the map**: add, move, turn and remove spawns by hand. A spawn that you add or move stays when you run the stage again.
 
@@ -493,13 +518,22 @@ The stage uses all traders in the world. These can come from stage 2, from the T
 
 Press **F7**, or click **Validate**. The **Issues** tab lists the problems that the editor finds. For example, it lists a POI that does not meet its road level. Double-click an issue to go to it on the map.
 
+Validate also checks:
+
+- **Bridges**: steps at the deck ends, roads to each end, steep approaches, ground under the deck, footings and the room under the beams.
+- **The opening quest's trader**: the game's first quest sends each new player to one forest trader. Validate warns if there is no such trader, or if a spawn is 750 m or more from it.
+
 ### Export
 
 1. Press **Ctrl+E**, or click **Export**.
 2. Select a folder. To play the world, select the game's `GeneratedWorlds` folder.
-3. The editor validates the world, then writes the world folder.
+3. The editor validates the world, then writes the world folder. Double-click an issue in the list to close the dialog and go to the issue on the map.
 
 The world then shows under **New Game** in the game.
+
+### Export a picture of the map
+
+Click **File > Export Map Image**. The editor saves the whole map as a PNG, north at the top, with no windows or tools on it. Select the size (1024, 2048, 4096, or 1 pixel for each metre) and the layers and POIs to show.
 
 The game keeps the chunks that it already generated in a saved game. To see all of your changes, start a new game.
 
@@ -511,7 +545,7 @@ Press **F1** in the editor to see this list.
 |---|---|
 | V, R, L, F, S, N, T | Select, Raise, Lower, Flatten, Smooth, Roughen, Stamp |
 | B, D, W | Paint biome, Paint radiation, Water fill |
-| O, I, A, G, H | Road, Prefabs, Trader, Town, Spawn points |
+| O, U, I, A, G, H | Road, Bridge, Prefabs, Trader, Town, Spawn points |
 | [ and ] | Smaller or larger brush |
 | Q and E | Turn the square brush, stamp, prefab or spawn |
 | Ctrl+click | Take the height (Flatten) or water level (Water fill) from the map |
@@ -545,7 +579,7 @@ Press **F1** in the editor to see this list.
 
 ## 12. Report a bug
 
-Open an [issue](https://github.com/jayfitt-droid/7d2d-map-editor/issues) on GitHub. Tell us:
+Open an [issue](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues) on GitHub. Tell us:
 
 - The world size.
 - The stage or tool that you used.

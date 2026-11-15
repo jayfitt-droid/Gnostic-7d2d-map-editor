@@ -6,7 +6,7 @@ Game assets (stamps, prefabs, biome colours, `rwgmixer.xml`) are read from your 
 
 ## Install
 
-Download `Gnostic-7D2DMapEditor-win-Setup.exe` from the [latest release](https://github.com/jayfitt-droid/7d2d-map-editor/releases/latest) and run it. It installs for your Windows user only, so it needs no administrator rights, and adds Start menu and desktop shortcuts. To run without installing, unzip `Gnostic-7D2DMapEditor-win-Portable.zip` instead. Installed copies can update themselves from **Help > Check for Updates**.
+Download `Gnostic-7D2DMapEditor-win-Setup.exe` from the [latest release](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest) and run it. It installs for your Windows user only, so it needs no administrator rights, and adds Start menu and desktop shortcuts. To run without installing, unzip `Gnostic-7D2DMapEditor-win-Portable.zip` instead. Installed copies can update themselves from **Help > Check for Updates**.
 
 It needs Windows 10 or 11 (64-bit) and a copy of 7 Days to Die (v3.x).
 
@@ -33,9 +33,9 @@ The window is laid out like Microsoft Paint:
 The usual workflow:
 
 1. **New World** (Ctrl+N) or **Open** (Ctrl+O) a project, or a world's `dtm.raw` or `map_info.xml`. **File > Open World Folder** opens a folder directly.
-2. Shape the terrain with Raise, Lower, Flatten, Smooth, Roughen and Stamp. Paint biomes, radiation and water. Draw roads. Place POIs, street tiles, whole towns and spawn points.
+2. Shape the terrain with Raise, Lower, Flatten, Smooth, Roughen and Stamp. Paint biomes, radiation and water. Draw roads and bridges. Place POIs, street tiles, whole towns and spawn points. Or let the **Generate** panel make the whole world, and change any part of it with the tools.
 3. **Save** (Ctrl+S) your work as a `.7dmap` project. A project keeps everything and saves in about a second. The editor also autosaves every 5 minutes and offers to recover if it didn't close normally.
-4. **Export** (Ctrl+E) checks the world, then writes a world folder. Export to the game's `GeneratedWorlds` folder and the world shows up under New Game.
+4. **Export** (Ctrl+E) checks the world, then writes a world folder. Export to the game's `GeneratedWorlds` folder and the world shows up under New Game. **File > Export Map Image** saves a PNG of the whole map, north up, with no UI, for sharing your world.
 
 The **Select** tool (V) picks up POIs, traders, street tiles and spawn points: click one to select it and see its details, drag it to move it, Q/E to turn it, PgUp/PgDn to raise or lower it, Del to remove it. Dragging empty ground pans the map. The Prefabs and Spawn tools can still select things too.
 
@@ -43,7 +43,13 @@ The info card shows the selected prefab's picture, tier and details. Pick anothe
 
 **New World** can paint one biome over the whole map, or generate a layout of all biomes the way the game's world generator does: pick where they start (forest or wasteland in the middle, a ring, two rings, or a line) and each biome's share of the map. The same seed gives the same layout. As in the game, a biome in the middle keeps off the map's edges, so it can end up a little under its share. You can repaint biomes afterwards as usual.
 
+The **Generate** panel makes a complete world in six stages, the way the game's world generator does: terrain, town sites, lakes and rivers, highways, wilderness POIs and spawns. Re-roll any stage with a new seed and the rest stay as they are; each run is one undo step. A new world can be land to the edges, one island, a chain of islands or a peninsula, and the Highways stage can join islands with bridges. Eight built-in presets (Big cities, Frontier, Rugged, Waterways and more) change the game's numbers for your world size, or save your own. The [user manual](docs/USER-MANUAL.md#7-the-six-stages) explains each stage.
+
+The editor shows the game's own names, such as Pine Forest and Old West, for biomes, towns, traders and POIs. Search finds a POI by its game name or its file name.
+
 **Roads** snap as you draw. Click near the end of any road to carry it on: the new road starts there with the same surface and width, and its first segment snaps to the old road's heading. A segment within 5° of north, south, east or west snaps straight. Hold Alt to draw freely. The **Preset** list in the road options sets common sizes: Highway (18 m) and Country road (9 m gravel) match RWG's roads.
+
+The **Bridge** tool (U) builds your own bridge over the sea, a river or a valley: click the start and the end, then press Enter. You get the game's bridge sections, footings, car wrecks on the deck, and a ramp road from each end down to the ground. Select a bridge to move it, make it longer or shorter, change its deck height or delete it; the ground comes back as it was. Validate checks every bridge for steps, steep approaches and the room underneath.
 
 **Towns** can be adjusted before you build them. Drag the box's edges or corners to resize it in 150 m tiles, and click a green link road to turn it off (click the dashed line to bring it back).
 
@@ -65,7 +71,7 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 |---|---|
 | V, R, L, F, S, N, T | Select, Raise, Lower, Flatten, Smooth, Roughen, Stamp |
 | B, D, W | Paint biome, Paint radiation, Water fill |
-| O, I, A, G, H | Road, Prefabs, Trader, Town, Spawn points |
+| O, U, I, A, G, H | Road, Bridge, Prefabs, Trader, Town, Spawn points |
 | [ and ] | Smaller or larger brush |
 | Q and E | Turn (square brush, stamp, prefab, spawn) |
 | Ctrl+click | Sample height (Flatten) or water level (Water) |
@@ -83,9 +89,24 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 
 A 7D2D world is a folder of files the game reads on first load. The editor writes those files itself and reimplements the generator's behaviour, such as stamp blending, road grading, prefab heights and town layout. It does not copy game code.
 
+## Build from source
+
+The source is in this repository, one snapshot for each release.
+
+```
+dotnet build MapEditor.slnx -c Release
+dotnet test MapEditor.slnx -c Release
+```
+
+This needs Windows and the .NET 10 SDK (pinned in `global.json`). `src/MapEditor.App` is the editor, `src/MapEditor.Core` the world model, files and generator, and `src/MapEditor.Cli` a command-line tool for testing and scripting.
+
+## License
+
+Gnostic - 7D2D Map Editor is free software under the [GNU General Public License v3.0](LICENSE). You may use, change and share it; if you share a changed version, it must be under the same license, with its source.
+
 ## Feedback
 
-Found a bug or have an idea? Open an [issue](https://github.com/jayfitt-droid/7d2d-map-editor/issues).
+Found a bug or have an idea? Open an [issue](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues).
 
 ## Support my work
 
