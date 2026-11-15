@@ -1,0 +1,80 @@
+{
+  "Name": "Sample preset",
+  "Terrain": {
+    "Weights": {
+      "Plains": 11,
+      "Hills": 12,
+      "Mountains": 13
+    },
+    "BiomeWeights": {
+      "Wasteland": {
+        "Plains": 17,
+        "Hills": 18,
+        "Mountains": 19
+      }
+    },
+    "Seed": 20,
+    "BaseHeight": 14.5,
+    "Edges": [
+      2,
+      2
+    ]
+  },
+  "Towns": {
+    "Seed": 32,
+    "Rows": [
+      {
+        "Township": "s28",
+        "Count": 36,
+        "MinTiles": 37,
+        "MaxTiles": 38,
+        "Distance": 39,
+        "Biomes": [
+          "s34"
+        ]
+      }
+    ],
+    "EdgeMargin": 35.5,
+    "Traders": 1,
+    "CrossBorders": true
+  },
+  "Features": {
+    "Seed": 61,
+    "Rows": [
+      {
+        "Kind": "Crater",
+        "Count": 65,
+        "ScaleMin": 59.5,
+        "ScaleMax": 60.5
+      }
+    ],
+    "MountainLakes": true,
+    "LongRivers": true,
+    "RiverSegments": 70
+  },
+  "Highways": {
+    "Seed": 97,
+    "Wiggle": 91.5,
+    "CausewayMax": 99,
+    "JoinUp": true,
+    "SecondRoad": true
+  },
+  "Wilderness": {
+    "Seed": 115,
+    "Amount": 116,
+    "CountScale": 110.5,
+    "TierBias": 111.5,
+    "Gap": 119,
+    "Roads": true,
+    "MaxRoad": 121
+  },
+  "Spawns": {
+    "Seed": 155,
+    "Biomes": [
+      "s150"
+    ],
+    "Min": 158,
+    "Max": 159,
+    "TraderDistance": 160
+  }
+}

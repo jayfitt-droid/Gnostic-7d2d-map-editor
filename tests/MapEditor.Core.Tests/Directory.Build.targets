@@ -1,0 +1,18 @@
+<Project>
+  <!--
+    Run the tests through dotnet.exe, never through the MapEditor.Core.Tests.exe that xUnit v3 insists on building.
+    On some setups (seen when started from the Claude desktop app) a freshly built unsigned .exe runs with restricted
+    rights: it can't make temp folders or talk to dotnet test, while dotnet.exe running the same .dll works.
+    This file is read after TargetPath is known and before the SDK picks its own RunCommand.
+  -->
+  <PropertyGroup>
+    <RunCommand Condition="'$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</RunCommand>
+    <RunCommand Condition="'$(DOTNET_HOST_PATH)' == ''">dotnet</RunCommand>
+    <RunArguments>exec "$(TargetPath)"</RunArguments>
+  </PropertyGroup>
+
+  <!-- Remove the .exe so nothing (an IDE, a habit) starts it by mistake. -->
+  <Target Name="RemoveTestAppHost" AfterTargets="Build">
+    <Delete Files="$(TargetDir)$(AssemblyName)$(_NativeExecutableExtension)" />
+  </Target>
+</Project>

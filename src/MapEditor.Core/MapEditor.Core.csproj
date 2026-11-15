@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(MapEditorTfm)</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MapEditor.Core.Tests" />
+  </ItemGroup>
+</Project>

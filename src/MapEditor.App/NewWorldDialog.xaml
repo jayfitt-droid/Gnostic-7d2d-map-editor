@@ -1,0 +1,146 @@
+<Window x:Class="MapEditor.App.NewWorldDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MapEditor.App"
+        Title="New World" Width="440" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="16">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.Resources>
+            <Style TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="0,4" />
+            </Style>
+            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="Margin" Value="0,4" />
+            </Style>
+            <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                <Setter Property="Margin" Value="0,4" />
+            </Style>
+        </Grid.Resources>
+
+        <TextBlock Grid.Row="0" Text="Name" />
+        <TextBox Grid.Row="0" Grid.Column="1" x:Name="NameBox" Text="My World" />
+
+        <TextBlock Grid.Row="1" Text="Size (metres)" />
+        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="SizeBox" />
+
+        <TextBlock Grid.Row="2" Text="Ground height (m)" />
+        <TextBox Grid.Row="2" Grid.Column="1" x:Name="BaseHeightBox" Text="35"
+                 ToolTip="Ground height before the terrain is generated (RWG's is 35 m). Water sits at 30 m, so stay above that for dry land." />
+
+        <TextBlock Grid.Row="3" Text="Seed" />
+        <TextBox Grid.Row="3" Grid.Column="1" x:Name="SeedBox" />
+
+        <TextBlock Grid.Row="4" Text="Biomes" />
+        <ComboBox Grid.Row="4" Grid.Column="1" x:Name="BiomeModeBox" SelectionChanged="BiomeMode_Changed" AutomationProperties.Name="Biomes">
+            <ComboBoxItem Content="One biome" />
+            <ComboBoxItem Content="All biomes (generated layout)" />
+        </ComboBox>
+
+        <ComboBox Grid.Row="5" Grid.Column="1" x:Name="BiomeBox" AutomationProperties.Name="Biome">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <StackPanel Grid.Row="5" Grid.Column="1" x:Name="LayoutPanel" Visibility="Collapsed">
+            <ComboBox x:Name="LayoutBox" DisplayMemberPath="Label" AutomationProperties.Name="Biome layout"
+                      ToolTip="Where each biome starts before it grows, as in the game's world generator" />
+            <TextBlock Text="Share of the map" Margin="0,6,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" />
+            <ItemsControl x:Name="SharesList" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="0,1">
+                            <Ellipse DockPanel.Dock="Left" Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center"
+                                     Stroke="{DynamicResource ControlStrokeColorSecondaryBrush}"
+                                     Fill="{Binding Color, Converter={StaticResource RgbToBrush}}" />
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}" Width="90" Margin="0" TextTrimming="CharacterEllipsis" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding PercentText}" Width="38" Margin="6,0,0,0" TextAlignment="Right" />
+                            <Slider Minimum="0" Maximum="50" Value="{Binding Weight}" IsSnapToTickEnabled="True" TickFrequency="1"
+                                    VerticalAlignment="Center" AutomationProperties.Name="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}"
+                                    ToolTip="{Binding Weight}" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Content="Game defaults" HorizontalAlignment="Left" Margin="0,4,0,0" Click="BiomeDefaults_Click"
+                    ToolTip="The layout and shares the game's world generator starts with" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="6" Text="Land shape" VerticalAlignment="Top" Margin="0,8,0,4" />
+        <StackPanel Grid.Row="6" Grid.Column="1">
+            <ComboBox x:Name="ShapeBox" DisplayMemberPath="Label" SelectionChanged="Shape_Changed" AutomationProperties.Name="Land shape"
+                      ToolTip="{Binding SelectedItem.Hint, RelativeSource={RelativeSource Self}}" />
+            <StackPanel x:Name="ShapePanel" Visibility="Collapsed">
+                <DockPanel Margin="0,2">
+                    <TextBlock DockPanel.Dock="Left" Text="Land" Width="80" Margin="0" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Value, ElementName=LandSlider, StringFormat={}{0:0}%}" Width="38" Margin="6,0,0,0" TextAlignment="Right" />
+                    <Slider x:Name="LandSlider" Minimum="10" Maximum="80" Value="45" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
+                            AutomationProperties.Name="Land share" ToolTip="Share of the map that is land" />
+                </DockPanel>
+                <DockPanel Margin="0,2">
+                    <TextBlock DockPanel.Dock="Left" Text="Rough coast" Width="80" Margin="0" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Value, ElementName=RoughSlider, StringFormat={}{0:0}%}" Width="38" Margin="6,0,0,0" TextAlignment="Right" />
+                    <Slider x:Name="RoughSlider" Minimum="0" Maximum="100" Value="50" IsSnapToTickEnabled="True" TickFrequency="5" VerticalAlignment="Center"
+                            AutomationProperties.Name="Coastline roughness" ToolTip="How ragged the coastline is: smooth at 0, bays and headlands at 100" />
+                </DockPanel>
+                <DockPanel x:Name="IslandsRow" Margin="0,2">
+                    <TextBlock DockPanel.Dock="Left" Text="Islands" Width="80" Margin="0" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Value, ElementName=IslandsSlider}" Width="38" Margin="6,0,0,0" TextAlignment="Right" />
+                    <Slider x:Name="IslandsSlider" Minimum="2" Maximum="12" Value="6" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
+                            AutomationProperties.Name="Islands" ToolTip="How many islands to start with; small ones may be dropped" />
+                </DockPanel>
+                <DockPanel x:Name="PeninsulaRow">
+                    <TextBlock DockPanel.Dock="Left" Text="Joined to" Width="80" Margin="0" />
+                    <ComboBox x:Name="PeninsulaEdgeBox" AutomationProperties.Name="Peninsula edge" ToolTip="The edge the peninsula is joined to" />
+                </DockPanel>
+                <TextBlock Text="The Generate panel's terrain stage keeps this shape, and can change it." TextWrapping="Wrap" FontSize="12"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock Grid.Row="7" x:Name="EdgesLabel" Text="Edges" VerticalAlignment="Top" Margin="0,10,0,4" />
+        <UniformGrid Grid.Row="7" Grid.Column="1" Columns="2" x:Name="EdgesGrid">
+            <DockPanel Margin="0,0,6,0">
+                <TextBlock Text="N" Width="16" />
+                <ComboBox x:Name="EdgeN" />
+            </DockPanel>
+            <DockPanel Margin="6,0,0,0">
+                <TextBlock Text="E" Width="16" />
+                <ComboBox x:Name="EdgeE" />
+            </DockPanel>
+            <DockPanel Margin="0,0,6,0">
+                <TextBlock Text="S" Width="16" />
+                <ComboBox x:Name="EdgeS" />
+            </DockPanel>
+            <DockPanel Margin="6,0,0,0">
+                <TextBlock Text="W" Width="16" />
+                <ComboBox x:Name="EdgeW" />
+            </DockPanel>
+        </UniformGrid>
+
+        <TextBlock Grid.Row="8" Grid.ColumnSpan="2" x:Name="ErrorText" Foreground="{DynamicResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+
+        <StackPanel Grid.Row="9" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Create" IsDefault="True" Width="90" Margin="0,0,8,0" Click="Create_Click" />
+            <Button Content="Cancel" IsCancel="True" Width="90" />
+        </StackPanel>
+    </Grid>
+</Window>

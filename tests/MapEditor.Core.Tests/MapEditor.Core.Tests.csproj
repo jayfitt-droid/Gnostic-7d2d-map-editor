@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(MapEditorTfm)</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <!-- xUnit v3 on Microsoft.Testing.Platform: the tests build into their own program, so dotnet test needs no
+         separate testhost. Directory.Build.targets beside this file runs that program through dotnet.exe. -->
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" Version="3.2.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Project files saved by older releases, for SaveCompatibilityTests. -->
+    <None Include="SaveSamples\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MapEditor.Core\MapEditor.Core.csproj" />
+  </ItemGroup>
+</Project>

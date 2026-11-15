@@ -1,0 +1,15 @@
+bin/
+obj/
+bin-private/
+obj-private/
+.vs/
+*.user
+TestResults/
+out/
+dist/
+
+# Local working notes. HANDOFF.md is tracked in this private repo (committed and pushed
+# by the tools/commit-handoff.ps1 hook); the public repo only gets files copied by hand.
+docs/RWG-Research.md
+EVAL.md
+images/

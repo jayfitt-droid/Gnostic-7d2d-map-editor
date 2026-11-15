@@ -1,0 +1,35 @@
+<Window x:Class="MapEditor.App.MapImageDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export Map Image" Width="440" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="20">
+        <TextBlock TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Text="Saves the whole world as a PNG, north at the top. Selection, brush and other editor marks are left out." />
+
+        <TextBlock Text="Size" FontWeight="SemiBold" />
+        <StackPanel Margin="0,6,0,0">
+            <RadioButton x:Name="Size1024" GroupName="Size" Content="1024 x 1024" />
+            <RadioButton x:Name="Size2048" GroupName="Size" Content="2048 x 2048" IsChecked="True" />
+            <RadioButton x:Name="Size4096" GroupName="Size" Content="4096 x 4096" />
+            <RadioButton x:Name="SizeFull" GroupName="Size" />
+        </StackPanel>
+        <TextBlock x:Name="SizeNote" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+        <TextBlock Text="Layers" FontWeight="SemiBold" Margin="0,14,0,0" />
+        <UniformGrid Columns="2" Margin="0,6,0,0">
+            <CheckBox x:Name="HillshadeBox" Content="_Hillshade" />
+            <CheckBox x:Name="BiomesBox" Content="_Biomes" />
+            <CheckBox x:Name="WaterBox" Content="_Water" />
+            <CheckBox x:Name="RoadsBox" Content="_Roads" />
+            <CheckBox x:Name="RadiationBox" Content="Ra_diation" />
+            <CheckBox x:Name="PoisBox" Content="_POIs" />
+        </UniformGrid>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="Save PNG..." IsDefault="True" MinWidth="110" Margin="0,0,8,0" Click="Save_Click"
+                    Style="{DynamicResource AccentButtonStyle}" />
+            <Button Content="Cancel" IsCancel="True" MinWidth="90" />
+        </StackPanel>
+    </StackPanel>
+</Window>
