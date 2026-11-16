@@ -36,6 +36,7 @@
         <KeyBinding Key="E" Modifiers="Control" Command="{x:Static local:MainWindow.ExportCommand}" />
         <KeyBinding Key="W" Modifiers="Control" Command="{x:Static local:MainWindow.CloseWorldCommand}" />
         <KeyBinding Key="F7" Command="{x:Static local:MainWindow.ValidateCommand}" />
+        <KeyBinding Key="F" Modifiers="Control" Command="{x:Static local:MainWindow.FindCommand}" />
         <KeyBinding Key="Z" Modifiers="Control" Command="{x:Static local:MainWindow.UndoCommand}" />
         <KeyBinding Key="Y" Modifiers="Control" Command="{x:Static local:MainWindow.RedoCommand}" />
         <KeyBinding Key="Z" Modifiers="Control+Shift" Command="{x:Static local:MainWindow.RedoCommand}" />
@@ -51,6 +52,7 @@
         <CommandBinding Command="{x:Static local:MainWindow.ValidateCommand}" Executed="Validate_Executed" CanExecute="HasWorld_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.GenerateCommand}" Executed="Generate_Executed" CanExecute="HasWorld_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.PackageCommand}" Executed="Package_Executed" />
+        <CommandBinding Command="{x:Static local:MainWindow.FindCommand}" Executed="Find_Executed" />
         <CommandBinding Command="{x:Static local:MainWindow.UndoCommand}" Executed="Undo_Executed" CanExecute="Undo_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.RedoCommand}" Executed="Redo_Executed" CanExecute="Redo_CanExecute" />
     </Window.CommandBindings>
@@ -545,8 +547,8 @@
                     <TabItem Header="_Prefabs">
                         <DockPanel Margin="0,8,0,0">
                             <StackPanel DockPanel.Dock="Top">
-                                <TextBox Text="{Binding PrefabSearch, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                         ToolTip="Search by name, tag or zone" AutomationProperties.Name="Search prefabs" />
+                                <TextBox x:Name="PrefabSearchBox" Text="{Binding PrefabSearch, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                         ToolTip="Search by name, tag or zone (Ctrl+F)" AutomationProperties.Name="Search prefabs" />
                                 <ComboBox ItemsSource="{Binding PrefabCategories}" SelectedItem="{Binding PrefabCategory}" Margin="0,6,0,0"
                                           HorizontalAlignment="Stretch" AutomationProperties.Name="Category" />
                                 <UniformGrid Columns="2" Margin="0,6,0,0">
@@ -598,8 +600,8 @@
                     <TabItem Header="P_laced">
                         <DockPanel Margin="0,8,0,0">
                             <StackPanel DockPanel.Dock="Top">
-                                <TextBox Text="{Binding PlacedSearch, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                         ToolTip="Search the prefabs in this world by name, tag or zone" AutomationProperties.Name="Search placed prefabs" />
+                                <TextBox x:Name="PlacedSearchBox" Text="{Binding PlacedSearch, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                         ToolTip="Search the prefabs in this world by name, tag or zone (Ctrl+F)" AutomationProperties.Name="Search placed prefabs" />
                                 <ComboBox ItemsSource="{Binding PlacedCategories}" SelectedItem="{Binding PlacedCategory}" Margin="0,6,0,0"
                                           HorizontalAlignment="Stretch" AutomationProperties.Name="Placed category" />
                                 <TextBlock Text="{Binding PlacedResultsText}" Style="{StaticResource HintText}" Margin="0,6,0,4" />
