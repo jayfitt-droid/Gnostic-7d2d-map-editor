@@ -49,6 +49,7 @@ public partial class ShortcutsWindow : Window
                 new(["Ctrl+E"], "Export world"),
                 new(["Ctrl+W"], "Close"),
                 new(["F7"], "Validate"),
+                new(["Ctrl+F"], "Search prefabs (or the Placed list, if it's open)"),
                 new(["Ctrl+Z", "Ctrl+Y"], "Undo / redo"),
                 new(["F1"], "This list"),
             ]),

@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     public static readonly RoutedUICommand ValidateCommand = new("Validate", nameof(ValidateCommand), typeof(MainWindow));
     public static readonly RoutedUICommand GenerateCommand = new("Generate", nameof(GenerateCommand), typeof(MainWindow));
     public static readonly RoutedUICommand PackageCommand = new("Package Maps", nameof(PackageCommand), typeof(MainWindow));
+    public static readonly RoutedUICommand FindCommand = new("Find", nameof(FindCommand), typeof(MainWindow));
     public static readonly RoutedUICommand UndoCommand = new("Undo", nameof(UndoCommand), typeof(MainWindow));
     public static readonly RoutedUICommand RedoCommand = new("Redo", nameof(RedoCommand), typeof(MainWindow));
 
@@ -517,6 +518,24 @@ public partial class MainWindow : Window
     private async void SaveAs_Executed(object sender, ExecutedRoutedEventArgs e) => await SaveAsync(saveAs: true);
 
     private async void Export_Executed(object sender, ExecutedRoutedEventArgs e) => await ExportAsync();
+
+    /// <summary>
+    /// Ctrl+F: puts the cursor in the search box of the Placed tab when that tab is open, otherwise of the Prefabs tab.
+    /// Shows the side panel if it's hidden. The tab's content may not exist until it's shown, so the focus waits for layout.
+    /// </summary>
+    private void Find_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        bool placed = _vm.ShowSidePanel && _vm.SidePanelTab == MainViewModel.PlacedTab;
+        _vm.ShowSidePanel = true;
+        _vm.SidePanelTab = placed ? MainViewModel.PlacedTab : MainViewModel.PrefabsTab;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+        {
+            var box = placed ? PlacedSearchBox : PrefabSearchBox;
+            box.Focus();
+            Keyboard.Focus(box);
+            box.SelectAll();
+        });
+    }
 
     /// <summary>Package maps: zip worlds from GeneratedWorlds and their custom prefabs as a mod. Needs no open world.</summary>
     private void Package_Executed(object sender, ExecutedRoutedEventArgs e)
