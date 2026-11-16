@@ -78,6 +78,7 @@ public partial class MainWindow : Window
         DataContext = _vm;
         Overview.Target = Map;
         Map.CursorMoved += Map_CursorMoved;
+        Map.MenuRequested += (_, p) => ShowMapMenu(p);
         Map.ViewChanged += (_, _) => UpdateZoomText();
         _autosaveTimer.Tick += async (_, _) => await AutosaveAsync();
         _autosaveTimer.Start();
@@ -2981,6 +2982,49 @@ public partial class MainWindow : Window
     {
         if (_vm.SelectedTool == EditorTool.Stamp) _vm.StampSize = Math.Clamp(_vm.StampSize * factor, 32, 4000);
         else _vm.BrushRadius = Math.Clamp(_vm.BrushRadius * factor, 2, 800);
+    }
+
+    /// <summary>
+    /// The map's right-click menu at map point <paramref name="map"/>. Build every item here, so the menu stays one
+    /// list. Right drags still pan; MapView only asks for the menu when the click didn't move.
+    /// </summary>
+    private void ShowMapMenu(Point map)
+    {
+        if (_world is not { } world || _vm.IsBusy) return;
+        int x = (int)Math.Floor(map.X);
+        int z = world.Size - 1 - (int)Math.Floor(map.Y);
+        if (!world.Height.Contains(x, z)) return;
+
+        var menu = new ContextMenu { PlacementTarget = Map, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+
+        var teleport = new MenuItem { Header = "Copy _teleport command" };
+        foreach (var (header, facing) in new (string, Facing?)[]
+                 {
+                     ("Facing _north", Facing.N), ("Facing _east", Facing.E), ("Facing _south", Facing.S), ("Facing _west", Facing.W),
+                     ("No _facing", null),
+                 })
+        {
+            string command = TeleportCommand.ForCell(world, x, z, facing)!;
+            var item = new MenuItem { Header = header, InputGestureText = command };
+            item.Click += (_, _) => CopyToClipboard(command, "Copied: " + command + ". Paste it into the game's console (F1).");
+            teleport.Items.Add(item);
+        }
+        menu.Items.Add(teleport);
+
+        menu.IsOpen = true;
+    }
+
+    private void CopyToClipboard(string text, string status)
+    {
+        try
+        {
+            Clipboard.SetText(text);
+            _vm.Status = status;
+        }
+        catch (System.Runtime.InteropServices.ExternalException)
+        {
+            _vm.Status = "Couldn't copy: another program is using the clipboard. Try again.";
+        }
     }
 
     private void Map_CursorMoved(object? sender, Point? map)

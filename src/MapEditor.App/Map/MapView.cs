@@ -502,12 +502,21 @@ public sealed class MapView : FrameworkElement
             ReleaseMouseCapture();
             return;
         }
-        if (_dragStart is null || e.ChangedButton != _panButton) return;
+        if (_dragStart is not { } start || e.ChangedButton != _panButton) return;
         _dragStart = null;
         ReleaseMouseCapture();
         Cursor = null;
         e.Handled = true;
+        // A right click that hardly moved is a click, not a pan: ask for the map's menu at that point.
+        var p = e.GetPosition(this);
+        if (e.ChangedButton == MouseButton.Right && _renderer is not null
+            && Math.Abs(p.X - start.X) < SystemParameters.MinimumHorizontalDragDistance
+            && Math.Abs(p.Y - start.Y) < SystemParameters.MinimumVerticalDragDistance)
+            MenuRequested?.Invoke(this, ScreenToMap(p));
     }
+
+    /// <summary>A right click without a drag, at this map point (x east, y down, in cells). The owner shows the map's menu.</summary>
+    public event EventHandler<Point>? MenuRequested;
 
     private MouseButton _panButton;
 
