@@ -759,6 +759,40 @@ public partial class MainWindow : Window
 
     private async void Validate_Executed(object sender, ExecutedRoutedEventArgs e) => await ValidateAsync(showPanel: true);
 
+    /// <summary>
+    /// Saves a Markdown teleport list of Validate's issues. It validates again first, so the list matches the world as it is.
+    /// </summary>
+    private async void ExportTeleportList_Click(object sender, RoutedEventArgs e)
+    {
+        if (_world is not { } world || RefuseWhileBusy()) return;
+        var issues = await ValidateAsync(showPanel: false);
+        if (issues.Count == 0)
+        {
+            _vm.Status = "No issues, so there is no teleport list to save.";
+            return;
+        }
+        var save = new SaveFileDialog
+        {
+            Title = "Save teleport list",
+            Filter = "Markdown (*.md)|*.md|Text (*.txt)|*.txt",
+            FileName = world.Name + "_teleports",
+            DefaultExt = ".md",
+        };
+        if (save.ShowDialog(this) != true) return;
+        try
+        {
+            var spots = TeleportList.Build(world, issues, _vm.Prefabs);
+            File.WriteAllText(save.FileName, TeleportList.Markdown(world, spots));
+            int count = spots.Count(s => s.Command is not null);
+            _vm.Status = $"Saved {count} teleport{(count == 1 ? "" : "s")} to {Path.GetFileName(save.FileName)}";
+        }
+        catch (Exception ex) when (IsWriteError(ex))
+        {
+            _vm.Status = "Teleport list not saved";
+            ThemedMessageBox.Show(this, ex.Message, "Save Teleport List", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private async Task<IReadOnlyList<ValidationIssue>> ValidateAsync(bool showPanel)
     {
         if (_world is not { } world) return [];

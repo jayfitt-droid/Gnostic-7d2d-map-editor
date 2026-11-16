@@ -628,6 +628,19 @@
                         <DockPanel Margin="0,8,0,0">
                             <DockPanel DockPanel.Dock="Top">
                                 <Button DockPanel.Dock="Right" Content="Validate" Command="{x:Static local:MainWindow.ValidateCommand}" Margin="8,0,0,0" />
+                                <Button DockPanel.Dock="Right" Content="Teleport list..." Click="ExportTeleportList_Click" Margin="8,0,0,0"
+                                        ToolTip="Save a teleport command for each issue, to check them one by one in the game's console (F1)"
+                                        AutomationProperties.Name="Export teleport list">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Issues.Count}" Value="0">
+                                                    <Setter Property="IsEnabled" Value="False" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
                                 <TextBlock Text="{Binding IssuesText}" Style="{StaticResource HintText}" VerticalAlignment="Center" />
                             </DockPanel>
                             <ListBox x:Name="IssuesList" ItemsSource="{Binding Issues}" Margin="0,8,0,0" MouseDoubleClick="Issue_DoubleClick"
