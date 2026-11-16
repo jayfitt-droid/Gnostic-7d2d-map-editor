@@ -87,6 +87,16 @@ The **Placed** tab lists every POI, street tile and part in your world.
 3. Click a row to zoom to its prefab. Each row shows the biome at the centre of the prefab.
 4. To select the prefab, double-click its row or press Enter.
 
+### Go to a place in the game
+
+You can copy a command that moves you to a place on the map when you play the world.
+
+1. Right-click the place on the map. Do not move the mouse while you click.
+2. Click **Copy teleport command**, then select the direction that you want to look in. The menu shows each command.
+3. In the game, press **F1** to open the console. Paste the command and press Enter.
+
+The game puts you on the ground at that place. The numbers in the command are the same as the numbers in the status bar.
+
 ## 4. Worlds and projects
 
 ### Make a new world
@@ -581,6 +591,7 @@ Press **F1** in the editor to see this list.
 | Del, PgUp, PgDn | Remove the selected prefab, or move it one block higher or lower |
 | Wheel, + and -, Home | Zoom, see the whole map |
 | Right drag | Move the map with any tool |
+| Right-click | Open the map menu (**Copy teleport command**) |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E | New, open, save, save project as, export |
 | Ctrl+F | Search the prefabs. If the **Placed** tab is open, search the prefabs in your world |
