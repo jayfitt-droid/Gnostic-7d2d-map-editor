@@ -79,7 +79,6 @@ public static class WorldValidator
     public static List<ValidationIssue> Validate(World world, PrefabLibrary library, bool hasLevelTemplate = true, BiomeTable? biomes = null)
     {
         var issues = new List<ValidationIssue>();
-        int centre = world.Size / 2;
         CheckStarterTrader(world, library, biomes ?? BiomeTable.Vanilla, issues);
 
         if (!world.ExtraFiles.ContainsKey(WorldFiles.Level) && !hasLevelTemplate)
@@ -90,7 +89,7 @@ public static class WorldValidator
             issues.Add(new(IssueSeverity.Warning, "The world has no biomes, so the game will use one biome everywhere."));
 
         if (world.Spawns.Count == 0)
-            issues.Add(new(IssueSeverity.Warning, "There are no spawn points; one will be added at the world centre on export.", centre, centre));
+            issues.Add(new(IssueSeverity.Warning, "There are no spawn points; one will be added at the world centre on export."));
         foreach (var s in world.Spawns)
         {
             int gx = world.WorldToGrid((int)MathF.Floor(s.X)), gz = world.WorldToGrid((int)MathF.Floor(s.Z));
