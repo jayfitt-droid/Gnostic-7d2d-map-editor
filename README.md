@@ -24,7 +24,7 @@ The window is laid out like Microsoft Paint:
 
 | Area | What it holds |
 |---|---|
-| **Ribbon** | Tools in groups (Navigate, Terrain, Paint, Build), the **Palette** (biome colours and road surfaces), **Layers** (what the map shows), and **Validate** / **Export**. On a short window it turns into one compact row of icons; **View > Ribbon** keeps it full or compact |
+| **Ribbon** | Tools in groups (Navigate, Terrain, Paint, Build), the **Palette** (biome colours and road surfaces), **Layers** (what the map shows), and **Validate** / **Export** / **Package**. On a short window it turns into one compact row of icons; **View > Ribbon** keeps it full or compact |
 | **Tool options** | Settings for the active tool and a one-line hint. The ∨ at the right of the ribbon hides them |
 | **Left rail** | Brush **size** and **strength** sliders |
 | **Side panel** | The **Prefabs** browser, the **Placed** list (search the prefabs in your world; double-click one to find and select it), validation **Issues** (double-click one to jump to it) and **World** info |
@@ -35,7 +35,7 @@ The usual workflow:
 1. **New World** (Ctrl+N) or **Open** (Ctrl+O) a project, or a world's `dtm.raw` or `map_info.xml`. **File > Open World Folder** opens a folder directly.
 2. Shape the terrain with Raise, Lower, Flatten, Smooth, Roughen and Stamp. Paint biomes, radiation and water. Draw roads and bridges. Place POIs, street tiles, whole towns and spawn points. Or let the **Generate** panel make the whole world, and change any part of it with the tools.
 3. **Save** (Ctrl+S) your work as a `.7dmap` project. A project keeps everything and saves in about a second. The editor also autosaves every 5 minutes and offers to recover if it didn't close normally.
-4. **Export** (Ctrl+E) checks the world, then writes a world folder. Export to the game's `GeneratedWorlds` folder and the world shows up under New Game. **File > Export Map Image** saves a PNG of the whole map, north up, with no UI, for sharing your world.
+4. **Export** (Ctrl+E) checks the world, then writes a world folder. Export to the game's `GeneratedWorlds` folder and the world shows up under New Game. **File > Export Map Image** saves a PNG of the whole map, north up, with no UI, for sharing your world. **Package** zips one or more exported maps and their custom prefabs as a mod, ready to share.
 
 The **Select** tool (V) picks up POIs, traders, street tiles and spawn points: click one to select it and see its details, drag it to move it, Q/E to turn it, PgUp/PgDn to raise or lower it, Del to remove it. Dragging empty ground pans the map. The Prefabs and Spawn tools can still select things too.
 
@@ -55,7 +55,7 @@ The **Bridge** tool (U) builds your own bridge over the sea, a river or a valley
 
 **Street tiles** snap to the 150 m grid of a street tile nearby, so their streets line up. Away from other tiles they go where you put them. Hold Alt to place one freely beside a tile. Tiles can't overlap: drop one over another tile's middle to replace it (and what's on it), or anywhere else clear of tiles.
 
-**POIs** and traders snap to the edges of street tiles: against a tile's side, flush with it from inside, or lined up with its sides. Drag a POI over another until the ghost covers its middle and that POI turns red: dropping there replaces it.
+**POIs** and traders snap to the edges of street tiles: against a tile's side, flush with it from inside, or lined up with its sides. Drag a POI over another until the ghost covers its middle and that POI turns red: dropping there replaces it. A POI dropped in a street tile's lot faces the street; Q/E turns it to any other side and it stays in the lot.
 
 Placing a POI, trader or street tile never changes the roads you drew. One placed against a road takes the road's height, so they meet level; the ground around it still blends in, easing off beside roads.
 
@@ -77,7 +77,8 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 | Ctrl+click | Sample height (Flatten) or water level (Water) |
 | Shift+drag | Erase roads or radiation |
 | Alt+click | Place a road point, POI, trader or street tile without snapping |
-| Enter, Esc, Backspace | Finish, cancel, or undo a point (roads, towns) |
+| Enter, Backspace | Finish, or undo a point (roads, towns) |
+| Esc | Leave the tool for Select; in Select, clear the selection |
 | Del, PgUp, PgDn | Delete the selected prefab, or raise or lower it one block |
 | Wheel, + and -, Home | Zoom, fit to window |
 | Right drag | Pan with any tool |
@@ -91,7 +92,7 @@ A 7D2D world is a folder of files the game reads on first load. The editor write
 
 ## Build from source
 
-The source is in this repository, one snapshot for each release.
+The source is in this repository. To change it, read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
 ```
 dotnet build MapEditor.slnx -c Release

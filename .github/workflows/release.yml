@@ -1,0 +1,28 @@
+name: release
+
+# Push a tag such as v1.0.0 to build the installer and publish a GitHub release with the Velopack update feed.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Build and pack
+        shell: pwsh
+        run: ./build/release.ps1 -Version $env:GITHUB_REF_NAME.TrimStart('v')
+      # Releases go to this repository, which installed copies check for updates (Updates.Repository).
+      - name: Publish release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: out/releases/*
+          # Tags like v1.1.0-beta are pre-releases, so the last full release stays "Latest".
+          prerelease: ${{ contains(github.ref_name, '-') }}

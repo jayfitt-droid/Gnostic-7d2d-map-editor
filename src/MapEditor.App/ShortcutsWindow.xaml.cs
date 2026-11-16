@@ -32,7 +32,7 @@ public partial class ShortcutsWindow : Window
             [
                 new(["Del"], "Delete the selection"),
                 new(["PgUp", "PgDn"], "Raise or lower one block"),
-                new(["Esc"], "Stop placing or deselect"),
+                new(["Esc"], "Stop the tool and go back to Select; in Select, deselect"),
             ]),
             new("View",
             [

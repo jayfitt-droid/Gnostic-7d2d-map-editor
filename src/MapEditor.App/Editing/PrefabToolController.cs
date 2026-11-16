@@ -208,7 +208,7 @@ public sealed class PrefabToolController
     {
         if (_hover is not { } at) return;
         var spot = PrefabPlacer.SpotAt(world, Library, info, (float)at.X, (float)at.Y, _vm.PrefabRotation, out var lot,
-            snapTiles: SnapsTiles);
+            snapTiles: SnapsTiles, lotTurns: PickLotTurns(info));
         spot = Snapped(world, info, spot, lot, null);
         bool inLot = lot is { Fits: true };
         var covered = PrefabPlacer.Covered(world, Library, info, spot);
@@ -297,7 +297,7 @@ public sealed class PrefabToolController
         var ignore = PrefabPlacer.Contents(world, Library, p);
         ignore.Add(p);
         var spot = PrefabPlacer.SpotAt(world, Library, info, (float)centre.X, (float)centre.Y, p.Rotation, out var lot, ignore,
-            snapTiles: SnapsTiles);
+            snapTiles: SnapsTiles, lotTurns: LotTurnsOf(world, p, info, ignore).Turns);
         spot = Snapped(world, info, spot, lot, ignore);
         _dropInLot = lot is { Fits: true };
         _dropSpot = spot;
@@ -349,6 +349,26 @@ public sealed class PrefabToolController
     /// A POI's spot with its edges snapped to street tiles nearby, unless it sits in a street-tile lot (which places it) or
     /// Alt is held.
     /// </summary>
+    /// <summary>
+    /// The quarter turns from facing the street that the browser's pick gets in a lot: Q/E from where it started (#37).
+    /// A new pick starts at <see cref="PrefabInfo.RotationToFaceNorth"/>, so it faces the street until it is turned.
+    /// </summary>
+    private int PickLotTurns(PrefabInfo info) => (_vm.PrefabRotation - info.RotationToFaceNorth) & 3;
+
+    /// <summary>How many quarter turns a placed prefab is from facing the street of the lot it stands in, and whether it is in one.</summary>
+    private (int Turns, bool InLot) LotTurnsOf(World world, PrefabInstance p, PrefabInfo info, IReadOnlyCollection<PrefabInstance> ignore)
+    {
+        if (info.IsPart || info.IsStreetTile) return (0, false);
+        var (sx, sz) = info.Footprint(p.Rotation);
+        float cx = world.WorldToGrid(p.Position.X) + sx / 2f, cz = world.WorldToGrid(p.Position.Z) + sz / 2f;
+        if (PrefabPlacer.FindLot(world, Library, info, cx, cz, ignore) is not { } lot) return (0, false);
+        var parent = new PrefabSpot(lot.Tile.Position.X, lot.Tile.Position.Y, lot.Tile.Position.Z, lot.Tile.Rotation);
+        int turns = (p.Rotation - PrefabPlacer.LotSpot(parent, lot.Lot, info).Rotation) & 3;
+        // Raised or lowered with PgUp/PgDn it is still in the lot, so only x and z count.
+        var spot = PrefabPlacer.LotSpot(parent, lot.Lot, info, turns);
+        return (turns, spot.X == p.Position.X && spot.Z == p.Position.Z);
+    }
+
     private PrefabSpot Snapped(World world, PrefabInfo info, PrefabSpot spot, LotSnap? lot, IReadOnlyCollection<PrefabInstance>? ignore)
     {
         if (lot is { Fits: true } || Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) return spot;
@@ -395,11 +415,14 @@ public sealed class PrefabToolController
         var centre = new Point(world.WorldToGrid(p.Position.X) + sx / 2.0, world.WorldToGrid(p.Position.Z) + sz / 2.0);
         var ignore = PrefabPlacer.Contents(world, Library, p);
         ignore.Add(p);
+        // In a lot it turns in place, still against the street side (#37).
+        var (turns, inLot) = LotTurnsOf(world, p, info, ignore);
         var spot = PrefabPlacer.SpotAt(world, Library, info, (float)centre.X, (float)centre.Y, p.Rotation + quarterTurns, out var lot, ignore,
-            snapTiles: false);
-        if (lot is { Fits: true } && spot.Rotation == p.Rotation)
+            snapTiles: false, lotTurns: turns + quarterTurns);
+        if (inLot && lot is not { Fits: true })
         {
-            _vm.Status = "This prefab is in a street-tile lot, which sets its rotation so it faces the street.";
+            _vm.Status = lot is null ? $"{p.Name} can't turn that way in its lot."
+                : $"Turned that way, {p.Name} doesn't fit its {lot.Lot.Size.X}×{lot.Lot.Size.Z} m lot.";
             return;
         }
         MoveTo(world, p, spot, lot is { Fits: true }, "Rotate " + p.Name);
@@ -574,7 +597,7 @@ public sealed class PrefabToolController
             return;
         }
         var spot = PrefabPlacer.SpotAt(world, Library, info, (float)at.X, (float)at.Y, _vm.PrefabRotation, out var lot,
-            snapTiles: SnapsTiles);
+            snapTiles: SnapsTiles, lotTurns: PickLotTurns(info));
         spot = Snapped(world, info, spot, lot, null);
         var covered = PrefabPlacer.Covered(world, Library, info, spot);
         var problems = PrefabPlacer.Check(world, Library, info, spot, covered, snappedToLot: lot is { Fits: true });

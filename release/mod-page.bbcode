@@ -1,0 +1,139 @@
+[size=6][b]Gnostic - 7D2D Map Editor[/b][/size]
+
+[b]A Windows map editor for 7 Days to Die. Edit a world the game generated, build one by hand, or generate a complete world in six stages and change any part of it.[/b]
+
+[size=5][b]New in v2.1.0[/b][/size]
+
+[b]Draw your own bridges.[/b] The new Bridge tool builds a bridge with footings and ramps over the sea, a river or a valley. Move it, resize it or take it down, and the ground comes back as it was.
+
+[b]Export the map as a picture.[/b] File > Export Map Image saves the whole map as a PNG with no windows or tools on it, at up to 1 pixel per metre.
+
+[b]Friendly names.[/b] Pine Forest and Old West, not pine_forest and oldwest, for biomes, towns, traders and POIs.
+
+[b]More land on island worlds.[/b] Islands come closer to the map edges, with less empty sea.
+
+[b]Spawns near the first trader.[/b] Validate and stage 6 keep spawns near the trader that the game's opening quest sends new players to.
+
+Also 21 fixes. The [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md]changelog[/url] lists them all.
+
+[size=5][b]Features[/b][/size]
+
+[b]Generate[/b]
+[list]
+[*]Make a complete world in six stages: terrain, town sites, lakes and rivers, highways, wilderness POIs and spawns. Re-roll any stage and keep the rest.
+[*]One island, a chain of islands or a peninsula, with highway bridges between the islands.
+[*]Eight presets, or save your own.
+[/list]
+
+[b]Terrain[/b]
+[list]
+[*]Raise, Lower, Flatten, Smooth, Roughen.
+[*]Stamps from the game's own [font=Courier New]Data/Stamps[/font], blended the way the world generator does.
+[/list]
+
+[b]Paint[/b]
+[list]
+[*]Biomes in the game's colours, radiation and water.
+[*]New worlds can start with one biome or a generated layout of all biomes (forest or wasteland in the middle, rings or a line).
+[*]New worlds can be land to the edges, one island, several islands or a peninsula.
+[/list]
+
+[b]Roads[/b]
+[list]
+[*]Asphalt or gravel, any width. The ground under them is graded.
+[*]Roads snap to each other and to straight lines. Presets match the game's highways and country roads.
+[*]Draw your own bridges, with ramps to the ground and car wrecks on the deck.
+[/list]
+
+[b]Prefabs, towns and spawns[/b]
+[list]
+[*]Browse the game's POIs, mod POIs and your own [font=Courier New]LocalPrefabs[/font] with pictures, tiers and filters. Mark favourites.
+[*]Search the POIs in your world. Each match gets a ring on the map, and a click zooms to it.
+[*]Place, move, turn, raise and replace POIs, traders and street tiles. They snap to street tiles and sit level with the road.
+[*]Draw a whole town on the 150 m street-tile grid.
+[*]Place player spawn points.
+[/list]
+
+[b]Safe to use[/b]
+[list]
+[*]Undo and redo for every edit.
+[*]Projects (.7dmap) save in about a second. Autosave every 5 minutes, with recovery after a crash.
+[*][b]Validate[/b] (F7) finds overlapping or flooded POIs, missing traders or spawns, prefabs off the map, POIs that don't meet their road, bridge problems and spawns far from the first trader.
+[*]Export writes all files first and only then replaces the old ones, so a failed export never breaks a world.
+[/list]
+
+[b]Easy to learn[/b]
+[list]
+[*]A Paint-style window: ribbon, palette, brush sliders and status bar.
+[*]Light and dark themes that follow Windows.
+[*]Export the whole map as a PNG picture.
+[*]Package your maps and their custom prefabs as a mod zip to share.
+[*]A full [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/USER-MANUAL.md]user manual[/url].
+[/list]
+
+[line]
+
+[size=5][b]Requirements[/b][/size]
+
+[list]
+[*]Windows 10 or 11 (64-bit)
+[*]7 Days to Die, version 3.x
+[/list]
+
+The editor reads stamps, prefabs and biome colours from your own copy of the game. It does not include game files.
+
+[line]
+
+[size=5][b]Known issues[/b][/size]
+
+[list]
+[*]Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5]#5[/url])
+[*]Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click [b]More info[/b], then [b]Run anyway[/b].
+[/list]
+
+[size=5][b]Install[/b][/size]
+
+Download one of these files from GitHub. The links always get the latest version.
+
+[list]
+[*][b][url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest/download/Gnostic-7D2DMapEditor-win-Setup.exe]Gnostic-7D2DMapEditor-win-Setup.exe[/url][/b] – installs for your Windows user. It does not need administrator rights.
+[*][b][url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest/download/Gnostic-7D2DMapEditor-win-Portable.zip]Gnostic-7D2DMapEditor-win-Portable.zip[/url][/b] – does not install. Unzip it and run [font=Courier New]Gnostic - 7D2D Map Editor.exe[/font].
+[/list]
+
+Older versions and the release notes are on the [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases]releases page[/url].
+
+The installed version updates itself from [b]Help > Check for Updates[/b].
+
+The editor finds the game through Steam. If it can't, use [b]Settings > Game Folder[/b] and pick the folder that contains [font=Courier New]Data[/font].
+
+[b]Windows SmartScreen[/b] can show "Windows protected your PC", because the editor is not signed. Click [b]More info[/b], then [b]Run anyway[/b].
+
+[line]
+
+[size=5][b]Quick start[/b][/size]
+
+[list=1]
+[*][b]New World[/b] (Ctrl+N), or [b]Open[/b] (Ctrl+O) an existing world's [font=Courier New]map_info.xml[/font] or [font=Courier New]dtm.raw[/font].
+[*]Use the tools, the [b]Generate[/b] panel, or both.
+[*][b]Save[/b] (Ctrl+S) as a .7dmap project while you work.
+[*][b]Export[/b] (Ctrl+E) into the game's [font=Courier New]GeneratedWorlds[/font] folder.
+[*]Start a [b]new game[/b] on the world.
+[/list]
+
+Press [b]F1[/b] in the editor for the keyboard shortcuts. The [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/USER-MANUAL.md]user manual[/url] explains every tool, with example workflows.
+
+[line]
+
+[size=5][b]Bugs and feedback[/b][/size]
+
+To report a bug, use the [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/new?template=bug_report.yml]bug report form[/url] on GitHub. The form asks for the details we need to find the problem. For an idea, use the [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/new?template=feature_request.yml]feature request form[/url].
+
+No GitHub account? Post in the comments with the editor version ([b]Help > About[/b]), the world size, the tool or stage that you used, and what happened. We copy each report to GitHub and reply with its link. If the editor crashed, attach [font=Courier New]crash.log[/font] from [font=Courier New]%APPDATA%\7D2DMapEditor[/font].
+
+[size=5][b]Support my work[/b][/size]
+
+The editor is free, and I build it in my spare time. If it saves you time or helps you make a world you like, you can buy me a coffee on [url=https://ko-fi.com/jayfitt]Ko-fi[/url]. Thank you!
+
+[line]
+
+[i]This is a fan-made tool. It is not made by or affiliated with The Fun Pimps.[/i]

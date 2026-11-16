@@ -50,6 +50,7 @@
         <CommandBinding Command="{x:Static local:MainWindow.CloseWorldCommand}" Executed="CloseWorld_Executed" CanExecute="HasWorld_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.ValidateCommand}" Executed="Validate_Executed" CanExecute="HasWorld_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.GenerateCommand}" Executed="Generate_Executed" CanExecute="HasWorld_CanExecute" />
+        <CommandBinding Command="{x:Static local:MainWindow.PackageCommand}" Executed="Package_Executed" />
         <CommandBinding Command="{x:Static local:MainWindow.UndoCommand}" Executed="Undo_Executed" CanExecute="Undo_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.RedoCommand}" Executed="Redo_Executed" CanExecute="Redo_CanExecute" />
     </Window.CommandBindings>
@@ -101,6 +102,7 @@
                     <MenuItem Header="_Generate..." Command="{x:Static local:MainWindow.GenerateCommand}" />
                     <MenuItem Header="_Validate" InputGestureText="F7" Command="{x:Static local:MainWindow.ValidateCommand}" />
                     <MenuItem Header="_Export World..." InputGestureText="Ctrl+E" Command="{x:Static local:MainWindow.ExportCommand}" />
+                    <MenuItem Header="_Package Maps..." Command="{x:Static local:MainWindow.PackageCommand}" />
                 </MenuItem>
                 <MenuItem Header="_Settings">
                     <MenuItem Header="_Game Folder..." Click="GameFolder_Click" />
@@ -277,6 +279,13 @@
                                 <StackPanel>
                                     <Path Data="{x:Static local:Icons.Export}" Style="{StaticResource IconPath}" Width="24" Height="24" />
                                     <TextBlock Text="Export" Style="{StaticResource RibbonButtonText}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.PackageCommand}"
+                                    ToolTip="Package maps: zip exported maps and their custom prefabs as a mod" AutomationProperties.Name="Package maps">
+                                <StackPanel>
+                                    <Path Data="{x:Static local:Icons.Package}" Style="{StaticResource IconPath}" Width="24" Height="24" />
+                                    <TextBlock Text="Package" Style="{StaticResource RibbonButtonText}" />
                                 </StackPanel>
                             </Button>
                         </StackPanel>

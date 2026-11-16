@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     public static readonly RoutedUICommand CloseWorldCommand = new("Close", nameof(CloseWorldCommand), typeof(MainWindow));
     public static readonly RoutedUICommand ValidateCommand = new("Validate", nameof(ValidateCommand), typeof(MainWindow));
     public static readonly RoutedUICommand GenerateCommand = new("Generate", nameof(GenerateCommand), typeof(MainWindow));
+    public static readonly RoutedUICommand PackageCommand = new("Package Maps", nameof(PackageCommand), typeof(MainWindow));
     public static readonly RoutedUICommand UndoCommand = new("Undo", nameof(UndoCommand), typeof(MainWindow));
     public static readonly RoutedUICommand RedoCommand = new("Redo", nameof(RedoCommand), typeof(MainWindow));
 
@@ -69,9 +70,6 @@ public partial class MainWindow : Window
     private bool _closeWhenIdle;
     private readonly System.Windows.Threading.DispatcherTimer _autosaveTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private bool _autosaving;
-
-    /// <summary>Hook for builds that add ribbon buttons from code. Without an implementation the call is removed.</summary>
-    partial void AddExtraTools();
 
     public MainWindow()
     {
@@ -137,7 +135,6 @@ public partial class MainWindow : Window
 
         Loaded += async (_, _) =>
         {
-            AddExtraTools();
             _gameDataLoad = LoadGameDataAsync();
             _vm.Autosave = _settings.Autosave;
             _vm.RibbonMode = _settings.RibbonMode;
@@ -520,6 +517,18 @@ public partial class MainWindow : Window
     private async void SaveAs_Executed(object sender, ExecutedRoutedEventArgs e) => await SaveAsync(saveAs: true);
 
     private async void Export_Executed(object sender, ExecutedRoutedEventArgs e) => await ExportAsync();
+
+    /// <summary>Package maps: zip worlds from GeneratedWorlds and their custom prefabs as a mod. Needs no open world.</summary>
+    private void Package_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (_install is null)
+        {
+            ThemedMessageBox.Show(this, "Set the game folder first (Settings > Game Folder), so the game's own prefabs can be told from custom ones.",
+                "Package maps", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        new PackageDialog(_install, _vm.Prefabs) { Owner = this }.ShowDialog();
+    }
 
     /// <summary>
     /// Ctrl+S: a project saves to its .7dmap, a world opened from a folder saves back to that folder, and anything
@@ -2847,15 +2856,20 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_vm.IsTownTool && e.Key == Key.Escape && _townTools.Cancel()) { e.Handled = true; return; }
+        if (e.Key == Key.Escape)
+        {
+            // An open list or menu closes itself with Esc.
+            if (Keyboard.FocusedElement is ComboBoxItem or MenuItem or ComboBox { IsDropDownOpen: true }) return;
+            Escape();
+            e.Handled = true;
+            return;
+        }
         if (_vm.IsTownTool && e.Key == Key.Enter && _townTools.Accept()) { e.Handled = true; return; }
         if (_vm.IsBridgeTool)
         {
             if (e.Key == Key.Enter && _bridgeTools.Build()) { e.Handled = true; return; }
-            if (e.Key == Key.Escape && _bridgeTools.Cancel()) { e.Handled = true; return; }
             if (e.Key == Key.Delete && _bridgeTools.DeleteSelected()) { e.Handled = true; return; }
         }
-        if (e.Key == Key.Escape && _prefabTools.Cancel()) { e.Handled = true; return; }
         if (e.Key == Key.Delete && (_vm.IsPrefabTool || _vm.IsSpawnTool || _vm.IsSelectTool)) { _prefabTools.DeleteSelected(); e.Handled = true; return; }
         if (e.Key is Key.PageUp or Key.PageDown && (_vm.IsPrefabTool || _vm.IsSelectTool))
         {
@@ -2869,7 +2883,6 @@ public partial class MainWindow : Window
             switch (e.Key)
             {
                 case Key.Enter: _tools.FinishRoad(); e.Handled = true; return;
-                case Key.Escape: _tools.CancelRoad(); e.Handled = true; return;
                 case Key.Back: _tools.UndoRoadPoint(); e.Handled = true; return;
             }
         }
@@ -2893,6 +2906,26 @@ public partial class MainWindow : Window
             default: return;
         }
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// Esc, as in CAD programs (#35). In any other tool it stops what that tool is doing (a road, a bridge or a town
+    /// being drawn, a pick in the browser), goes back to Select and clears the selection. In Select it steps back one
+    /// thing: the browser's replacement pick first, then the selection.
+    /// </summary>
+    private void Escape()
+    {
+        if (_vm.IsSelectTool)
+        {
+            _prefabTools.Cancel();
+            return;
+        }
+        _tools.CancelRoad();
+        _bridgeTools.Cancel();
+        _townTools.Cancel();
+        _vm.SelectedPrefabInfo = null;
+        _vm.SelectedTool = EditorTool.Select;
+        while (_prefabTools.Cancel()) { }
     }
 
     protected override void OnPreviewKeyUp(KeyEventArgs e)

@@ -10,18 +10,4 @@
     <Authors>Jason</Authors>
     <Product>Gnostic - 7D2D Map Editor</Product>
   </PropertyGroup>
-
-  <!-- Folders named Private hold code that only a build with PrivateBuild=true includes (see build/private.ps1).
-       Such a build keeps its own bin and obj folders, so it never mixes with a normal one. -->
-  <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**;bin-private/**;obj-private/**</DefaultItemExcludes>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(PrivateBuild)' != 'true'">
-    <DefaultItemExcludes>$(DefaultItemExcludes);**/Private/**</DefaultItemExcludes>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(PrivateBuild)' == 'true'">
-    <BaseIntermediateOutputPath>$(MSBuildProjectDirectory)\obj-private\</BaseIntermediateOutputPath>
-    <BaseOutputPath>$(MSBuildProjectDirectory)\bin-private\</BaseOutputPath>
-    <DefineConstants>$(DefineConstants);PRIVATE_BUILD</DefineConstants>
-  </PropertyGroup>
 </Project>

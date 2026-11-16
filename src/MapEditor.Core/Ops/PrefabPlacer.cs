@@ -220,10 +220,11 @@ public static class PrefabPlacer
     /// Street tiles snap to the 150 m grid of a street tile nearby (unless <paramref name="snapTiles"/> is false) and take
     /// the height of a neighbouring tile; POIs snap into a street-tile lot under the cursor when they fit
     /// (<paramref name="lot"/>). Otherwise a prefab that meets a road takes the road's height, so the road stays as
-    /// drawn and meets it level, else it sits on the median ground.
+    /// drawn and meets it level, else it sits on the median ground. In a lot the POI faces the street, turned
+    /// <paramref name="lotTurns"/> quarter turns more (#37).
     /// </summary>
     public static PrefabSpot SpotAt(World world, PrefabLibrary library, PrefabInfo info, float gx, float gz, int rotation,
-        out LotSnap? lot, IReadOnlyCollection<PrefabInstance>? ignore = null, bool snapTiles = true)
+        out LotSnap? lot, IReadOnlyCollection<PrefabInstance>? ignore = null, bool snapTiles = true, int lotTurns = 0)
     {
         lot = null;
         rotation &= 3;
@@ -240,7 +241,7 @@ public static class PrefabPlacer
             return new PrefabSpot(x, PrefabY(info, ground), z, rotation);
         }
 
-        if (!info.IsPart && !info.IsStreetTile && FindLot(world, library, info, gx, gz, ignore) is { } found)
+        if (!info.IsPart && !info.IsStreetTile && FindLot(world, library, info, gx, gz, ignore, lotTurns) is { } found)
         {
             lot = found;
             if (found.Fits) return found.Spot;
@@ -363,7 +364,7 @@ public static class PrefabPlacer
     /// sizes; the smallest one the POI fits wins, else the largest so the caller can say it is too big.
     /// </summary>
     public static LotSnap? FindLot(World world, PrefabLibrary library, PrefabInfo poi, float gx, float gz,
-        IReadOnlyCollection<PrefabInstance>? ignore = null)
+        IReadOnlyCollection<PrefabInstance>? ignore = null, int turns = 0)
     {
         float wx = gx - world.Size / 2f, wz = gz - world.Size / 2f;
         LotSnap? best = null;
@@ -378,7 +379,7 @@ public static class PrefabPlacer
                 int lx = tile.Position.X + m.Start.X, lz = tile.Position.Z + m.Start.Z;
                 if (wx < lx || wz < lz || wx >= lx + m.Size.X || wz >= lz + m.Size.Z) continue;
 
-                var spot = LotSpot(new PrefabSpot(tile.Position.X, tile.Position.Y, tile.Position.Z, tile.Rotation), m, poi);
+                var spot = LotSpot(new PrefabSpot(tile.Position.X, tile.Position.Y, tile.Position.Z, tile.Rotation), m, poi, turns);
                 var (sx, sz) = poi.Footprint(spot.Rotation);
                 bool fits = sx <= m.Size.X && sz <= m.Size.Z;
                 var snap = new LotSnap(tile, m, lx, lz, fits, spot);
@@ -393,11 +394,11 @@ public static class PrefabPlacer
     /// <summary>
     /// Where RWG puts <paramref name="poi"/> in lot <paramref name="lot"/> (already turned with its parent) of a
     /// parent prefab at <paramref name="parent"/>: turned to face the lot's street, pushed against that side, and
-    /// on the parent's level.
+    /// on the parent's level. <paramref name="turns"/> turns it that many quarter turns more, still against the street side.
     /// </summary>
-    public static PrefabSpot LotSpot(PrefabSpot parent, PrefabMarker lot, PrefabInfo poi)
+    public static PrefabSpot LotSpot(PrefabSpot parent, PrefabMarker lot, PrefabInfo poi, int turns = 0)
     {
-        int rotation = (parent.Rotation + poi.RotationToFaceNorth + lot.Rotations) & 3;
+        int rotation = (parent.Rotation + poi.RotationToFaceNorth + lot.Rotations + turns) & 3;
         var (sx, sz) = poi.Footprint(rotation);
         int x = parent.X + lot.Start.X, z = parent.Z + lot.Start.Z;
         switch (lot.Rotations & 3)
