@@ -541,6 +541,16 @@ Validate also checks:
 - **Bridges**: steps at the deck ends, roads to each end, steep approaches, ground under the deck, footings and the room under the beams.
 - **The opening quest's trader**: the game's first quest sends each new player to one forest trader. Validate warns if there is no such trader, or if a spawn is 750 m or more from it.
 
+### Check the issues in the game
+
+You can make a list of teleport commands, one for each issue that Validate finds. Then you can go to each issue in the game.
+
+1. Click **Teleport list** in the **Issues** tab. You can click it only after Validate finds issues.
+2. The editor validates the world again. Then select where to save the list (a Markdown file).
+3. In the game, press **F1** to open the console. Paste one command from the list and press Enter.
+
+Each command puts you on the ground 15 m from the issue, and you look at it. The editor puts you on the first side that is on the map, out of the water and not in a prefab. Issues that are less than 5 m apart share one command. The list also shows the issues that have no place to go to, for example a missing trader or no spawn points. These issues have no command.
+
 ### Export
 
 1. Press **Ctrl+E**, or click **Export**.
