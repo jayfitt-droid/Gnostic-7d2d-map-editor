@@ -271,7 +271,8 @@ public sealed partial class MainViewModel : ObservableObject
     public IReadOnlyList<string> PrefabTiers { get; } = ["Any tier", "Tier 0", "Tier 1", "Tier 2", "Tier 3", "Tier 4", "Tier 5"];
 
     /// <summary>Footprint limits matching RWG's lot sizes (Marker.MarkerSizes), so a POI can be picked for a lot.</summary>
-    public IReadOnlyList<string> PrefabSizes { get; } = ["Any size", "Fits 25 m lot", "Fits 42 m lot", "Fits 60 m lot", "Fits 100 m lot", "Over 100 m"];
+    /// <summary>Each lot size shows only the prefabs too big for the size before it (#38): 42 m lot is 26 to 42 m.</summary>
+    public IReadOnlyList<string> PrefabSizes { get; } = ["Any size", "25 m lot", "42 m lot", "60 m lot", "100 m lot", "Over 100 m"];
 
     [ObservableProperty] private string _prefabSearch = "";
     [ObservableProperty] private string _prefabCategory = "POIs";
@@ -373,7 +374,7 @@ public sealed partial class MainViewModel : ObservableObject
             };
             if (!category || (tier >= 0 && p.DifficultyTier != tier)) return false;
             int big = Math.Max(p.Size.X, p.Size.Z);
-            if (sizeIndex is >= 1 and <= 4 && big > limits[sizeIndex]) return false;
+            if (sizeIndex is >= 1 and <= 4 && (big > limits[sizeIndex] || big <= limits[sizeIndex - 1])) return false;
             if (sizeIndex == 5 && big <= 100) return false;
             return MatchesWords(p.Name, p, words);
         }
@@ -512,6 +513,8 @@ public sealed partial class MainViewModel : ObservableObject
         // Start a new pick facing north, the way RWG lines POIs up with their street.
         if (value is not null) PrefabRotation = value.RotationToFaceNorth & 3;
         CardShowsPick = value is not null && HasPrefabSelection;
+        // A pick in the browser is ready to place (#36), unless it is a replacement for the prefab selected on the map.
+        if (value is not null && !CardShowsPick && SelectedTool != EditorTool.Prefab) SelectedTool = EditorTool.Prefab;
     }
 
     // ---- trader tool ---------------------------------------------------------

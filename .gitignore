@@ -1,15 +1,22 @@
 bin/
 obj/
-bin-private/
-obj-private/
 .vs/
 *.user
 TestResults/
 out/
 dist/
 
-# Local working notes. HANDOFF.md is tracked in this private repo (committed and pushed
-# by the tools/commit-handoff.ps1 hook); the public repo only gets files copied by hand.
+# The owner's private notes repo is cloned into .ai/. The AI files in the root are local copies
+# that .ai/setup.ps1 writes. None of them belong in this repo.
+/.ai/
+/.claude/
+/CLAUDE.md
+/AGENTS.md
+/HANDOFF.md
+/PLAN.md
+/REVIEW.md
+/EVAL.md
 docs/RWG-Research.md
-EVAL.md
+
+# Screenshots for the mod page.
 images/

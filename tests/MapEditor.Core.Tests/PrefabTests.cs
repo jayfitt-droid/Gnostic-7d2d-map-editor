@@ -230,6 +230,26 @@ public sealed class PrefabTests : IDisposable
     }
 
     [Fact]
+    public void A_poi_turned_in_a_lot_stays_in_the_lot_against_its_street_side()
+    {
+        var world = Flat();
+        var tile = Tile(lotRotations: 0);
+        var poi = Poi("house", 20, 16, yOffset: -3, faceNorth: 2);
+        var library = PrefabLibrary.Of([tile, poi]);
+        world.Prefabs.Add(new PrefabInstance { Name = tile.Name, Position = new Int3(-150, 28, -150), Rotation = 0 });
+
+        // One quarter turn from facing the street (#37): 16 x 20 now, still centred in x and against the north side.
+        var spot = PrefabPlacer.SpotAt(world, library, poi, -120 + 512, -115 + 512, 0, out var lot, lotTurns: 1);
+        Assert.True(lot!.Fits);
+        Assert.Equal(new PrefabSpot(-140 + 20 - 8, 28 + 12 - 3, -130 + 30 - 20, 3), spot);
+
+        // Two quarter turns: back to 20 x 16, facing away from the street.
+        spot = PrefabPlacer.SpotAt(world, library, poi, -120 + 512, -115 + 512, 0, out lot, lotTurns: 2);
+        Assert.True(lot!.Fits);
+        Assert.Equal(new PrefabSpot(-140 + 20 - 10, 28 + 12 - 3, -130 + 30 - 16, 0), spot);
+    }
+
+    [Fact]
     public void Too_big_poi_does_not_snap_into_a_lot()
     {
         var world = Flat();

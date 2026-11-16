@@ -24,9 +24,6 @@ try {
     }
     Write-Host "Releasing Gnostic - 7D2D Map Editor $Version"
 
-    # Make sure owner-only tools are not in a release.
-    if ($env:PrivateBuild) { throw 'PrivateBuild is set in the environment; unset it for a release.' }
-
     dotnet test MapEditor.slnx -c Release
     if ($LASTEXITCODE) { throw 'Tests failed.' }
 
@@ -34,17 +31,6 @@ try {
     if (Test-Path $publish) { Remove-Item -Recurse -Force $publish }
     dotnet publish src/MapEditor.App -c Release -r win-x64 --self-contained -p:Version=$Version -o $publish
     if ($LASTEXITCODE) { throw 'Publish failed.' }
-
-    # Make sure owner-only tools are not in a release.
-    # Latin-1 by code page, as Encoding.Latin1 is missing in Windows PowerShell 5.1.
-    $latin1 = [System.Text.Encoding]::GetEncoding(28591)
-    foreach ($dll in 'Gnostic.dll', 'MapEditor.Core.dll') {
-        $bytes = [System.IO.File]::ReadAllBytes((Join-Path $publish $dll))
-        $text = $latin1.GetString($bytes) + [System.Text.Encoding]::Unicode.GetString($bytes)
-        foreach ($name in 'MapEditor.Core.Private', 'MapEditor.App.Private', 'PackageDialog', 'MapBundle', 'AddExtraTools') {
-            if ($text.Contains($name)) { throw "$dll contains owner-only code ($name). Release stopped." }
-        }
-    }
 
     # Velopack's CLI (vpk) from dotnet-tools.json. Some SDKs wrongly refuse that manifest as "from another
     # computer"; a vpk installed globally (dotnet tool install -g vpk --version <same>) is used instead when present.

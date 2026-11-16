@@ -173,7 +173,7 @@ Lake, river and water stamps always fill with water. For the other stamps, tick 
 |---|---|---|
 | **Road** | O | Draws a road. See [Roads](#roads). |
 | **Bridge** | U | Builds a bridge with ramps. See [Bridges](#bridges). |
-| **Prefabs** | I | Puts a POI, street tile or part on the map. Select it in the **Prefabs** tab. |
+| **Prefabs** | I | Puts a POI, street tile or part on the map. Select it in the **Prefabs** tab. A click on a prefab in that tab also starts this tool. |
 | **Trader** | A | Puts a trader on the map. Select a trader in the tool options, or click **Random**. |
 | **Town** | G | Makes a whole town in a rectangle that you drag. See [Towns](#towns). |
 | **Spawn points** | H | Puts player spawn points on the map. |
@@ -196,7 +196,7 @@ Click **☆** next to a prefab to make it a favourite. **Favourites** in the cat
 ### Roads
 
 1. Click on the map to add each point of the road.
-2. Press **Enter** to finish the road. Press **Backspace** to remove the last point. Press **Esc** to cancel.
+2. Press **Enter** to finish the road. Press **Backspace** to remove the last point. Press **Esc** to cancel the road and go back to **Select**.
 
 The **Preset** list sets the size of common roads. **Highway** (18 m) and **Country road** (9 m gravel) are the same as the game's roads.
 
@@ -216,7 +216,7 @@ Roads make their flat parts level to whole metres. Prefabs also sit at whole met
 1. Choose the **Bridge** tool. Click where the bridge starts, then click where it ends.
 2. The bridge locks to north-south or east-west, whichever is nearer, and to whole 9 m pieces (at least 2). The preview shows the pieces, the length and the deck height.
 3. Over water the beams are 5 m above the water, as the Highways stage builds them. Over land the deck is level with the higher end's ground. To use another height, change **Deck height** before you build.
-4. Press **Enter** to build it. Press **Esc** to cancel. The bridge, its footings and a ramp road from each end down to the ground are one undo step.
+4. Press **Enter** to build it. Press **Esc** to cancel it and go back to **Select**. The bridge, its footings and a ramp road from each end down to the ground are one undo step.
 
 Click a bridge to select it. Drag it to move it along its line. Drag one of its ends to make it longer or shorter. Change **Deck height** to rebuild it at another height. Press **Delete** to take it down: the footings and ramps go too, and the ground comes back as it was.
 
@@ -237,6 +237,7 @@ On a hill, a flat building cannot meet a sloped road level. The editor shows a w
 - A **street tile** snaps to the 150 m grid of a street tile nearby, so the streets align. Hold **Alt** to put a tile anywhere.
 - Street tiles cannot overlap. Drop a tile on the middle of another tile to replace it.
 - A **POI** or trader snaps to the edges of street tiles near it.
+- A POI in a street-tile lot faces the street. Press **Q** or **E** to turn it to another side, while you put it on the map or after you select it. It stays in the lot. If it does not fit the lot when it turns, the status bar tells you.
 - To replace a POI, drag a new POI over it until the old POI becomes red. Then drop the new POI.
 - A prefab that you put next to a road gets the height of the road. The road does not change.
 
@@ -250,7 +251,7 @@ The **Town** tool makes a complete town: streets, districts, POIs, traders and f
    - Drag an edge or a corner of the rectangle to change its size.
    - Click a green link road to remove it. Click the dashed line to add it again.
    - Change the seed to get a different plan.
-4. Press **Enter** to build the town. Press **Esc** to cancel.
+4. Press **Enter** to build the town. Press **Esc** to cancel it and go back to **Select**.
 
 Hold **Alt** when you start to drag to start the grid at the mouse position. Use this to put a town tightly against a road.
 
@@ -541,6 +542,22 @@ The world then shows under **New Game** in the game.
 
 Click **File > Export Map Image**. The editor saves the whole map as a PNG, north at the top, with no windows or tools on it. Select the size (1024, 2048, 4096, or 1 pixel for each metre) and the layers and POIs to show.
 
+### Package maps as a mod
+
+Use **Package** to share your maps with other players. The editor puts one or more exported maps into a mod zip. The zip also holds the custom prefabs that the maps use. A player unzips it into the game's `Mods` folder.
+
+1. Set the game folder first (**Settings > Game Folder**). The editor uses it to find the game's own prefabs.
+2. Click **Package**, or click **World > Package Maps**. You do not have to open a world.
+3. Select the maps from the list. The list shows the maps in the game's `GeneratedWorlds` folder.
+4. Type a **Display name**. The editor makes the **Name** (the mod folder name) from it. You can change the name.
+5. Optional: type a description, an author, a website and a version. To include a `Config` folder for the mod, click **Browse**.
+6. Read the **Prefabs** list. It shows the custom prefabs that the zip will hold. The game's own prefabs are never in the zip. If the editor cannot find a prefab that a map uses, the list shows it.
+7. Click **Save as** and select where to save the zip.
+
+The editor remembers the author and the website.
+
+Custom prefabs from other authors are their work. Share them only if their authors let you.
+
 The game keeps the chunks that it already generated in a saved game. To see all of your changes, start a new game.
 
 ## 10. Keyboard shortcuts
@@ -558,7 +575,8 @@ Press **F1** in the editor to see this list.
 | Shift+drag | Remove roads or radiation |
 | Alt+click | Put a road point, POI, trader or street tile without snapping |
 | Alt+drag | Draw a town off the shared street-tile grid |
-| Enter, Esc, Backspace | Finish, cancel, or remove the last point (roads, towns) |
+| Enter, Backspace | Finish, or remove the last point (roads, towns) |
+| Esc | Stop the tool and go back to **Select**. In **Select**, clear the selection. |
 | Del, PgUp, PgDn | Remove the selected prefab, or move it one block higher or lower |
 | Wheel, + and -, Home | Zoom, see the whole map |
 | Right drag | Move the map with any tool |

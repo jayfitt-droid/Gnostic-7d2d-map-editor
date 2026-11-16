@@ -13,7 +13,7 @@ namespace MapEditor.App;
 public static class Updates
 {
     /// <summary>The GitHub repository whose releases are the update feed.</summary>
-    public const string Repository = "https://github.com/jayfitt-droid/7d2d-map-editor";
+    public const string Repository = "https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor";
 
     /// <summary>
     /// The version as released, such as 2.0.0-beta.4 (set by the release build; local builds take Directory.Build.props').

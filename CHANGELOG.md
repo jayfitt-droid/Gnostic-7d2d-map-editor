@@ -2,6 +2,12 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.2.0 (not released)
+
+### New
+
+- **Package maps.** **Package** (or **World > Package Maps**) puts one or more maps from `GeneratedWorlds` into a mod zip, with the custom prefabs that they use. The game's own prefabs are never in the zip. Players unzip it into their `Mods` folder.
+
 ## v2.1.0 (2026-11-15)
 
 ### New
