@@ -84,6 +84,7 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 | Right drag | Pan with any tool |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E | New, open, save, save project as, export |
+| Ctrl+F | Search the Prefabs browser, or the Placed list when it's open |
 | F7, F1 | Validate, show shortcuts |
 
 ## How it works

@@ -83,7 +83,7 @@ The editor shows the game's own names, for example **Pine Forest** and **Old Wes
 The **Placed** tab lists every POI, street tile and part in your world.
 
 1. Click the **Placed** tab in the side panel.
-2. Type a name in the search box. You can also filter by type. The map shows a ring around each prefab that matches.
+2. Type a name in the search box. When the **Placed** tab is open, **Ctrl+F** puts the cursor in its search box. You can also filter by type. The map shows a ring around each prefab that matches.
 3. Click a row to zoom to its prefab. Each row shows the biome at the centre of the prefab.
 4. To select the prefab, double-click its row or press Enter.
 
@@ -234,6 +234,7 @@ On a hill, a flat building cannot meet a sloped road level. The editor shows a w
 
 ### Prefabs, street tiles and traders
 
+- To find a prefab in the **Prefabs** tab, press **Ctrl+F** and type a name, tag or zone.
 - A **street tile** snaps to the 150 m grid of a street tile nearby, so the streets align. Hold **Alt** to put a tile anywhere.
 - Street tiles cannot overlap. Drop a tile on the middle of another tile to replace it.
 - A **POI** or trader snaps to the edges of street tiles near it.
@@ -582,6 +583,7 @@ Press **F1** in the editor to see this list.
 | Right drag | Move the map with any tool |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E | New, open, save, save project as, export |
+| Ctrl+F | Search the prefabs. If the **Placed** tab is open, search the prefabs in your world |
 | F7, F1 | Validate, show shortcuts |
 
 ## 11. Words in this manual
