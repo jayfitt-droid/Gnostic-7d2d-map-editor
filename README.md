@@ -82,6 +82,7 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 | Del, PgUp, PgDn | Delete the selected prefab, or raise or lower it one block |
 | Wheel, + and -, Home | Zoom, fit to window |
 | Right drag | Pan with any tool |
+| Right-click | Map menu: copy a teleport command for that spot, for the game's console |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E | New, open, save, save project as, export |
 | Ctrl+F | Search the Prefabs browser, or the Placed list when it's open |
