@@ -224,12 +224,13 @@ public static class PrefabPlacer
     /// drawn and meets it level, else it sits on the median ground. In a lot the POI faces the street, turned
     /// <paramref name="lotTurns"/> quarter turns more (#37). With <paramref name="faceStreetIfTurnedDoesNotFit"/>, a POI
     /// that doesn't fit the lot turned that way faces the street instead, if it fits like that (a dragged POI, #42).
+    /// With <paramref name="snapLots"/> false (Alt held, #60) a POI goes where it's put, even over a lot.
     /// </summary>
     public static PrefabSpot SpotAt(World world, PrefabLibrary library, PrefabInfo info, float gx, float gz, int rotation,
         out LotSnap? lot, IReadOnlyCollection<PrefabInstance>? ignore = null, bool snapTiles = true, int lotTurns = 0,
-        bool faceStreetIfTurnedDoesNotFit = false)
+        bool faceStreetIfTurnedDoesNotFit = false, bool snapLots = true)
     {
-        if (faceStreetIfTurnedDoesNotFit && (lotTurns & 3) != 0)
+        if (faceStreetIfTurnedDoesNotFit && snapLots && (lotTurns & 3) != 0)
         {
             var turned = SpotAt(world, library, info, gx, gz, rotation, out lot, ignore, snapTiles, lotTurns);
             if (lot is not { Fits: false }) return turned;
@@ -256,7 +257,7 @@ public static class PrefabPlacer
             return new PrefabSpot(x, PrefabY(info, ground), z, rotation);
         }
 
-        if (!info.IsPart && !info.IsStreetTile && FindLot(world, library, info, gx, gz, ignore, lotTurns) is { } found)
+        if (snapLots && !info.IsPart && !info.IsStreetTile && FindLot(world, library, info, gx, gz, ignore, lotTurns) is { } found)
         {
             lot = found;
             if (found.Fits) return found.Spot;
