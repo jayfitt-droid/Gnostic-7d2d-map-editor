@@ -2,6 +2,19 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.2.0-rc.2 (2026-11-17)
+
+The second release candidate for v2.2.0. It has all the changes in v2.2.0-rc.1 below, and this change. Only copies of a test version update to it. To try it, download it from the releases page.
+
+### Changes
+
+- In **New World**, **Land shape** and **Edges** are now above **Biomes**. The biome layouts that you can select change with the land shape. ([#67](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/67))
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
+
 ## v2.2.0-rc.1 (2026-11-17)
 
 A release candidate for v2.2.0: a test version before the full release. Only copies of a test version update to it. To try it, download it from the releases page.
