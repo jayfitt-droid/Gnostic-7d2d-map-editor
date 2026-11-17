@@ -651,6 +651,20 @@
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <DockPanel>
+                                            <!-- A fix, on issues that have one safe answer (#40). -->
+                                            <Button DockPanel.Dock="Right" Content="{Binding Fix.Label}" Click="IssueFix_Click" Margin="6,0,0,0"
+                                                    Padding="8,1" FontSize="12" VerticalAlignment="Top"
+                                                    ToolTip="Fix this as one undo step; Validate runs again after">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Fix}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
                                             <TextBlock DockPanel.Dock="Left" Width="20" FontWeight="Bold"
                                                        Text="{Binding Severity, Converter={StaticResource SeverityGlyph}}"
                                                        Foreground="{Binding Severity, Converter={StaticResource SeverityBrush}}" />

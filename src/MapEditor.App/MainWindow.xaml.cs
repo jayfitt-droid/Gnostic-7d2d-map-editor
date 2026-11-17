@@ -759,6 +759,24 @@ public partial class MainWindow : Window
 
     private async void Validate_Executed(object sender, ExecutedRoutedEventArgs e) => await ValidateAsync(showPanel: true);
 
+    /// <summary>An issue's Fix button (#40): applies the fix as one undo step, then validates again so the list is current.</summary>
+    private async void IssueFix_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ValidationIssue { Fix: { } fix } } || _world is not { } world || RefuseWhileBusy()) return;
+        string? done = null;
+        var reached = GridRect.Empty;
+        if (!_edits.Run(world, fix.Label, session =>
+            {
+                done = IssueFixer.Apply(world, _vm.Prefabs, fix, session);
+                reached = session.Bounds;
+            }))
+            return;
+        Map.InvalidateRegion(reached);
+        Map.InvalidateVisual();
+        await ValidateAsync(showPanel: false);
+        _vm.Status = done ?? "Nothing to fix there any more: it may have changed since Validate ran.";
+    }
+
     /// <summary>
     /// Saves a Markdown teleport list of Validate's issues. It validates again first, so the list matches the world as it is.
     /// </summary>
@@ -814,8 +832,21 @@ public partial class MainWindow : Window
             view.Spawns.AddRange(world.Spawns.Select(sp => sp.Clone()));
             foreach (var (k, v) in world.ExtraFiles) view.ExtraFiles[k] = v;
             foreach (var (k, v) in world.PassthroughImages) view.PassthroughImages[k] = v;
+            // Each copy, with the prefab or spawn it came from, so a fix (#40) acts on the world, not on the copy.
+            var prefabOf = new Dictionary<PrefabInstance, PrefabInstance>(ReferenceEqualityComparer.Instance);
+            for (int i = 0; i < view.Prefabs.Count; i++) prefabOf[view.Prefabs[i]] = world.Prefabs[i];
+            var spawnOf = new Dictionary<SpawnPoint, SpawnPoint>(ReferenceEqualityComparer.Instance);
+            for (int i = 0; i < view.Spawns.Count; i++) spawnOf[view.Spawns[i]] = world.Spawns[i];
             var biomes = _vm.Biomes;
             issues = await Task.Run(() => WorldValidator.Validate(view, library, template, biomes));
+            issues = [.. issues.Select(i => i.Fix is not { } fix ? i : i with
+            {
+                Fix = fix with
+                {
+                    Prefab = fix.Prefab is { } p ? prefabOf.GetValueOrDefault(p) : null,
+                    Spawn = fix.Spawn is { } s ? spawnOf.GetValueOrDefault(s) : null,
+                },
+            })];
         }
         finally
         {
