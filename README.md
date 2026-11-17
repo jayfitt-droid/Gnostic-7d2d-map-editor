@@ -49,7 +49,7 @@ The editor shows the game's own names, such as Pine Forest and Old West, for bio
 
 **Roads** snap as you draw. Click near the end of any road to carry it on: the new road starts there with the same surface and width, and its first segment snaps to the old road's heading. A segment within 5° of north, south, east or west snaps straight. Hold Alt to draw freely. The **Preset** list in the road options sets common sizes: Highway (18 m) and Country road (9 m gravel) match RWG's roads.
 
-The **Bridge** tool (U) builds your own bridge over the sea, a river or a valley: click the start and the end, then press Enter. You get the game's bridge sections, footings, car wrecks on the deck, and a ramp road from each end down to the ground. Select a bridge to move it, make it longer or shorter, change its deck height or delete it; the ground comes back as it was. Validate checks every bridge for steps, steep approaches and the room underneath.
+The **Bridge** tool (U) builds your own bridge over the sea, a river or a valley: click the start and the end, then press Enter. The preview shows where each ramp will run, with its length and grade, in orange if it's steeper than 6% or doesn't reach the ground, and names the town or POI a ramp stops at. You get the game's bridge sections, footings, car wrecks on the deck, and a ramp road from each end down to the ground. Select a bridge to move it, make it longer or shorter, change its deck height or delete it; the ground comes back as it was. Validate checks every bridge for steps, steep approaches and the room underneath.
 
 **Towns** can be adjusted before you build them. Drag the box's edges or corners to resize it in 150 m tiles, and click a green link road to turn it off (click the dashed line to bring it back).
 

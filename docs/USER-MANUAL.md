@@ -224,7 +224,7 @@ Roads make their flat parts level to whole metres. Prefabs also sit at whole met
 ### Bridges
 
 1. Choose the **Bridge** tool. Click where the bridge starts, then click where it ends.
-2. The bridge locks to north-south or east-west, whichever is nearer, and to whole 9 m pieces (at least 2). The preview shows the pieces, the length and the deck height.
+2. The bridge locks to north-south or east-west, whichever is nearer, and to whole 9 m pieces (at least 2). The preview shows the pieces, the length and the deck height. It also shows the ramp road at each end, with its length and grade (the average slope, in %). An orange ramp is steeper than 6%, or does not reach the ground. If a ramp stops at a town or a POI, the preview gives its name.
 3. Over water the beams are 5 m above the water, as the Highways stage builds them. Over land the deck is level with the higher end's ground. To use another height, change **Deck height** before you build.
 4. Press **Enter** to build it. Press **Esc** to cancel it. Press **Esc** again to go back to **Select**. The bridge, its footings and a ramp road from each end down to the ground are one undo step.
 
