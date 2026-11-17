@@ -723,7 +723,7 @@
                                             ToolTip="Delete the chosen preset" />
                                     <Button DockPanel.Dock="Right" Content="Use" Margin="6,0,0,0" Click="PresetUse_Click"
                                             ToolTip="Take the chosen preset's settings. The seeds, edges and painted tiles stay this world's." />
-                                    <ComboBox x:Name="PresetBox" ItemsSource="{Binding Generate.Presets}" DisplayMemberPath="Name"
+                                    <ComboBox x:Name="PresetBox" ItemsSource="{Binding Generate.Presets}" DisplayMemberPath="Name" MinWidth="0"
                                               HorizontalAlignment="Stretch" AutomationProperties.Name="Preset" />
                                 </DockPanel>
                                 <TextBlock Text="{Binding SelectedItem.Summary, ElementName=PresetBox}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,4,0,0" />
@@ -735,14 +735,16 @@
                                 </DockPanel>
 
                                 <!-- Stage 1: terrain. -->
-                                <Expander Margin="0,16,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                <Expander Style="{StaticResource StageExpander}" Margin="0,16,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=1}">
                                     <Expander.Header>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="1  Terrain" FontWeight="SemiBold" FontSize="15" />
-                                                <TextBlock Text="✓" FontWeight="SemiBold" FontSize="15" Margin="8,0,0,0" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                           Visibility="{Binding Generate.TerrainDone, Converter={StaticResource BoolToVisibility}}" ToolTip="Done" />
+                                                <Border Style="{StaticResource DoneBadge}"
+                                                           Visibility="{Binding Generate.TerrainDone, Converter={StaticResource BoolToVisibility}}">
+                                                           <TextBlock Text="Done" />
+                                                           </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Generate.TerrainStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.TerrainStatus}" />
@@ -780,7 +782,7 @@
                                                 </StackPanel>
                                             </Grid>
 
-                                            <Expander Header="Per biome" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+                                            <Expander Style="{StaticResource LinkExpander}" Header="Per biome" Margin="0,8,0,0" HorizontalAlignment="Stretch">
                                                 <StackPanel>
                                                     <TextBlock Text="Tick a biome to give it its own plains, hills and mountains. Unticked wasteland gets no mountains, as in the game."
                                                                Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,6" />
@@ -930,14 +932,16 @@
                                 </Expander>
 
                                 <!-- Stage 2: town sites. -->
-                                <Expander Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                <Expander Style="{StaticResource StageExpander}" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=2}">
                                     <Expander.Header>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="2  Town sites" FontWeight="SemiBold" FontSize="15" />
-                                                <TextBlock Text="✓" FontWeight="SemiBold" FontSize="15" Margin="8,0,0,0" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                           Visibility="{Binding Generate.TownDone, Converter={StaticResource BoolToVisibility}}" ToolTip="Done" />
+                                                <Border Style="{StaticResource DoneBadge}"
+                                                           Visibility="{Binding Generate.TownDone, Converter={StaticResource BoolToVisibility}}">
+                                                           <TextBlock Text="Done" />
+                                                           </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Generate.TownStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.TownStatus}" />
@@ -1001,7 +1005,7 @@
                                                       ToolTip="Off: the game's way, each biome's own trader, 2 to 4 of each in that biome's biggest towns. On: every town gets one trader." />
                                             <CheckBox Content="Let towns cross biome borders" Margin="0,4,0,0" IsChecked="{Binding Generate.TownsCrossBorders}"
                                                       ToolTip="Off: the game's way, every street tile in one biome, so towns stop short of borders. On: a town can straddle a border; each lot still gets POIs and traders for the biome under it." />
-                                            <Expander Header="Spacing and biomes" Margin="0,8,0,0" HorizontalAlignment="Stretch">
+                                            <Expander Style="{StaticResource LinkExpander}" Header="Spacing and biomes" Margin="0,8,0,0" HorizontalAlignment="Stretch">
                                                 <StackPanel>
                                                     <DockPanel Margin="0,0,0,6">
                                                         <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.EdgeMarginPercent, UpdateSourceTrigger=LostFocus}"
@@ -1092,14 +1096,16 @@
                                 </Expander>
 
                                 <!-- Stage 3: lakes, rivers, canyons and craters. -->
-                                <Expander Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                <Expander Style="{StaticResource StageExpander}" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=3}">
                                     <Expander.Header>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="3  Lakes, rivers, canyons, craters" FontWeight="SemiBold" FontSize="15" />
-                                                <TextBlock Text="✓" FontWeight="SemiBold" FontSize="15" Margin="8,0,0,0" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                           Visibility="{Binding Generate.FeatureDone, Converter={StaticResource BoolToVisibility}}" ToolTip="Done" />
+                                                <Border Style="{StaticResource DoneBadge}"
+                                                           Visibility="{Binding Generate.FeatureDone, Converter={StaticResource BoolToVisibility}}">
+                                                           <TextBlock Text="Done" />
+                                                           </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Generate.FeatureStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.FeatureStatus}" />
@@ -1200,14 +1206,16 @@
                                 </Expander>
 
                                 <!-- Stage 4: highways. -->
-                                <Expander Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                <Expander Style="{StaticResource StageExpander}" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=4}">
                                     <Expander.Header>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="4  Highways" FontWeight="SemiBold" FontSize="15" />
-                                                <TextBlock Text="✓" FontWeight="SemiBold" FontSize="15" Margin="8,0,0,0" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                           Visibility="{Binding Generate.HighwayDone, Converter={StaticResource BoolToVisibility}}" ToolTip="Done" />
+                                                <Border Style="{StaticResource DoneBadge}"
+                                                           Visibility="{Binding Generate.HighwayDone, Converter={StaticResource BoolToVisibility}}">
+                                                           <TextBlock Text="Done" />
+                                                           </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Generate.HighwayStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.HighwayStatus}" />
@@ -1222,7 +1230,7 @@
                                                         ToolTip="Generate again with a new seed, which bends the routes another way" />
                                                 <TextBox Text="{Binding Generate.HighwaySeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Highway seed" />
                                             </DockPanel>
-                                            <Expander Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
+                                            <Expander Style="{StaticResource LinkExpander}" Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
                                                 <TextBlock Text="Joins the towns the game's way: each gateway to the cheapest of its three nearest towns, rings round big cities, gravel roads from towns without gateways."
                                                            Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
                                             </Expander>
@@ -1271,14 +1279,16 @@
                                 </Expander>
 
                                 <!-- Stage 5: wilderness POIs and gravel roads. -->
-                                <Expander Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                <Expander Style="{StaticResource StageExpander}" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=5}">
                                     <Expander.Header>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="5  Wilderness POIs and gravel roads" FontWeight="SemiBold" FontSize="15" />
-                                                <TextBlock Text="✓" FontWeight="SemiBold" FontSize="15" Margin="8,0,0,0" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                           Visibility="{Binding Generate.WildernessDone, Converter={StaticResource BoolToVisibility}}" ToolTip="Done" />
+                                                <Border Style="{StaticResource DoneBadge}"
+                                                           Visibility="{Binding Generate.WildernessDone, Converter={StaticResource BoolToVisibility}}">
+                                                           <TextBlock Text="Done" />
+                                                           </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Generate.WildernessStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.WildernessStatus}" />
@@ -1293,7 +1303,7 @@
                                                         ToolTip="Generate again with a new seed. POIs you placed or pinned stay." />
                                                 <TextBox Text="{Binding Generate.WildernessSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Wilderness seed" />
                                             </DockPanel>
-                                            <Expander Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
+                                            <Expander Style="{StaticResource LinkExpander}" Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
                                                 <TextBlock Text="The game's way: in each biome, free 150 m cells far from towns go first, each getting the best scoring wilderness POI that fits on dry, flat-enough ground of one biome."
                                                            Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
                                             </Expander>
@@ -1367,14 +1377,16 @@
                                 </Expander>
 
                                 <!-- Stage 6: spawn points (traders come from stage 2's Build). -->
-                                <Expander Margin="0,8,0,8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                <Expander Style="{StaticResource StageExpander}" Margin="0,8,0,8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=6}">
                                     <Expander.Header>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="6  Spawn points" FontWeight="SemiBold" FontSize="15" />
-                                                <TextBlock Text="✓" FontWeight="SemiBold" FontSize="15" Margin="8,0,0,0" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
-                                                           Visibility="{Binding Generate.SpawnDone, Converter={StaticResource BoolToVisibility}}" ToolTip="Done" />
+                                                <Border Style="{StaticResource DoneBadge}"
+                                                           Visibility="{Binding Generate.SpawnDone, Converter={StaticResource BoolToVisibility}}">
+                                                           <TextBlock Text="Done" />
+                                                           </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Generate.SpawnStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.SpawnStatus}" />
@@ -1389,7 +1401,7 @@
                                                         ToolTip="Generate again with a new seed. Spawns you placed or moved stay." />
                                                 <TextBox Text="{Binding Generate.SpawnSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Spawn seed" />
                                             </DockPanel>
-                                            <Expander Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
+                                            <Expander Style="{StaticResource LinkExpander}" Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
                                                 <TextBlock Text="The game's way: along stage 5's gravel roads, next to tier 0 and 1 POIs, near a trader of the same biome, 60 m apart; then the free cells nearest a trader until there are enough. Traders come from Build in stage 2."
                                                            Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
                                             </Expander>
