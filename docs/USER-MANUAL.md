@@ -256,7 +256,7 @@ On a hill, a flat building cannot meet a sloped road level. The editor shows a w
 
 The **Town** tool makes a complete town: streets, districts, POIs, traders and flat ground.
 
-1. Drag a rectangle on the map. The rectangle snaps to the world's 150 m street-tile grid. The towns from the Town sites stage use the same grid, so the towns align.
+1. Drag a rectangle on the map. The rectangle snaps to the world's 150 m street-tile grid. The towns from the Town sites stage use the same grid, so the towns align. To see the grid, click **Layers** and select **World grid**.
 2. Select the town type in the tool options.
 3. Change the town if necessary:
    - Drag an edge or a corner of the rectangle to change its size.
@@ -422,7 +422,7 @@ After **Build**, you can still click **Plan towns** or **Re-roll**. The editor a
 
 **Clear** removes all planned towns, pinned towns too.
 
-All towns use the world's 150 m street-tile grid. The towns align with each other, and street tiles fit between them.
+All towns use the world's 150 m street-tile grid. The towns align with each other, and street tiles fit between them. To see the grid on the map, click **Layers** and select **World grid**. The grid shows when you zoom in.
 
 The stage does not make roads between the towns. Stage 4 makes them.
 
