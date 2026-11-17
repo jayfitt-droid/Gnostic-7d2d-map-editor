@@ -47,45 +47,8 @@
         <TextBlock Grid.Row="3" Text="Seed" />
         <TextBox Grid.Row="3" Grid.Column="1" x:Name="SeedBox" />
 
-        <TextBlock Grid.Row="4" Text="Biomes" />
-        <ComboBox Grid.Row="4" Grid.Column="1" x:Name="BiomeModeBox" SelectionChanged="BiomeMode_Changed" AutomationProperties.Name="Biomes">
-            <ComboBoxItem Content="One biome" />
-            <ComboBoxItem Content="All biomes (generated layout)" />
-        </ComboBox>
-
-        <ComboBox Grid.Row="5" Grid.Column="1" x:Name="BiomeBox" AutomationProperties.Name="Biome">
-            <ComboBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}" />
-                </DataTemplate>
-            </ComboBox.ItemTemplate>
-        </ComboBox>
-        <StackPanel Grid.Row="5" Grid.Column="1" x:Name="LayoutPanel" Visibility="Collapsed">
-            <ComboBox x:Name="LayoutBox" DisplayMemberPath="Label" AutomationProperties.Name="Biome layout"
-                      ToolTip="Where each biome starts before it grows, as in the game's world generator" />
-            <TextBlock Text="Share of the map" Margin="0,6,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" />
-            <ItemsControl x:Name="SharesList" Focusable="False">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <DockPanel Margin="0,1">
-                            <Ellipse DockPanel.Dock="Left" Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center"
-                                     Stroke="{DynamicResource ControlStrokeColorSecondaryBrush}"
-                                     Fill="{Binding Color, Converter={StaticResource RgbToBrush}}" />
-                            <TextBlock DockPanel.Dock="Left" Text="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}" Width="90" Margin="0" TextTrimming="CharacterEllipsis" />
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding PercentText}" Width="38" Margin="6,0,0,0" TextAlignment="Right" />
-                            <Slider Minimum="0" Maximum="50" Value="{Binding Weight}" IsSnapToTickEnabled="True" TickFrequency="1"
-                                    VerticalAlignment="Center" AutomationProperties.Name="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}"
-                                    ToolTip="{Binding Weight}" />
-                        </DockPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <Button Content="Game defaults" HorizontalAlignment="Left" Margin="0,4,0,0" Click="BiomeDefaults_Click"
-                    ToolTip="The layout and shares the game's world generator starts with" />
-        </StackPanel>
-
-        <TextBlock Grid.Row="6" Text="Land shape" VerticalAlignment="Top" Margin="0,8,0,4" />
-        <StackPanel Grid.Row="6" Grid.Column="1">
+        <TextBlock Grid.Row="4" Text="Land shape" VerticalAlignment="Top" Margin="0,8,0,4" />
+        <StackPanel Grid.Row="4" Grid.Column="1">
             <ComboBox x:Name="ShapeBox" DisplayMemberPath="Label" SelectionChanged="Shape_Changed" AutomationProperties.Name="Land shape"
                       ToolTip="{Binding SelectedItem.Hint, RelativeSource={RelativeSource Self}}" />
             <StackPanel x:Name="ShapePanel" Visibility="Collapsed">
@@ -116,8 +79,8 @@
             </StackPanel>
         </StackPanel>
 
-        <TextBlock Grid.Row="7" x:Name="EdgesLabel" Text="Edges" VerticalAlignment="Top" Margin="0,10,0,4" />
-        <UniformGrid Grid.Row="7" Grid.Column="1" Columns="2" x:Name="EdgesGrid">
+        <TextBlock Grid.Row="5" x:Name="EdgesLabel" Text="Edges" VerticalAlignment="Top" Margin="0,10,0,4" />
+        <UniformGrid Grid.Row="5" Grid.Column="1" Columns="2" x:Name="EdgesGrid">
             <DockPanel Margin="0,0,6,0">
                 <TextBlock Text="N" Width="16" />
                 <ComboBox x:Name="EdgeN" />
@@ -135,6 +98,43 @@
                 <ComboBox x:Name="EdgeW" />
             </DockPanel>
         </UniformGrid>
+
+        <TextBlock Grid.Row="6" Text="Biomes" />
+        <ComboBox Grid.Row="6" Grid.Column="1" x:Name="BiomeModeBox" SelectionChanged="BiomeMode_Changed" AutomationProperties.Name="Biomes">
+            <ComboBoxItem Content="One biome" />
+            <ComboBoxItem Content="All biomes (generated layout)" />
+        </ComboBox>
+
+        <ComboBox Grid.Row="7" Grid.Column="1" x:Name="BiomeBox" AutomationProperties.Name="Biome">
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+        <StackPanel Grid.Row="7" Grid.Column="1" x:Name="LayoutPanel" Visibility="Collapsed">
+            <ComboBox x:Name="LayoutBox" DisplayMemberPath="Label" AutomationProperties.Name="Biome layout"
+                      ToolTip="Where each biome starts before it grows, as in the game's world generator" />
+            <TextBlock Text="Share of the map" Margin="0,6,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" />
+            <ItemsControl x:Name="SharesList" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="0,1">
+                            <Ellipse DockPanel.Dock="Left" Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center"
+                                     Stroke="{DynamicResource ControlStrokeColorSecondaryBrush}"
+                                     Fill="{Binding Color, Converter={StaticResource RgbToBrush}}" />
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}" Width="90" Margin="0" TextTrimming="CharacterEllipsis" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding PercentText}" Width="38" Margin="6,0,0,0" TextAlignment="Right" />
+                            <Slider Minimum="0" Maximum="50" Value="{Binding Weight}" IsSnapToTickEnabled="True" TickFrequency="1"
+                                    VerticalAlignment="Center" AutomationProperties.Name="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}"
+                                    ToolTip="{Binding Weight}" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Content="Game defaults" HorizontalAlignment="Left" Margin="0,4,0,0" Click="BiomeDefaults_Click"
+                    ToolTip="The layout and shares the game's world generator starts with" />
+        </StackPanel>
 
         <TextBlock Grid.Row="8" Grid.ColumnSpan="2" x:Name="ErrorText" Foreground="{DynamicResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
 
