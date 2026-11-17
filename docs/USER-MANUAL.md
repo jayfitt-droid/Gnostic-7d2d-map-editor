@@ -541,6 +541,14 @@ Validate also checks:
 - **Bridges**: steps at the deck ends, roads to each end, steep approaches, ground under the deck, footings and the room under the beams.
 - **The opening quest's trader**: the game's first quest sends each new player to one forest trader. Validate warns if there is no such trader, or if a spawn is 750 m or more from it.
 
+Some issues have a **Fix** button. Click it to fix the issue. Then Validate runs again. Press **Ctrl+Z** to undo a fix.
+
+- **A POI does not meet the road level**: **Level road** sets the road and the ground near the POI to the height of the POI.
+  The road then changes height gradually over 20 m.
+- **A spawn point is under water or outside the world**: **Move spawn** moves it to the nearest dry ground. That ground is in the world and not in a prefab.
+
+Other issues need you to decide what to do, so they have no **Fix** button.
+
 ### Check the issues in the game
 
 You can make a list of teleport commands, one for each issue that Validate finds. Then you can go to each issue in the game.
