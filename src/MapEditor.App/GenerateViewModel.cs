@@ -262,8 +262,28 @@ public sealed partial class GenerateViewModel : ObservableObject
     /// </summary>
     public void ShapeChanged()
     {
+        // One biome per island needs an archipelago: off one, the layout goes back to the game's first.
+        if (_settings.Biomes is { Layout: BiomeLayoutKind.PerIsland } biomes && Shape.Kind != LandShapeKind.Archipelago)
+            biomes.Layout = BiomeLayoutKind.CenterForest;
         if (_settings.BiomesOutOfDate) ReplanBiomes = true;
         OnPropertyChanged(nameof(CanReplanBiomes));
+        OnPropertyChanged(nameof(BiomeLayouts));
+        OnPropertyChanged(nameof(BiomeLayout));
+    }
+
+    /// <summary>The layouts the biomes can be planned again with, for the land shape (#46).</summary>
+    public IReadOnlyList<BiomeLayoutChoice> BiomeLayouts => BiomeLayoutChoice.For(Shape.Kind);
+
+    /// <summary>The layout <see cref="ReplanBiomes"/> plans with: New World's at first.</summary>
+    public BiomeLayoutChoice? BiomeLayout
+    {
+        get => _settings.Biomes is { } b ? BiomeLayouts.FirstOrDefault(l => l.Kind == b.Layout) : null;
+        set
+        {
+            if (value is null || _settings.Biomes is not { } biomes || biomes.Layout == value.Kind) return;
+            biomes.Layout = value.Kind;
+            Changed();
+        }
     }
 
     // ---- area ----------------------------------------------------------------

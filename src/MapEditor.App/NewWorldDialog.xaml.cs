@@ -13,15 +13,6 @@ public partial class NewWorldDialog : Window
 {
     private static readonly int[] Sizes = [2048, 3072, 4096, 6144, 8192, 10240, 12288, 14336, 16384];
 
-    private static readonly LayoutChoice[] Layouts =
-    [
-        new(BiomeLayoutKind.CenterForest, "Forest in the middle"),
-        new(BiomeLayoutKind.CenterWasteland, "Wasteland in the middle"),
-        new(BiomeLayoutKind.Circle, "Ring"),
-        new(BiomeLayoutKind.Circle2, "Two rings"),
-        new(BiomeLayoutKind.Line, "Line"),
-    ];
-
     private readonly List<ShareRow> _shares;
 
     public NewWorldDialog(BiomeTable biomes)
@@ -35,7 +26,7 @@ public partial class NewWorldDialog : Window
         BiomeBox.ItemsSource = choices;
         BiomeBox.SelectedItem = choices.FirstOrDefault(b => b.Name.Contains("forest") && !b.Name.Contains("burnt")) ?? choices.FirstOrDefault();
 
-        LayoutBox.ItemsSource = Layouts;
+        LayoutBox.ItemsSource = BiomeLayoutChoice.For(LandShapeKind.Edges);
         _shares = BiomeLayout.DefaultShares(biomes).Select(s => new ShareRow(s.Name, s.Color, s.Weight)).ToList();
         foreach (var row in _shares)
             row.PropertyChanged += (_, e) =>
@@ -70,6 +61,11 @@ public partial class NewWorldDialog : Window
         EdgesGrid.Visibility = EdgesLabel.Visibility = shaped ? Visibility.Collapsed : Visibility.Visible;
         IslandsRow.Visibility = ShapeKind == LandShapeKind.Archipelago ? Visibility.Visible : Visibility.Collapsed;
         PeninsulaRow.Visibility = ShapeKind == LandShapeKind.Peninsula ? Visibility.Visible : Visibility.Collapsed;
+        // One biome per island is offered for an archipelago only; keep the pick if it's still in the list.
+        var kind = (LayoutBox.SelectedItem as BiomeLayoutChoice)?.Kind;
+        var layouts = BiomeLayoutChoice.For(ShapeKind);
+        LayoutBox.ItemsSource = layouts;
+        LayoutBox.SelectedItem = layouts.FirstOrDefault(l => l.Kind == kind) ?? layouts[0];
     }
 
     public NewWorldOptions? Options { get; private set; }
@@ -99,7 +95,7 @@ public partial class NewWorldDialog : Window
                 ErrorText.Text = "Give at least one biome a share of the map.";
                 return;
             }
-            plan = new BiomePlan(((LayoutChoice)LayoutBox.SelectedItem).Kind,
+            plan = new BiomePlan(((BiomeLayoutChoice)LayoutBox.SelectedItem).Kind,
                 _shares.Select(s => new BiomeShare(s.Name, s.Color, s.Weight)).ToList());
         }
 
@@ -146,7 +142,6 @@ public partial class NewWorldDialog : Window
         foreach (var row in _shares) row.PercentText = total == 0 ? "0%" : $"{100.0 * row.Weight / total:0}%";
     }
 
-    private sealed record LayoutChoice(BiomeLayoutKind Kind, string Label);
 
     /// <summary>One biome's slider in the generated layout.</summary>
     private sealed class ShareRow(string name, uint color, int weight) : ObservableObject
