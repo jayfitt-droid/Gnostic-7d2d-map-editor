@@ -18,7 +18,8 @@ public enum IssueSeverity
 
 /// <summary>One finding. <see cref="X"/>/<see cref="Z"/> are grid cells to jump to, when the issue has a place.</summary>
 /// <param name="Kind">Which check raised it, when a report counts them (see <see cref="BridgeIssue"/>); null for the rest.</param>
-public sealed record ValidationIssue(IssueSeverity Severity, string Message, int? X = null, int? Z = null, string? Kind = null)
+/// <param name="Fix">The fix the Issues tab offers for it (<see cref="IssueFixer"/>), when there is a safe one (#40).</param>
+public sealed record ValidationIssue(IssueSeverity Severity, string Message, int? X = null, int? Z = null, string? Kind = null, IssueFix? Fix = null)
 {
     public bool HasLocation => X is not null && Z is not null;
 }
@@ -95,12 +96,12 @@ public static class WorldValidator
             int gx = world.WorldToGrid((int)MathF.Floor(s.X)), gz = world.WorldToGrid((int)MathF.Floor(s.Z));
             if (!world.Height.Contains(gx, gz))
             {
-                issues.Add(new(IssueSeverity.Error, $"Spawn point at {s.X:0}, {s.Z:0} is outside the world."));
+                issues.Add(new(IssueSeverity.Error, $"Spawn point at {s.X:0}, {s.Z:0} is outside the world.", Fix: new IssueFix(FixKind.MoveSpawn, Spawn: s)));
                 continue;
             }
             float ground = World.HeightToMetres(world.Height[gx, gz]);
             if (world.Water?[gx, gz] is > 0 and var w && ground <= w + 0.5f)
-                issues.Add(new(IssueSeverity.Warning, $"Spawn point at {s.X:0}, {s.Z:0} is under water.", gx, gz));
+                issues.Add(new(IssueSeverity.Warning, $"Spawn point at {s.X:0}, {s.Z:0} is under water.", gx, gz, Fix: new IssueFix(FixKind.MoveSpawn, Spawn: s)));
         }
 
         if (library.Count == 0)
@@ -142,7 +143,8 @@ public static class WorldValidator
             }
             if (info.IsPart) continue;
             if (PrefabPlacer.RoadMismatch(world, cells, info.RoadLevelAbove(p.Position.Y)) is var step and > PrefabPlacer.RoadStep)
-                Add(new(IssueSeverity.Warning, $"{p.Name} doesn't meet the road beside it level: the road is up to {step:0.0} m off its ground. Flatten the road and the ground on both sides, then place it again.", mx, mz));
+                Add(new(IssueSeverity.Warning, $"{p.Name} doesn't meet the road beside it level: the road is up to {step:0.0} m off its ground. Flatten the road and the ground on both sides, then place it again.", mx, mz,
+                    Fix: new IssueFix(FixKind.LevelRoad, p)));
             if (info.IsStreetTile) continue;
             pois.Add((p, cells));
             infos[p] = info;
