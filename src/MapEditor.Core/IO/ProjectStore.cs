@@ -200,19 +200,20 @@ public static class ProjectStore
             // A hand-edited project.json can drop these (#22).
             Name = string.IsNullOrWhiteSpace(manifest.Name) ? Path.GetFileNameWithoutExtension(path) : manifest.Name,
             Size = size,
-            Height = ReadGrid<ushort>(zip, HeightEntry, size, size) ?? throw new InvalidDataException("The project has no heightmap."),
+            Height = ReadGrid<ushort>(zip, HeightEntry, size, size, "height"),
             MapInfo = XDocument.Parse(manifest.MapInfo ?? throw new InvalidDataException("project.json has no MapInfo.")),
         };
-        if (manifest.Biomes is { } bs && ReadGrid<byte>(zip, BiomesEntry, bs.Width, bs.Height) is { } biomes)
+        if (manifest.Biomes is { } bs)
         {
+            var biomes = ReadGrid<byte>(zip, BiomesEntry, bs.Width, bs.Height, "biome");
             var palette = manifest.BiomePalette ?? [];
             foreach (byte index in biomes.Data)
                 if (index >= palette.Count) throw new InvalidDataException("The biome layer uses a colour its palette doesn't have.");
             world.Biomes = new IndexedLayer(biomes, palette);
         }
-        if (manifest.Roads) world.Roads = ReadGrid<byte>(zip, RoadsEntry, size, size);
-        if (manifest.Water) world.Water = ReadGrid<byte>(zip, WaterEntry, size, size);
-        if (manifest.Radiation is { } rs) world.Radiation = ReadGrid<byte>(zip, RadiationEntry, rs.Width, rs.Height);
+        if (manifest.Roads) world.Roads = ReadGrid<byte>(zip, RoadsEntry, size, size, "roads");
+        if (manifest.Water) world.Water = ReadGrid<byte>(zip, WaterEntry, size, size, "water");
+        if (manifest.Radiation is { } rs) world.Radiation = ReadGrid<byte>(zip, RadiationEntry, rs.Width, rs.Height, "radiation");
         KeepUnfittingLayers(world);
 
         foreach (var p in manifest.Prefabs ?? [])
@@ -370,9 +371,18 @@ public static class ProjectStore
         return new RgbaImage(width, height, pixels);
     }
 
-    private static Grid<T>? ReadGrid<T>(ZipArchive zip, string name, int width, int height) where T : unmanaged
+    /// <summary>
+    /// Reads a layer the manifest declares. Its entry must be there and hold exactly <paramref name="width"/> ×
+    /// <paramref name="height"/> cells: a project that opened without it would lose the layer at the next save (#75).
+    /// </summary>
+    private static Grid<T> ReadGrid<T>(ZipArchive zip, string name, int width, int height, string what) where T : unmanaged
     {
-        if (zip.GetEntry(name) is not { } entry) return null;
+        var entry = zip.GetEntry(name)
+            ?? throw new InvalidDataException($"The project says it has a {what} layer, but its {name} is missing. The file may be damaged.");
+        long expected = (long)width * height * Marshal.SizeOf<T>();
+        if (entry.Length != expected)
+            throw new InvalidDataException(
+                $"The project's {what} layer ({name}) is {entry.Length:N0} bytes, but a {width}×{height} layer is {expected:N0}. The file may be damaged.");
         var grid = new Grid<T>(width, height);
         var bytes = MemoryMarshal.AsBytes(grid.Data.AsSpan());
         using var s = entry.Open();

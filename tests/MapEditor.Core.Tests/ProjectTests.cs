@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using MapEditor.Core.GameData;
 using MapEditor.Core.IO;
 using MapEditor.Core.Model;
@@ -84,6 +85,61 @@ public sealed class ProjectTests : IDisposable
         Assert.NotEqual(1234, copy.Height[0, 0]);
         Assert.Equal(new Int3(-10, 37, 20), copy.Prefabs[0].Position);
         Assert.Single(copy.Spawns);
+    }
+
+    public static TheoryData<string> LayerEntries =>
+        ["layers/height.u16", "layers/biomes.u8", "layers/roads.u8", "layers/water.u8", "layers/radiation.u8"];
+
+    /// <summary>A saved project with <paramref name="entry"/> removed, or replaced with <paramref name="bytes"/> bytes.</summary>
+    private string ProjectWithLayer(string entry, int? bytes)
+    {
+        string path = Path.Combine(_dir, "layer" + ProjectStore.Extension);
+        ProjectStore.Save(MakeWorld(), path);
+        using var zip = ZipFile.Open(path, ZipArchiveMode.Update);
+        zip.GetEntry(entry)!.Delete();
+        if (bytes is { } n)
+            using (var s = zip.CreateEntry(entry).Open())
+                s.Write(new byte[n]);
+        return path;
+    }
+
+    [Theory]
+    [MemberData(nameof(LayerEntries))]
+    public void A_declared_layer_that_is_missing_stops_the_load(string entry)
+    {
+        var ex = Assert.Throws<InvalidDataException>(() => ProjectStore.Load(ProjectWithLayer(entry, null)));
+        Assert.Contains(entry, ex.Message);
+    }
+
+    [Theory]
+    [MemberData(nameof(LayerEntries))]
+    public void A_declared_layer_of_the_wrong_size_stops_the_load(string entry)
+    {
+        string path = Path.Combine(_dir, "size" + ProjectStore.Extension);
+        ProjectStore.Save(MakeWorld(), path);
+        long length;
+        using (var zip = ZipFile.OpenRead(path)) length = zip.GetEntry(entry)!.Length;
+
+        foreach (long bytes in new[] { length - 1, length + 1 })
+        {
+            var ex = Assert.Throws<InvalidDataException>(() => ProjectStore.Load(ProjectWithLayer(entry, (int)bytes)));
+            Assert.Contains(entry, ex.Message);
+        }
+    }
+
+    [Fact]
+    public void Layers_the_manifest_does_not_declare_are_not_needed()
+    {
+        var world = MakeWorld();
+        world.Biomes = null;
+        world.Roads = null;
+        world.Water = null;
+        world.Radiation = null;
+        string path = Path.Combine(_dir, "bare" + ProjectStore.Extension);
+        ProjectStore.Save(world, path);
+        var copy = ProjectStore.Load(path);
+        Assert.Null(copy.Roads);
+        Assert.Null(copy.Biomes);
     }
 
     [Fact]
