@@ -103,17 +103,17 @@ The game puts you on the ground at that place. The numbers in the command are th
 
 1. Click **New World** (Ctrl+N).
 2. Type a name, and set the size, the ground height and the seed.
-3. Under **Biomes**, select one of these:
-   - **One biome** paints one biome on the whole map.
-   - **All biomes (generated layout)** makes a layout of all the biomes, as the game does. Select where the biomes start: forest or wasteland in the middle, a ring, two rings, or a line. Then set the **Share of the map** for each biome.
-     For an archipelago, you can also select **One biome per island**. Each island then gets one biome. The forest island is the island with a size near the forest share, near the middle. The islands farther out get the harder biomes in this order: burnt forest, desert, snow, wasteland. The editor tries to give each biome its **Share of the map** of the land. The island sizes are random, so the match is not exact. If there are as many islands as biomes, or more, each biome gets at least one island. A biome with a share of 0 is not used.
-4. Under **Land shape**, select one of these:
+3. Under **Land shape**, select one of these:
    - **Land to the edges** puts land on all of the map. Then set the **Edges**.
    - **One island** makes one island with ocean on all sides.
    - **Several islands** makes a group of islands with ocean between them.
    - **Peninsula** makes land that touches one edge. Select the edge in **Joined to**.
 
    For an island or a peninsula, set **Land** (the share of the map that is land) and **Rough coast**. For several islands, also set **Islands**.
+4. Under **Biomes**, select one of these:
+   - **One biome** paints one biome on the whole map.
+   - **All biomes (generated layout)** makes a layout of all the biomes, as the game does. Select where the biomes start: forest or wasteland in the middle, a ring, two rings, or a line. Then set the **Share of the map** for each biome.
+     For an archipelago, you can also select **One biome per island**. Each island then gets one biome. The forest island is the island with a size near the forest share, near the middle. The islands farther out get the harder biomes in this order: burnt forest, desert, snow, wasteland. The editor tries to give each biome its **Share of the map** of the land. The island sizes are random, so the match is not exact. If there are as many islands as biomes, or more, each biome gets at least one island. A biome with a share of 0 is not used.
 5. Click **Create**. The editor opens the Generate panel at stage 1.
 
 The same seed always gives the same biome layout. A biome in the middle stays away from the map edges, so it can get a little less than its share.
