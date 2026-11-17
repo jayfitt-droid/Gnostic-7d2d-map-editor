@@ -118,6 +118,30 @@ public sealed class MapBundleTests : IDisposable
     }
 
     [Fact]
+    public void Files_an_interrupted_export_left_stay_out_of_the_bundle()
+    {
+        long before = MapBundle.ListWorlds(Path.GetDirectoryName(_world)!).Single().Bytes;
+        foreach (string dir in new[] { WorldWriter.StagingDir, WorldWriter.BackupDir })
+        {
+            Directory.CreateDirectory(Path.Combine(_world, dir, "nested"));
+            File.WriteAllBytes(Path.Combine(_world, dir, "dtm.raw"), new byte[100_000]);
+            File.WriteAllBytes(Path.Combine(_world, dir, "nested", "biomes.png"), new byte[100_000]);
+        }
+        var plan = MapBundle.Plan([_world], _library, _vanilla);
+        string zip = Path.Combine(_dir, "out", "bundle.zip");
+        MapBundle.Write(zip, Info(), [_world], plan, null, null, CancellationToken.None);
+
+        using var archive = ZipFile.OpenRead(zip);
+        var names = archive.Entries.Select(e => e.FullName).ToList();
+        Assert.DoesNotContain(names, n => n.Contains(".mapeditor-"));
+        // An ordinary sub-folder still goes in.
+        Assert.Contains("My-Bundle/Worlds/Alpha/sub/extra.txt", names);
+        Assert.Equal(1, names.Count(n => n.EndsWith("/dtm.raw")));
+        // The size the list shows doesn't count them either.
+        Assert.Equal(before, MapBundle.ListWorlds(Path.GetDirectoryName(_world)!).Single().Bytes);
+    }
+
+    [Fact]
     public void Config_folder_goes_into_Config()
     {
         string config = Path.Combine(_dir, "cfg");
