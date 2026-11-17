@@ -248,7 +248,7 @@ On a hill, a flat building cannot meet a sloped road level. The editor shows a w
 - A **street tile** snaps to the 150 m grid of a street tile nearby, so the streets align. Hold **Alt** to put a tile anywhere.
 - Street tiles cannot overlap. Drop a tile on the middle of another tile to replace it.
 - A **POI** or trader snaps to the edges of street tiles near it.
-- A POI in a street-tile lot faces the street. Press **Q** or **E** to turn it to another side, while you put it on the map or after you select it. It stays in the lot. If it does not fit the lot when it turns, the status bar tells you.
+- A POI in a street-tile lot faces the street. Press **Q** or **E** to turn it to another side, while you put it on the map or after you select it. It stays in the lot. If it does not fit the lot when it turns, the status bar tells you. When you drag a turned POI to a different lot, it keeps its turn. You can also press **Q** or **E** while you drag a POI. If it does not fit that lot with the turn, it faces the street.
 - To replace a POI, drag a new POI over it until the old POI becomes red. Then drop the new POI.
 - A prefab that you put next to a road gets the height of the road. The road does not change.
 
