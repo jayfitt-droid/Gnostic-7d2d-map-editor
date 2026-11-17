@@ -71,16 +71,17 @@ public static class PrefabPlacer
     /// <summary>
     /// Sets the ground in <paramref name="cells"/> to <paramref name="height"/> metres and blends it back into
     /// the surrounding terrain with a smoothstep over <paramref name="blend"/> metres. Roads outside the cells are
-    /// left as they are, the blend easing in over <see cref="RoadClearance"/> m beside them. Returns the cells changed.
+    /// left as they are, the blend easing in over <see cref="RoadClearance"/> m beside them, unless
+    /// <paramref name="spareRoads"/> is false (levelling a road to a prefab, #40). Returns the cells changed.
     /// </summary>
-    public static GridRect Flatten(World world, GridRect cells, int height, int blend, EditSession session)
+    public static GridRect Flatten(World world, GridRect cells, int height, int blend, EditSession session, bool spareRoads = true)
     {
         var area = new GridRect(cells.X0 - blend - 1, cells.Z0 - blend - 1, cells.X1 + blend + 1, cells.Z1 + blend + 1)
             .Clamp(world.Size, world.Size);
         if (area.IsEmpty) return GridRect.Empty;
         session.Touch(world.Height, area);
         ushort flat = World.MetresToHeight(height);
-        var roadDistance = RoadDistance(world, area, RoadClearance);
+        var roadDistance = spareRoads ? RoadDistance(world, area, RoadClearance) : null;
         for (int z = area.Z0; z < area.Z1; z++)
         {
             int dz = z < cells.Z0 ? cells.Z0 - z : z >= cells.Z1 ? z - (cells.Z1 - 1) : 0;
