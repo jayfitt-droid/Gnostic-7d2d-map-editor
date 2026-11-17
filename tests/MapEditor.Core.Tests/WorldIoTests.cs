@@ -196,6 +196,102 @@ public sealed class WorldIoTests : IDisposable
         Assert.Equal(pixels, Png.ReadRgba(Path.Combine(outDir, WorldFiles.Roads), out _, out _));
     }
 
+    /// <summary>A world written once, with a backup folder holding an "original" heightmap, as an export cut off part way leaves it (#72).</summary>
+    private (World World, string Backup, byte[] Original) WorldWithUnfinishedBackup()
+    {
+        var world = MakeWorld();
+        WorldWriter.Write(world, _dir);
+        string backup = Path.Combine(_dir, WorldWriter.BackupDir);
+        Directory.CreateDirectory(backup);
+        byte[] original = [7, 7, 7];
+        File.WriteAllBytes(Path.Combine(backup, WorldFiles.Height), original);
+        return (world, backup, original);
+    }
+
+    [Fact]
+    public void An_unfinished_backup_stops_the_export_and_is_kept()
+    {
+        var (world, backup, original) = WorldWithUnfinishedBackup();
+        byte[] height = File.ReadAllBytes(Path.Combine(_dir, WorldFiles.Height));
+
+        var ex = Assert.Throws<IOException>(() => WorldWriter.Write(world, _dir, new WorldWriteOptions { Overwrite = true }));
+        Assert.Contains(backup, ex.Message);
+        Assert.Equal(original, File.ReadAllBytes(Path.Combine(backup, WorldFiles.Height)));
+        // Nothing in the world folder was touched.
+        Assert.Equal(height, File.ReadAllBytes(Path.Combine(_dir, WorldFiles.Height)));
+        Assert.False(Directory.Exists(Path.Combine(_dir, WorldWriter.StagingDir)));
+
+        // Once the user has dealt with it, the export works.
+        Directory.Delete(backup, recursive: true);
+        WorldWriter.Write(world, _dir, new WorldWriteOptions { Overwrite = true });
+    }
+
+    [Fact]
+    public void A_finished_or_empty_backup_is_cleared()
+    {
+        var (world, backup, _) = WorldWithUnfinishedBackup();
+        File.WriteAllBytes(Path.Combine(backup, WorldWriter.BackupDoneMarker), []);
+        WorldWriter.Write(world, _dir, new WorldWriteOptions { Overwrite = true });
+        Assert.False(Directory.Exists(backup));
+
+        Directory.CreateDirectory(backup);
+        WorldWriter.Write(world, _dir, new WorldWriteOptions { Overwrite = true });
+        Assert.False(Directory.Exists(backup));
+    }
+
+    [Fact]
+    public void A_failed_export_puts_the_old_files_back()
+    {
+        var world = MakeWorld();
+        WorldWriter.Write(world, _dir);
+        byte[] height = File.ReadAllBytes(Path.Combine(_dir, WorldFiles.Height));
+        string target = Path.Combine(_dir, WorldFiles.Prefabs);
+        world.Height[0, 0] += 100;
+
+        // Placing the new prefabs.xml fails, as a locked file would; putting the old files back works.
+        bool placing = true;
+        WorldWriter.FailMovesTo.Value = to => placing && to == target && !(placing = false);
+        try
+        {
+            Assert.Throws<IOException>(() => WorldWriter.Write(world, _dir, new WorldWriteOptions { Overwrite = true }));
+        }
+        finally
+        {
+            WorldWriter.FailMovesTo.Value = null;
+        }
+        Assert.Equal(height, File.ReadAllBytes(Path.Combine(_dir, WorldFiles.Height)));
+        Assert.True(File.Exists(target));
+        Assert.False(Directory.Exists(Path.Combine(_dir, WorldWriter.BackupDir)));
+    }
+
+    [Fact]
+    public void A_failed_restore_keeps_the_backup_and_names_it()
+    {
+        var world = MakeWorld();
+        WorldWriter.Write(world, _dir);
+        byte[] prefabs = File.ReadAllBytes(Path.Combine(_dir, WorldFiles.Prefabs));
+        string target = Path.Combine(_dir, WorldFiles.Prefabs);
+        string backup = Path.Combine(_dir, WorldWriter.BackupDir);
+
+        // Every move into the world folder's prefabs.xml fails: placing the new one, then putting the old one back.
+        WorldWriter.FailMovesTo.Value = to => to == target;
+        try
+        {
+            var ex = Assert.Throws<IOException>(() => WorldWriter.Write(world, _dir, new WorldWriteOptions { Overwrite = true }));
+            Assert.Contains(backup, ex.Message);
+        }
+        finally
+        {
+            WorldWriter.FailMovesTo.Value = null;
+        }
+        Assert.Equal(prefabs, File.ReadAllBytes(Path.Combine(backup, WorldFiles.Prefabs)));
+        Assert.False(File.Exists(Path.Combine(backup, WorldWriter.BackupDoneMarker)));
+
+        // The next export doesn't delete it.
+        Assert.Throws<IOException>(() => WorldWriter.Write(world, _dir, new WorldWriteOptions { Overwrite = true }));
+        Assert.Equal(prefabs, File.ReadAllBytes(Path.Combine(backup, WorldFiles.Prefabs)));
+    }
+
     [Fact]
     public void Derived_caches_are_removed_on_overwrite()
     {
