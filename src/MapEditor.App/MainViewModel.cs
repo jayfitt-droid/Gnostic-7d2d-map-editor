@@ -16,6 +16,8 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _showPrefabs = true;
     [ObservableProperty] private bool _showPrefabDetail = true;
     [ObservableProperty] private bool _showSpawns = true;
+    /// <summary>The world's 150 m street-tile grid that towns snap to (#47); off until turned on.</summary>
+    [ObservableProperty] private bool _showWorldGrid;
     [ObservableProperty] private bool _dimMap;
 
     [ObservableProperty]
