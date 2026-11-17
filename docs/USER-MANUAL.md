@@ -554,11 +554,13 @@ Other issues need you to decide what to do, so they have no **Fix** button.
 
 You can make a list of teleport commands, one for each issue that Validate finds. Then you can go to each issue in the game.
 
-1. Click **Teleport list** in the **Issues** tab. You can click it only after Validate finds issues.
+1. Click **Teleport list** in the **Issues** tab. You can click it after Validate finds issues, or after you fix an issue with a **Fix** button.
 2. The editor validates the world again. Then select where to save the list (a Markdown file).
 3. In the game, press **F1** to open the console. Paste one command from the list and press Enter.
 
 Each command puts you on the ground 15 m from the issue, and you look at it. The editor puts you on the first side that is on the map, out of the water and not in a prefab. Issues that are less than 5 m apart share one command. The list also shows the issues that have no place to go to, for example a missing trader or no spawn points. These issues have no command.
+
+The list also shows the issues that you fixed with a **Fix** button while the world is open. These rows start with **Fixed** and tell what the editor did. For a spawn point that the editor moved, the command goes to the new position of the spawn point. Use these commands to make sure that each fix is good in the game. If you undo a fix, the list shows the issue again and not the fix. When you close the world or open a different world, the editor removes the fixes from the list.
 
 ### Export
 
