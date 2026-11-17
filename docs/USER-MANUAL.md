@@ -282,7 +282,7 @@ The **Generate** tab in the side panel makes the world in stages, the way the ga
 | 5 Wilderness POIs and gravel roads | POIs outside the towns, and gravel roads to them |
 | 6 Spawn points | Player spawn points |
 
-Click the name of a stage to open its card. One card is open at a time. A **✓** marks each stage that you completed.
+Click the name of a stage to open its card. One card is open at a time. A **Done** label shows on each stage that you completed.
 
 ### Use stages and tools together
 
