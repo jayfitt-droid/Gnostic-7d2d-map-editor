@@ -6,10 +6,14 @@ using MapEditor.Core.Model;
 namespace MapEditor.Core.Validate;
 
 /// <summary>
-/// One place to go in the game: the issues there and the teleport command that takes you to it. <see cref="X"/>/<see cref="Z"/>
-/// are grid cells; <see cref="Command"/> is null for issues with no place on the map.
+/// One place to go in the game: the issues there, the issues fixed there (#59), and the teleport command that takes you to
+/// it. <see cref="X"/>/<see cref="Z"/> are grid cells; <see cref="Command"/> is null for issues with no place on the map.
 /// </summary>
-public sealed record TeleportSpot(int? X, int? Z, string? Command, IReadOnlyList<ValidationIssue> Issues);
+public sealed record TeleportSpot(int? X, int? Z, string? Command, IReadOnlyList<ValidationIssue> Issues)
+{
+    /// <summary>Issues fixed with a Fix button at this spot, to check in the game.</summary>
+    public IReadOnlyList<FixedIssue> Fixed { get; init; } = [];
+}
 
 /// <summary>
 /// Turns Validate's issues into a list of teleport commands, to check a world in the game spot by spot. Each command puts
@@ -28,24 +32,39 @@ public static class TeleportList
     private static readonly (int Dx, int Dz, Facing Look)[] Sides =
         [(0, -Standoff, Facing.N), (-Standoff, 0, Facing.E), (0, Standoff, Facing.S), (Standoff, 0, Facing.W)];
 
-    /// <summary>The spots for <paramref name="issues"/>, in their order, then one spot for the issues with no place.</summary>
-    public static IReadOnlyList<TeleportSpot> Build(World world, IEnumerable<ValidationIssue> issues, PrefabLibrary prefabs)
+    /// <summary>
+    /// The spots for <paramref name="issues"/>, in their order, then the spots for <paramref name="fixedIssues"/> whose fix
+    /// still holds (sharing a spot with an issue nearby), then one spot for the issues with no place.
+    /// </summary>
+    public static IReadOnlyList<TeleportSpot> Build(World world, IEnumerable<ValidationIssue> issues, PrefabLibrary prefabs,
+        IEnumerable<FixedIssue>? fixedIssues = null)
     {
-        var placed = new List<(int X, int Z, List<ValidationIssue> Issues)>();
+        var current = issues.ToList();
+        var placed = new List<(int X, int Z, List<ValidationIssue> Issues, List<FixedIssue> Fixed)>();
         var unplaced = new List<ValidationIssue>();
-        foreach (var issue in issues)
+        int SpotNear(int x, int z) => placed.FindIndex(s => Math.Abs(s.X - x) <= SamePlace && Math.Abs(s.Z - z) <= SamePlace);
+        foreach (var issue in current)
         {
             if (issue is not { X: { } x, Z: { } z })
             {
                 unplaced.Add(issue);
                 continue;
             }
-            int i = placed.FindIndex(s => Math.Abs(s.X - x) <= SamePlace && Math.Abs(s.Z - z) <= SamePlace);
+            int i = SpotNear(x, z);
             if (i >= 0) placed[i].Issues.Add(issue);
-            else placed.Add((x, z, [issue]));
+            else placed.Add((x, z, [issue], []));
+        }
+        foreach (var done in fixedIssues ?? [])
+        {
+            if (done is not { X: { } x, Z: { } z } || !done.Holds(world, current)) continue;
+            int i = SpotNear(x, z);
+            if (i >= 0) placed[i].Fixed.Add(done);
+            else placed.Add((x, z, [], [done]));
         }
 
-        var spots = placed.Select(s => new TeleportSpot(s.X, s.Z, CommandFor(world, s.X, s.Z, prefabs), s.Issues)).ToList();
+        var spots = placed
+            .Select(s => new TeleportSpot(s.X, s.Z, CommandFor(world, s.X, s.Z, prefabs), s.Issues) { Fixed = s.Fixed })
+            .ToList();
         if (unplaced.Count > 0) spots.Add(new TeleportSpot(null, null, null, unplaced));
         return spots;
     }
@@ -83,7 +102,7 @@ public static class TeleportList
             sb.Append("| # | Issue | Command |\n|---|---|---|\n");
             for (int i = 0; i < placed.Count; i++)
             {
-                string issues = string.Join("<br>", placed[i].Issues.Select(Describe));
+                string issues = string.Join("<br>", placed[i].Issues.Select(Describe).Concat(placed[i].Fixed.Select(Describe)));
                 sb.Append(CultureInfo.InvariantCulture, $"| {i + 1} | {issues} | `{placed[i].Command}` |\n");
             }
         }
@@ -98,6 +117,10 @@ public static class TeleportList
         return sb.ToString();
     }
 
-    private static string Describe(ValidationIssue issue) =>
-        issue.Severity + ": " + issue.Message.Replace("|", "\\|").Replace("\r", "").Replace("\n", " ");
+    private static string Describe(ValidationIssue issue) => issue.Severity + ": " + Cell(issue.Message);
+
+    private static string Describe(FixedIssue done) => "Fixed: " + Cell(done.Issue.Message) + " " + Cell(done.Done);
+
+    /// <summary>Text made safe for one table cell.</summary>
+    private static string Cell(string text) => text.Replace("|", "\\|").Replace("\r", "").Replace("\n", " ");
 }
