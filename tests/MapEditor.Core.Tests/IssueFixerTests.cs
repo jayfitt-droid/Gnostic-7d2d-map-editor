@@ -123,4 +123,47 @@ public sealed class IssueFixerTests
         var overlap = Assert.Single(Validate(world), i => i.Message.Contains("overlaps"));
         Assert.Null(overlap.Fix);
     }
+
+    [Fact]
+    public void A_fixed_spawn_stays_in_the_teleport_list_at_its_new_place_until_the_fix_is_undone()
+    {
+        var world = Flat();
+        var spawn = new SpawnPoint { X = world.GridToWorld(Size + 40), Y = Ground, Z = world.GridToWorld(200) };
+        world.Spawns.Add(spawn);
+        var issue = Assert.Single(Validate(world), i => i.Fix is not null);
+        var session = new EditSession("Fix", world);
+        string done = IssueFixer.Apply(world, Library, issue.Fix!, session)!;
+        var fixedIssue = FixedIssue.Of(world, issue, done);
+
+        // Outside the world the issue had no place; fixed, it is listed where the spawn is now (#59).
+        var spot = Assert.Single(TeleportList.Build(world, Validate(world), Library, [fixedIssue]), s => s.Fixed.Count > 0);
+        Assert.Empty(spot.Issues);
+        Assert.Same(fixedIssue, Assert.Single(spot.Fixed));
+        Assert.Equal((world.WorldToGrid((int)spawn.X), 200), (spot.X, spot.Z));
+        Assert.NotNull(spot.Command);
+        Assert.Contains("Fixed: " + issue.Message + " " + done, TeleportList.Markdown(world, [spot]));
+
+        // Undone, Validate offers the fix again, so it is an open issue and not a fixed one.
+        session.Rollback();
+        var spots = TeleportList.Build(world, Validate(world), Library, [fixedIssue]);
+        Assert.DoesNotContain(spots, s => s.Fixed.Count > 0);
+        Assert.Contains(spots, s => s.Issues.Any(i => i.Message.Contains("outside the world")));
+    }
+
+    [Fact]
+    public void A_fixed_road_shares_a_spot_with_an_issue_beside_it_and_drops_out_when_its_poi_is_gone()
+    {
+        var (world, house) = HouseBelowRoad();
+        var issue = Validate(world).Single(i => i.Fix is not null);
+        var fixedIssue = FixedIssue.Of(world, issue, IssueFixer.Apply(world, Library, issue.Fix!, new EditSession("Fix", world))!);
+        Assert.Equal((issue.X, issue.Z), (fixedIssue.X, fixedIssue.Z));
+
+        var near = new ValidationIssue(IssueSeverity.Warning, "Near", issue.X + 2, issue.Z - 2);
+        var spot = Assert.Single(TeleportList.Build(world, [near], Library, [fixedIssue]));
+        Assert.Same(near, Assert.Single(spot.Issues));
+        Assert.Single(spot.Fixed);
+
+        world.Prefabs.Remove(house);
+        Assert.Empty(TeleportList.Build(world, [], Library, [fixedIssue]));
+    }
 }
