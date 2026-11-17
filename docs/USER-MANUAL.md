@@ -206,7 +206,7 @@ Click **☆** next to a prefab to make it a favourite. **Favourites** in the cat
 ### Roads
 
 1. Click on the map to add each point of the road.
-2. Press **Enter** to finish the road. Press **Backspace** to remove the last point. Press **Esc** to cancel the road and go back to **Select**.
+2. Press **Enter** to finish the road. Press **Backspace** to remove the last point. Press **Esc** to cancel the road. Press **Esc** again to go back to **Select**.
 
 The **Preset** list sets the size of common roads. **Highway** (18 m) and **Country road** (9 m gravel) are the same as the game's roads.
 
@@ -226,7 +226,7 @@ Roads make their flat parts level to whole metres. Prefabs also sit at whole met
 1. Choose the **Bridge** tool. Click where the bridge starts, then click where it ends.
 2. The bridge locks to north-south or east-west, whichever is nearer, and to whole 9 m pieces (at least 2). The preview shows the pieces, the length and the deck height.
 3. Over water the beams are 5 m above the water, as the Highways stage builds them. Over land the deck is level with the higher end's ground. To use another height, change **Deck height** before you build.
-4. Press **Enter** to build it. Press **Esc** to cancel it and go back to **Select**. The bridge, its footings and a ramp road from each end down to the ground are one undo step.
+4. Press **Enter** to build it. Press **Esc** to cancel it. Press **Esc** again to go back to **Select**. The bridge, its footings and a ramp road from each end down to the ground are one undo step.
 
 Click a bridge to select it. Drag it to move it along its line. Drag one of its ends to make it longer or shorter. Change **Deck height** to rebuild it at another height. Press **Delete** to take it down: the footings and ramps go too, and the ground comes back as it was.
 
@@ -262,7 +262,7 @@ The **Town** tool makes a complete town: streets, districts, POIs, traders and f
    - Drag an edge or a corner of the rectangle to change its size.
    - Click a green link road to remove it. Click the dashed line to add it again.
    - Change the seed to get a different plan.
-4. Press **Enter** to build the town. Press **Esc** to cancel it and go back to **Select**.
+4. Press **Enter** to build the town. Press **Esc** to cancel it. Press **Esc** again to go back to **Select**.
 
 Hold **Alt** when you start to drag to start the grid at the mouse position. Use this to put a town tightly against a road.
 
@@ -597,7 +597,7 @@ Press **F1** in the editor to see this list.
 | Alt+click | Put a road point, POI, trader or street tile without snapping |
 | Alt+drag | Draw a town off the shared street-tile grid |
 | Enter, Backspace | Finish, or remove the last point (roads, towns) |
-| Esc | Stop the tool and go back to **Select**. In **Select**, clear the selection. |
+| Esc | Cancel what the tool is doing (a road, bridge or town, or a prefab to put). Press it again to go back to **Select**. In **Select**, clear the selection. |
 | Del, PgUp, PgDn | Remove the selected prefab, or move it one block higher or lower |
 | Wheel, + and -, Home | Zoom, see the whole map |
 | Right drag | Move the map with any tool |

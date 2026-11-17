@@ -78,7 +78,7 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 | Shift+drag | Erase roads or radiation |
 | Alt+click | Place a road point, POI, trader or street tile without snapping |
 | Enter, Backspace | Finish, or undo a point (roads, towns) |
-| Esc | Leave the tool for Select; in Select, clear the selection |
+| Esc | Cancel what the tool is doing; press again to go back to Select; in Select, clear the selection |
 | Del, PgUp, PgDn | Delete the selected prefab, or raise or lower it one block |
 | Wheel, + and -, Home | Zoom, fit to window |
 | Right drag | Pan with any tool |
