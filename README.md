@@ -55,7 +55,7 @@ The **Bridge** tool (U) builds your own bridge over the sea, a river or a valley
 
 **Street tiles** snap to the 150 m grid of a street tile nearby, so their streets line up. Away from other tiles they go where you put them. Hold Alt to place one freely beside a tile. Tiles can't overlap: drop one over another tile's middle to replace it (and what's on it), or anywhere else clear of tiles.
 
-**POIs** and traders snap to the edges of street tiles: against a tile's side, flush with it from inside, or lined up with its sides. Drag a POI over another until the ghost covers its middle and that POI turns red: dropping there replaces it. A POI dropped in a street tile's lot faces the street; Q/E turns it to any other side and it stays in the lot.
+**POIs** and traders snap to the edges of street tiles: against a tile's side, flush with it from inside, or lined up with its sides. Drag a POI over another until the ghost covers its middle and that POI turns red: dropping there replaces it. A POI dropped in a street tile's lot faces the street; Q/E turns it to any other side and it stays in the lot, and it keeps that turn when dragged to another lot.
 
 Placing a POI, trader or street tile never changes the roads you drew. One placed against a road takes the road's height, so they meet level; the ground around it still blends in, easing off beside roads.
 
