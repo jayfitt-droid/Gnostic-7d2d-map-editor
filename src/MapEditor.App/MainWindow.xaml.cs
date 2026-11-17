@@ -2963,9 +2963,10 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Esc, as in CAD programs (#35). In any other tool it stops what that tool is doing (a road, a bridge or a town
-    /// being drawn, a pick in the browser), goes back to Select and clears the selection. In Select it steps back one
-    /// thing: the browser's replacement pick first, then the selection.
+    /// Esc, as in CAD programs (#35), one step at a time. In any other tool a first Esc stops what that tool is doing (a
+    /// road, a bridge or a town being drawn, a pick in the browser, its selection) and stays in the tool; an Esc with
+    /// nothing to stop goes back to Select and clears the selection. In Select it steps back one thing: the browser's
+    /// replacement pick first, then the selection.
     /// </summary>
     private void Escape()
     {
@@ -2974,9 +2975,12 @@ public partial class MainWindow : Window
             _prefabTools.Cancel();
             return;
         }
-        _tools.CancelRoad();
-        _bridgeTools.Cancel();
-        _townTools.Cancel();
+        // Only the active tool's own work counts, so something left selected in another tool doesn't take an extra Esc.
+        bool stopped = _vm.IsRoadTool && _tools.CancelRoad()
+                       || _vm.IsBridgeTool && _bridgeTools.Cancel()
+                       || _vm.IsTownTool && _townTools.Cancel()
+                       || (_vm.IsPrefabTool || _vm.IsSpawnTool) && _prefabTools.Cancel();
+        if (stopped) return;
         _vm.SelectedPrefabInfo = null;
         _vm.SelectedTool = EditorTool.Select;
         while (_prefabTools.Cancel()) { }

@@ -316,14 +316,16 @@ public sealed class TerrainToolController
         UpdateRoadPreview();
     }
 
-    public void CancelRoad()
+    /// <summary>Drops the road being drawn. Returns false if there was none.</summary>
+    public bool CancelRoad()
     {
-        if (_roadPoints.Count == 0) return;
+        if (_roadPoints.Count == 0) return false;
         _roadPoints.Clear();
         _roadDecks.Clear();
         _startHeading = null;
         UpdateRoadPreview();
         _vm.Status = "Road cancelled.";
+        return true;
     }
 
     /// <summary>Draws the road being edited into the world as one undo step.</summary>
