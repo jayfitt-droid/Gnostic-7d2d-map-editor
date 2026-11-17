@@ -354,15 +354,55 @@ public sealed class BridgeToolController
         if (_selected is { } sel)
             list.Add(Preview(world, sel.Where, BridgePreviewKind.Selected, ""));
         if (_drag != Drag.None && _dragLine is { } ghost && _selected is { } moving)
-            list.Add(Preview(world, ghost, BridgePreviewKind.Dragging, Label(ghost, moving.DeckLevel)));
+            list.Add(WithRamps(world, ghost, BridgePreviewKind.Dragging, moving.Y));
         else if (_plan is { } plan)
-            list.Add(Preview(world, plan, BridgePreviewKind.Planned, Label(plan, _planY + BridgeOp.Deck)));
+            list.Add(WithRamps(world, plan, BridgePreviewKind.Planned, _planY));
         else if (_first is { } first && BridgeTool.Snap(first, ToGrid(world, mouse), world.Size) is { } aim)
-            list.Add(Preview(world, aim, BridgePreviewKind.Aiming, Label(aim, BridgeTool.AutoY(world, aim) + BridgeOp.Deck)));
+            list.Add(WithRamps(world, aim, BridgePreviewKind.Aiming, BridgeTool.AutoY(world, aim)));
         return list;
     }
 
     private static string Label(BridgeLine line, int deck) => $"{line.Pieces} pieces, {line.Length} m, deck {deck} m";
+
+    /// <summary>
+    /// A bridge's preview with the ramps it would get, worked out as building them would (<see cref="BridgeTool.PlanRamp"/>),
+    /// and their length and grade on a second line of the label (#43).
+    /// </summary>
+    private BridgePreview WithRamps(World world, BridgeLine line, BridgePreviewKind kind, int y)
+    {
+        string label = Label(line, y + BridgeOp.Deck);
+        if (BridgeKit.From(_vm.Prefabs) is not { } kit) return Preview(world, line, kind, label);
+        var plan = new BridgePlan(kit, line.AlongZ, line.Line, line.Start, line.Pieces, y);
+        var ramps = new List<RampPreview>();
+        var parts = new List<string>();
+        foreach (bool atStart in new[] { true, false })
+        {
+            string side = line.AlongZ ? (atStart ? "S" : "N") : (atStart ? "W" : "E");
+            if (BridgeTool.PlanRamp(world, plan, atStart) is not { } ramp)
+            {
+                parts.Add($"{side}: none (map edge)");
+                continue;
+            }
+            bool warn = ramp.Steep || ramp.Ends == RampEnd.Longest;
+            ramps.Add(new RampPreview(RampRect(world, ramp), warn));
+            string text = $"{side} {ramp.Length:0} m {ramp.Grade * 100:0}%";
+            if (ramp.Ends == RampEnd.Prefab) text += $" to {GameNames.Current.Poi(ramp.Prefab!)}";
+            else if (ramp.Ends == RampEnd.Longest) text += " (doesn't reach the ground)";
+            parts.Add(text);
+        }
+        return Preview(world, line, kind, label + Environment.NewLine + "Ramps: " + string.Join(" / ", parts)) with { Ramps = ramps };
+    }
+
+    /// <summary>The road a ramp would pave, in map coordinates (y down), as wide as the deck.</summary>
+    private static Rect RampRect(World world, RampPlan ramp)
+    {
+        float half = BridgeOp.Width / 2f;
+        double x0 = Math.Min(ramp.From.X, ramp.To.X), x1 = Math.Max(ramp.From.X, ramp.To.X);
+        double z0 = Math.Min(ramp.From.Y, ramp.To.Y), z1 = Math.Max(ramp.From.Y, ramp.To.Y);
+        if (x1 - x0 < z1 - z0) { x0 -= half; x1 += half; }
+        else { z0 -= half; z1 += half; }
+        return new Rect(x0, world.Size - z1, x1 - x0, z1 - z0);
+    }
 
     private static BridgePreview Preview(World world, BridgeLine line, BridgePreviewKind kind, string label)
     {
