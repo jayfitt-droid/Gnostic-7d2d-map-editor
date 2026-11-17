@@ -34,6 +34,13 @@ public static class WorldWriter
     /// <summary>Sub-folders the writer uses inside the destination while it works; removed when it's done.</summary>
     public const string StagingDir = ".mapeditor-staging", BackupDir = ".mapeditor-backup";
 
+    /// <summary>
+    /// Put in <see cref="BackupDir"/> once every new file is in place: a backup with it holds only replaced files and
+    /// can be deleted. A backup without it is from a write that stopped part way and may hold the only copies of the
+    /// world's files (#72).
+    /// </summary>
+    public const string BackupDoneMarker = "export-finished.txt";
+
     public static void Write(World world, string folder, WorldWriteOptions? options = null)
     {
         options ??= new WorldWriteOptions();
@@ -51,9 +58,11 @@ public static class WorldWriter
         bool created = !Directory.Exists(folder);
         if (!created && !options.Overwrite && Directory.EnumerateFileSystemEntries(folder).Any(e => !IsOwnDir(e)))
             throw new IOException($"'{folder}' is not empty.");
+        CheckOldBackup(Path.Combine(folder, BackupDir));
         Directory.CreateDirectory(folder);
 
-        // Leftovers from an earlier write that was cut off (the editor closed or crashed) are ours to clear.
+        // A staging folder left by an earlier write that was cut off (the editor closed or crashed) only holds new
+        // files, so it is ours to clear.
         string stage = Path.Combine(folder, StagingDir);
         try
         {
@@ -73,6 +82,23 @@ public static class WorldWriter
 
     private static bool IsOwnDir(string path) =>
         Path.GetFileName(path) is StagingDir or BackupDir && Directory.Exists(path);
+
+    /// <summary>
+    /// Clears a backup an earlier write finished with (or an empty one). Refuses to go on when one is from a write
+    /// that stopped part way: its files may be the only copies of the world's original files (#72).
+    /// </summary>
+    private static void CheckOldBackup(string backup)
+    {
+        if (!Directory.Exists(backup)) return;
+        if (File.Exists(Path.Combine(backup, BackupDoneMarker)) || !Directory.EnumerateFileSystemEntries(backup).Any())
+        {
+            DeleteDir(backup);
+            return;
+        }
+        throw new IOException(
+            $"An earlier export to this world stopped before it finished. The world's original files are in '{backup}'. "
+            + "Move them back into the world folder, or delete that folder if you don't need them, then export again.");
+    }
 
     /// <summary>Writes every file of the world into <paramref name="folder"/>; returns their names.</summary>
     private static HashSet<string> WriteFiles(World world, string folder, byte[] level, PrefabLibrary? prefabs)
@@ -124,12 +150,12 @@ public static class WorldWriter
     /// <summary>
     /// Moves the staged files into <paramref name="folder"/>. The files they replace, any layer file the world no
     /// longer has, and the game's stale caches are moved aside first and deleted at the end; if any move fails,
-    /// everything is moved back as it was.
+    /// everything is moved back as it was. If something can't be moved back, the backup is kept and the error names it.
     /// </summary>
     private static void Commit(string folder, string stage, HashSet<string> written)
     {
+        // Write checked that any old backup was safe to clear and cleared it.
         string backup = Path.Combine(folder, BackupDir);
-        DeleteDir(backup);
         Directory.CreateDirectory(backup);
         var setAside = new List<string>();
         var placed = new List<string>();
@@ -140,21 +166,35 @@ public static class WorldWriter
                 string name = Path.GetFileName(file);
                 // Stale caches would make the game skip reprocessing (it checks checksums.txt).
                 if (!written.Contains(name) && !WorldFiles.Modelled.Contains(name) && !WorldFiles.IsDerived(name)) continue;
-                File.Move(file, Path.Combine(backup, name));
+                Move(file, Path.Combine(backup, name));
                 setAside.Add(name);
             }
             foreach (var name in written)
             {
-                File.Move(Path.Combine(stage, name), Path.Combine(folder, name));
+                Move(Path.Combine(stage, name), Path.Combine(folder, name));
                 placed.Add(name);
             }
         }
-        catch
+        catch (Exception ex)
         {
             foreach (var name in placed) TryMove(Path.Combine(folder, name), Path.Combine(stage, name));
-            foreach (var name in setAside) TryMove(Path.Combine(backup, name), Path.Combine(folder, name));
+            bool restored = true;
+            foreach (var name in setAside) restored &= TryMove(Path.Combine(backup, name), Path.Combine(folder, name));
+            if (!restored)
+                throw new IOException(
+                    $"The export failed ({ex.Message}), and some of the world's original files could not be put back. "
+                    + $"They are in '{backup}'. Move them back into the world folder before you export again.", ex);
             TryDeleteDir(backup);
             throw;
+        }
+        // From here the backup only holds replaced files; mark it so a backup left by a failed delete is cleared next time.
+        try
+        {
+            File.WriteAllBytes(Path.Combine(backup, BackupDoneMarker), []);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The delete below usually removes the backup anyway.
         }
         TryDeleteDir(backup);
     }
@@ -176,15 +216,26 @@ public static class WorldWriter
         }
     }
 
-    private static void TryMove(string from, string to)
+    /// <summary>For tests: moves to a path this returns true for fail, as a locked file would. Per async flow, so parallel tests don't see it.</summary>
+    internal static readonly AsyncLocal<Func<string, bool>?> FailMovesTo = new();
+
+    private static void Move(string from, string to, bool overwrite = false)
+    {
+        if (FailMovesTo.Value?.Invoke(to) == true) throw new IOException($"Test: can't move to '{to}'.");
+        File.Move(from, to, overwrite);
+    }
+
+    /// <summary>Moves a file if it's there; false if the move failed (the rest is still put back).</summary>
+    private static bool TryMove(string from, string to)
     {
         try
         {
-            if (File.Exists(from)) File.Move(from, to, overwrite: true);
+            if (File.Exists(from)) Move(from, to, overwrite: true);
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Nothing more can be done; the rest is still put back.
+            return false;
         }
     }
 }
