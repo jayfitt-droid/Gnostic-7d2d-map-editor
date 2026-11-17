@@ -3029,8 +3029,10 @@ public partial class MainWindow : Window
     /// </summary>
     private bool AltTurnsOffSnapping(KeyEventArgs e)
     {
-        if (!(_vm.IsRoadTool || _vm.IsPrefabTool || _vm.IsTownTool) || e.Key != Key.System || e.SystemKey is not (Key.LeftAlt or Key.RightAlt)) return false;
-        if (_vm.IsPrefabTool) _prefabTools.UpdateGhost();
+        bool draggingPrefab = _prefabTools.IsDragging;
+        if (!(_vm.IsRoadTool || _vm.IsPrefabTool || _vm.IsTownTool || draggingPrefab) || e.Key != Key.System
+            || e.SystemKey is not (Key.LeftAlt or Key.RightAlt)) return false;
+        if (_vm.IsPrefabTool || draggingPrefab) _prefabTools.SnappingChanged();
         Map.InvalidateVisual();
         e.Handled = true;
         return true;

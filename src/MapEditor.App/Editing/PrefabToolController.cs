@@ -214,7 +214,7 @@ public sealed class PrefabToolController
     {
         if (_hover is not { } at) return;
         var spot = PrefabPlacer.SpotAt(world, Library, info, (float)at.X, (float)at.Y, _vm.PrefabRotation, out var lot,
-            snapTiles: SnapsTiles, lotTurns: PickLotTurns(info));
+            snapTiles: Snaps, lotTurns: PickLotTurns(info), snapLots: Snaps);
         spot = Snapped(world, info, spot, lot, null);
         bool inLot = lot is { Fits: true };
         var covered = PrefabPlacer.Covered(world, Library, info, spot);
@@ -308,7 +308,8 @@ public sealed class PrefabToolController
         // A POI turned in its lot keeps that turn from the street in the lot it's dragged to (#42), plus any Q/E
         // turns given while dragging. If it doesn't fit there turned, it faces the street instead.
         var spot = PrefabPlacer.SpotAt(world, Library, info, (float)centre.X, (float)centre.Y, p.Rotation + _dragTurns, out var lot, ignore,
-            snapTiles: SnapsTiles, lotTurns: LotTurnsOf(world, p, info, ignore).Turns + _dragTurns, faceStreetIfTurnedDoesNotFit: true);
+            snapTiles: Snaps, lotTurns: LotTurnsOf(world, p, info, ignore).Turns + _dragTurns, faceStreetIfTurnedDoesNotFit: true,
+            snapLots: Snaps);
         spot = Snapped(world, info, spot, lot, ignore);
         _dropInLot = lot is { Fits: true };
         _dropSpot = spot;
@@ -359,10 +360,6 @@ public sealed class PrefabToolController
     private const double EdgeSnapPixels = 10;
 
     /// <summary>
-    /// A POI's spot with its edges snapped to street tiles nearby, unless it sits in a street-tile lot (which places it) or
-    /// Alt is held.
-    /// </summary>
-    /// <summary>
     /// The quarter turns from facing the street that the browser's pick gets in a lot: Q/E from where it started (#37).
     /// A new pick starts at <see cref="PrefabInfo.RotationToFaceNorth"/>, so it faces the street until it is turned.
     /// </summary>
@@ -382,15 +379,21 @@ public sealed class PrefabToolController
         return (turns, spot.X == p.Position.X && spot.Z == p.Position.Z);
     }
 
+    /// <summary>
+    /// A POI's spot with its edges snapped to street tiles nearby, unless it sits in a street-tile lot (which places it) or
+    /// Alt is held.
+    /// </summary>
     private PrefabSpot Snapped(World world, PrefabInfo info, PrefabSpot spot, LotSnap? lot, IReadOnlyCollection<PrefabInstance>? ignore)
     {
-        if (lot is { Fits: true } || Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) return spot;
+        if (lot is { Fits: true } || !Snaps) return spot;
         int snap = (int)Math.Clamp(Math.Round(EdgeSnapPixels / _map.Scale), 1, 20);
         return PrefabPlacer.SnapToTiles(world, Library, info, spot, snap, ignore);
     }
 
-    /// <summary>Street tiles snap to the grid of a tile nearby unless Alt is held.</summary>
-    private static bool SnapsTiles => !Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
+    /// <summary>
+    /// Street tiles snap to the grid of a tile nearby, and POIs into lots and to tile edges, unless Alt is held (#60).
+    /// </summary>
+    private static bool Snaps => !Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
 
     private static string InTheWay(PrefabInstance clash) =>
         $"Street tiles can't overlap: this one would overlap {clash.Name}. Move it clear, or over that tile's middle to replace it.";
@@ -604,6 +607,13 @@ public sealed class PrefabToolController
         _map.SpawnGhost = ghost;
     }
 
+    /// <summary>Alt went down or up: redraws the ghost of the prefab being dragged or placed.</summary>
+    public void SnappingChanged()
+    {
+        if (_dragging is not null && World is { } world) DragTo(world, _dragAt);
+        else UpdateGhost();
+    }
+
     /// <summary>Redraws the placement ghost under the mouse while a prefab is picked in the browser.</summary>
     public void UpdateGhost()
     {
@@ -617,7 +627,7 @@ public sealed class PrefabToolController
             return;
         }
         var spot = PrefabPlacer.SpotAt(world, Library, info, (float)at.X, (float)at.Y, _vm.PrefabRotation, out var lot,
-            snapTiles: SnapsTiles, lotTurns: PickLotTurns(info));
+            snapTiles: Snaps, lotTurns: PickLotTurns(info), snapLots: Snaps);
         spot = Snapped(world, info, spot, lot, null);
         var covered = PrefabPlacer.Covered(world, Library, info, spot);
         var problems = PrefabPlacer.Check(world, Library, info, spot, covered, snappedToLot: lot is { Fits: true });
