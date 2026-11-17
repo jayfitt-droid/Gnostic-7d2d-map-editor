@@ -2,6 +2,22 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.2.0-rc.3 (2026-11-17)
+
+The third release candidate for v2.2.0. It has all the changes in v2.2.0-rc.2 and v2.2.0-rc.1 below, and these fixes. Only copies of a test version update to it. To try it, download it from the releases page.
+
+### Fixes
+
+- In dark mode, the text under **Spacing and biomes**, **Per biome** and **How the game does it** was black on grey. It is now easy to read. ([#71](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/71))
+- An export keeps the old files of a world in a `.mapeditor-backup` folder while it replaces them. If an earlier export stopped before it finished, that folder can have the only copies of the world's files. The next export deleted it. Now the export stops and shows where the folder is. A failed export also keeps the folder if it cannot put back all the old files. ([#72](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/72))
+- A project that does not have one of its layers, or has a layer of the wrong size, does not open. Before, it opened without that layer, and after the next save the layer was gone. A message tells you which layer has the problem. ([#75](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/75))
+- **Package Maps** does not put the files from a stopped export (`.mapeditor-staging` and `.mapeditor-backup`) in the zip, or count them in the size. ([#77](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/77))
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
+
 ## v2.2.0-rc.2 (2026-11-17)
 
 The second release candidate for v2.2.0. It has all the changes in v2.2.0-rc.1 below, and this change. Only copies of a test version update to it. To try it, download it from the releases page.
