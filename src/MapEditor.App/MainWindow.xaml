@@ -853,6 +853,12 @@
                                                             ToolTip="Plan new biomes on the ground as it is; the terrain is not generated again" />
                                                     <TextBox Text="{Binding Generate.BiomeSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Biome seed" />
                                                 </DockPanel>
+                                                <DockPanel Margin="0,6,0,0" Visibility="{Binding Generate.ReplanBiomes, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Layout" Style="{StaticResource GenLabel}" />
+                                                    <ComboBox ItemsSource="{Binding Generate.BiomeLayouts}" SelectedItem="{Binding Generate.BiomeLayout}"
+                                                              DisplayMemberPath="Label" HorizontalAlignment="Stretch" AutomationProperties.Name="Biome layout"
+                                                              ToolTip="Where each biome goes. On an archipelago, One biome per island gives each island one biome: forest first, harder ones farther out, each close to its share of the land." />
+                                                </DockPanel>
                                             </StackPanel>
 
                                             <TextBlock Text="Edges, redrawn when the whole map is generated" Style="{StaticResource HintText}" Margin="0,10,0,4"
