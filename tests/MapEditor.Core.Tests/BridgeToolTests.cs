@@ -280,6 +280,62 @@ public sealed class BridgeToolTests : IDisposable
     private static List<string> ApproachWarnings(World world) =>
         [.. BridgeChecks.Analyze(world, TownLibrary).Issues.Where(i => i.Kind == BridgeIssue.Approach).Select(i => i.Message)];
 
+    private static BridgePlan PlanAcrossSea(World world, BridgeKit kit)
+    {
+        var line = BridgeTool.Snap(new Vector2(SeaFrom - 12, 300), new Vector2(SeaTo + 12, 300), Size)!.Value;
+        return new BridgePlan(kit, line.AlongZ, line.Line, line.Start, line.Pieces, BridgeTool.AutoY(world, line));
+    }
+
+    [Fact]
+    public void A_planned_ramp_reaches_the_ground_where_the_built_ramp_ends_and_planning_changes_nothing()
+    {
+        var world = Strait();
+        var plan = PlanAcrossSea(world, Kit);
+        var before = Take(world);
+
+        var west = BridgeTool.PlanRamp(world, plan, atStart: true)!;
+        var east = BridgeTool.PlanRamp(world, plan, atStart: false)!;
+        AssertSame(before, world);
+
+        foreach (var ramp in new[] { west, east })
+        {
+            Assert.Equal(RampEnd.Ground, ramp.Ends);
+            Assert.InRange(ramp.Length, BridgeTool.MinRamp, BridgeTool.MaxRamp);
+            Assert.InRange(ramp.Grade, 0, BridgeTool.RampGrade + 0.005f);
+            Assert.False(ramp.Steep);
+            Assert.Null(ramp.Prefab);
+        }
+        Assert.Equal(plan.Start - west.Length, west.To.X);
+        Assert.Equal(plan.End + east.Length, east.To.X);
+
+        // The built ramps are paved up to those ends, plus the road's rounded end (half its width), and no further.
+        BridgeTool.Add(world, Kit, [], new BridgeLine(plan.AlongZ, plan.Line, plan.Start, plan.Pieces), plan.Y, new EditSession("Bridge", world));
+        int eastPaved = (int)east.To.X, westPaved = (int)west.To.X;
+        while (world.Roads![eastPaved + 1, 300] != 0) eastPaved++;
+        while (world.Roads[westPaved - 1, 300] != 0) westPaved--;
+        float cap = BridgeOp.Width / 2f + 1;
+        Assert.InRange(eastPaved, east.To.X, east.To.X + cap);
+        Assert.InRange(westPaved, west.To.X - cap, west.To.X);
+    }
+
+    [Fact]
+    public void A_planned_ramp_toward_a_town_stops_at_its_street_tile_and_says_how_steep()
+    {
+        const int TileWest = 670, TileGround = 50;
+        var (world, _) = TownOnHill(TileWest, TileGround);
+        var plan = PlanAcrossSea(world, BridgeKit.From(TownLibrary)!);
+
+        var east = BridgeTool.PlanRamp(world, plan, atStart: false)!;
+        Assert.Equal(RampEnd.Prefab, east.Ends);
+        Assert.Equal(HillTile.Name, east.Prefab);
+        Assert.Equal(TileWest, east.To.X);
+        Assert.True(east.Steep);   // 16 m up in 57 m
+        Assert.Equal((TileGround - plan.DeckTop) / (float)(TileWest - plan.End - PrefabPlacer.RoadTouch), east.Grade, 0.001f);
+
+        // The west ramp is on the other side of the sea, clear of the town.
+        Assert.Equal(RampEnd.Ground, BridgeTool.PlanRamp(world, plan, atStart: true)!.Ends);
+    }
+
     [Fact]
     public void A_ramp_toward_a_town_on_a_hill_meets_its_street_tile_level()
     {
