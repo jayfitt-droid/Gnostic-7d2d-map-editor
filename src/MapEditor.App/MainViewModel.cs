@@ -762,6 +762,9 @@ public sealed partial class MainViewModel : ObservableObject
     public System.Collections.ObjectModel.ObservableCollection<MapEditor.Core.Validate.ValidationIssue> Issues { get; } = [];
     [ObservableProperty] private string _issuesText = "Press Validate (F7) to check the world.";
 
+    /// <summary>Whether a Fix button fixed an issue since the world was opened, so the teleport list has something to show (#59).</summary>
+    [ObservableProperty] private bool _hasFixedIssues;
+
     /// <summary>Formats the cursor readout in the game's own terms (E/W, N/S, metres).</summary>
     public static string FormatPoint(PointInfo p)
     {

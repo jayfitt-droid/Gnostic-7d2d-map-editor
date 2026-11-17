@@ -465,6 +465,8 @@ public partial class MainWindow : Window
         _projectPath = null;
         _projectSettings = new ProjectStore.ProjectSettings();
         _vm.Issues.Clear();
+        _fixedIssues.Clear();
+        _vm.HasFixedIssues = false;
         _vm.IssuesText = "Press Validate (F7) to check the world.";
         _undo.Clear();
         _tools.CancelRoad();
@@ -759,10 +761,17 @@ public partial class MainWindow : Window
 
     private async void Validate_Executed(object sender, ExecutedRoutedEventArgs e) => await ValidateAsync(showPanel: true);
 
+    /// <summary>
+    /// Issues fixed with a Fix button while this world is open, for the teleport list (#59). A fix that is undone drops out
+    /// there, because Validate offers it again.
+    /// </summary>
+    private readonly List<FixedIssue> _fixedIssues = [];
+
     /// <summary>An issue's Fix button (#40): applies the fix as one undo step, then validates again so the list is current.</summary>
     private async void IssueFix_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { DataContext: ValidationIssue { Fix: { } fix } } || _world is not { } world || RefuseWhileBusy()) return;
+        if (sender is not FrameworkElement { DataContext: ValidationIssue { Fix: { } fix } issue } || _world is not { } world
+            || RefuseWhileBusy()) return;
         string? done = null;
         var reached = GridRect.Empty;
         if (!_edits.Run(world, fix.Label, session =>
@@ -771,6 +780,13 @@ public partial class MainWindow : Window
                 reached = session.Bounds;
             }))
             return;
+        if (done is not null)
+        {
+            // Fixed again after an undo: the newest record replaces the old one.
+            _fixedIssues.RemoveAll(f => f.SameFixAs(fix));
+            _fixedIssues.Add(FixedIssue.Of(world, issue, done));
+            _vm.HasFixedIssues = true;
+        }
         Map.InvalidateRegion(reached);
         Map.InvalidateVisual();
         await ValidateAsync(showPanel: false);
@@ -778,13 +794,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Saves a Markdown teleport list of Validate's issues. It validates again first, so the list matches the world as it is.
+    /// Saves a Markdown teleport list of Validate's issues and the issues fixed since the world was opened (#59). It
+    /// validates again first, so the list matches the world as it is.
     /// </summary>
     private async void ExportTeleportList_Click(object sender, RoutedEventArgs e)
     {
         if (_world is not { } world || RefuseWhileBusy()) return;
         var issues = await ValidateAsync(showPanel: false);
-        if (issues.Count == 0)
+        var spots = TeleportList.Build(world, issues, _vm.Prefabs, _fixedIssues);
+        if (spots.Count == 0)
         {
             _vm.Status = "No issues, so there is no teleport list to save.";
             return;
@@ -799,7 +817,6 @@ public partial class MainWindow : Window
         if (save.ShowDialog(this) != true) return;
         try
         {
-            var spots = TeleportList.Build(world, issues, _vm.Prefabs);
             File.WriteAllText(save.FileName, TeleportList.Markdown(world, spots));
             int count = spots.Count(s => s.Command is not null);
             _vm.Status = $"Saved {count} teleport{(count == 1 ? "" : "s")} to {Path.GetFileName(save.FileName)}";
@@ -1049,6 +1066,8 @@ public partial class MainWindow : Window
         _vm.Generate.HasWorld = false;
         _genTools.Refresh();
         _vm.Issues.Clear();
+        _fixedIssues.Clear();
+        _vm.HasFixedIssues = false;
         _vm.IssuesText = "Press Validate (F7) to check the world.";
         _vm.WorldSummary = "";
         _vm.WorldSizeText = "";
