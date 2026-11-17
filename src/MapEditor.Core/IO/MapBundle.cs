@@ -44,9 +44,9 @@ public static class MapBundle
         {
             if (!File.Exists(System.IO.Path.Combine(folder, WorldFiles.Prefabs))) continue;
             long bytes = 0;
-            // The size it adds to a bundle, so without the game's cache files.
-            foreach (string file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
-                if (!IsGameCache(file)) bytes += new FileInfo(file).Length;
+            // The size it adds to a bundle: the same files Write puts in.
+            foreach (string file in WorldFilesIn(folder))
+                bytes += new FileInfo(file).Length;
             result.Add(new WorldFolder(folder, System.IO.Path.GetFileName(folder), bytes, Directory.GetLastWriteTime(folder)));
         }
         return [.. result.OrderByDescending(w => w.Modified)];
@@ -182,12 +182,13 @@ public static class MapBundle
         foreach (string world in worlds)
         {
             string name = System.IO.Path.GetFileName(world.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
-            AddTree(files, world, root + "Worlds/" + name + "/", skip: IsGameCache);
+            AddTree(files, world, WorldFilesIn(world), root + "Worlds/" + name + "/");
         }
         foreach (var prefab in plan.Prefabs)
             foreach (string file in prefab.Files)
                 files.Add((file, root + PrefabsFolder + "/" + System.IO.Path.GetFileName(file)));
-        if (configFolder is { Length: > 0 }) AddTree(files, configFolder, root + "Config/");
+        if (configFolder is { Length: > 0 })
+            AddTree(files, configFolder, Directory.EnumerateFiles(configFolder, "*", SearchOption.AllDirectories), root + "Config/");
 
         long total = files.Sum(f => new FileInfo(f.Path).Length);
         string temp = zipPath + ".partial";
@@ -247,11 +248,30 @@ public static class MapBundle
                || stem.EndsWith("_half", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void AddTree(List<(string, string)> files, string folder, string entryRoot, Func<string, bool>? skip = null)
+    /// <summary>
+    /// The files of a world folder that go into a bundle: everything except the game's cache files and the folders
+    /// <see cref="WorldWriter"/> works in (<see cref="WorldWriter.StagingDir"/>, <see cref="WorldWriter.BackupDir"/>),
+    /// which an interrupted export can leave behind (#77). Other sub-folders are kept.
+    /// </summary>
+    public static IEnumerable<string> WorldFilesIn(string folder)
     {
         string full = System.IO.Path.GetFullPath(folder);
-        foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories).Order(StringComparer.OrdinalIgnoreCase))
-            if (skip is null || !skip(file))
-                files.Add((file, entryRoot + System.IO.Path.GetRelativePath(full, file).Replace('\\', '/')));
+        foreach (string file in Directory.EnumerateFiles(full))
+            if (!IsGameCache(file)) yield return file;
+        foreach (string dir in Directory.EnumerateDirectories(full))
+        {
+            string name = System.IO.Path.GetFileName(dir);
+            if (name.Equals(WorldWriter.StagingDir, StringComparison.OrdinalIgnoreCase)
+                || name.Equals(WorldWriter.BackupDir, StringComparison.OrdinalIgnoreCase)) continue;
+            foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                if (!IsGameCache(file)) yield return file;
+        }
+    }
+
+    private static void AddTree(List<(string, string)> files, string folder, IEnumerable<string> found, string entryRoot)
+    {
+        string full = System.IO.Path.GetFullPath(folder);
+        foreach (string file in found.Select(System.IO.Path.GetFullPath).Order(StringComparer.OrdinalIgnoreCase))
+            files.Add((file, entryRoot + System.IO.Path.GetRelativePath(full, file).Replace('\\', '/')));
     }
 }
