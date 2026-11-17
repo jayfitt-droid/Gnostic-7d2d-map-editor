@@ -59,6 +59,27 @@ public sealed class PlacedBridge
     };
 }
 
+/// <summary>Why a bridge's ramp ends where it does.</summary>
+public enum RampEnd
+{
+    /// <summary>It reaches the ground at <see cref="BridgeTool.RampGrade"/> or gentler.</summary>
+    Ground,
+    /// <summary>A prefab is in the way: it ends at its edge, level with its ground, at whatever grade that takes.</summary>
+    Prefab,
+    /// <summary>It runs as far as it may (<see cref="BridgeTool.MaxRamp"/> or the world's edge) without reaching the ground.</summary>
+    Longest,
+}
+
+/// <summary>
+/// Where one of a bridge's ramps runs, in grid metres: from the deck end <see cref="From"/> to <see cref="To"/>. The
+/// <see cref="Grade"/> is its average rise over run; <see cref="Prefab"/> names the prefab it stops at, if any.
+/// </summary>
+public sealed record RampPlan(Vector2 From, Vector2 To, float Length, float Grade, RampEnd Ends, string? Prefab)
+{
+    /// <summary>Steeper than the grade ramps are sized for.</summary>
+    public bool Steep => Grade > BridgeTool.RampGrade + 0.005f;
+}
+
 /// <summary>
 /// The Bridge tool's logic: snapping a drag to a bridge, choosing its deck height, building it with ramps down to the
 /// ground, and moving, resizing and taking it down. Every change is made in the caller's <see cref="EditSession"/>.
@@ -233,38 +254,59 @@ public static class BridgeTool
     /// </summary>
     private static byte[]? DrawRamp(World world, BridgePlan plan, bool atStart, EditSession session)
     {
+        if (PlanRamp(world, plan, atStart) is not { } ramp) return null;
+        float deck = plan.DeckTop;
+        var path = new RoadPath([ramp.From, ramp.To], RoadType.Asphalt, BridgeOp.Width / 2f);
+        // A prefab in the way (a town's street tile, a POI): the ramp ends at its edge, level with its ground there, as the
+        // highway stage's roads meet prefabs. It climbs (or drops) at one even grade on the way, the gentlest the room allows.
+        if (ramp.Ends == RampEnd.Prefab)
+        {
+            float ground = PrefabAhead(world, plan, ramp.From, Direction(plan, atStart), ramp.Length)!.Value.Ground;
+            return HighwayStage.Capture(world, path, () =>
+                RoadOp.Draw(world, path, session, (_, line) => HeldProfile(line, deck, ground, Math.Max(0, ramp.Length - HeldLevel))));
+        }
+        return HighwayStage.Capture(world, path, () =>
+            RoadOp.Draw(world, path, session, (w, line) => ApproachProfile(w, line, path.Type, deck, null, ramp.Length)));
+    }
+
+    private static Vector2 Direction(BridgePlan plan, bool atStart) =>
+        plan.AlongZ ? new Vector2(0, atStart ? -1 : 1) : new Vector2(atStart ? -1 : 1, 0);
+
+    /// <summary>
+    /// Where the ramp at one end of <paramref name="plan"/> would run, as <see cref="Place"/> builds it, without changing
+    /// anything (the Bridge tool's preview shows it). Null when the bridge ends at the edge of the world.
+    /// </summary>
+    public static RampPlan? PlanRamp(World world, BridgePlan plan, bool atStart)
+    {
         var from = plan.At(atStart ? plan.Start : plan.End);
-        var dir = plan.AlongZ ? new Vector2(0, atStart ? -1 : 1) : new Vector2(atStart ? -1 : 1, 0);
+        var dir = Direction(plan, atStart);
         float room = (plan.AlongZ ? dir.Y : dir.X) < 0 ? (plan.AlongZ ? from.Y : from.X) : world.Size - (plan.AlongZ ? from.Y : from.X);
         room -= 1;
         if (room < 8) return null;
 
         float deck = plan.DeckTop;
         float length = RampLength(world, from, dir, deck, room);
-
-        // A prefab in the way (a town's street tile, a POI): the ramp ends at its edge, level with its ground there, as the
-        // highway stage's roads meet prefabs. It climbs (or drops) at one even grade on the way, the gentlest the room allows.
-        if (PrefabAhead(world, plan, from, dir, length) is var (edge, ground))
+        if (PrefabAhead(world, plan, from, dir, length) is var (edge, ground, name))
         {
             float stop = Math.Min(edge, Math.Min(room, MaxRamp));
             if (stop < 1) return null;
-            var held = new RoadPath([from, from + dir * stop], RoadType.Asphalt, BridgeOp.Width / 2f);
-            return HighwayStage.Capture(world, held, () =>
-                RoadOp.Draw(world, held, session, (_, line) => HeldProfile(line, deck, ground, Math.Max(0, stop - HeldLevel))));
+            float run = Math.Max(1, stop - HeldLevel);
+            return new RampPlan(from, from + dir * stop, stop, MathF.Abs(ground - deck) / run, RampEnd.Prefab, name);
         }
 
-        var path = new RoadPath([from, from + dir * length], RoadType.Asphalt, BridgeOp.Width / 2f);
-        return HighwayStage.Capture(world, path, () =>
-            RoadOp.Draw(world, path, session, (w, line) => ApproachProfile(w, line, path.Type, deck, null, length)));
+        var (x, z) = Cell(world, from + dir * length);
+        float rise = MathF.Abs(World.HeightToMetres(world.Height[x, z]) - deck);
+        bool reached = rise <= RampGrade * length + 0.01f;
+        return new RampPlan(from, from + dir * length, length, rise / length, reached ? RampEnd.Ground : RampEnd.Longest, null);
     }
 
     /// <summary>
     /// The nearest prefab a ramp of <paramref name="length"/> from <paramref name="from"/> would come within
     /// <see cref="HighwayStage.PathGrid.HoldReach"/> of (beside the ramp or ahead of it): how far along the ramp its
-    /// footprint starts, and its road level. Bridge pieces, deck wrecks and parts don't count. Null when none is that close, or when the
+    /// footprint starts, its road level and its name. Bridge pieces, deck wrecks and parts don't count. Null when none is that close, or when the
     /// kit has no prefab library to measure footprints with.
     /// </summary>
-    private static (float Edge, float Ground)? PrefabAhead(World world, BridgePlan plan, Vector2 from, Vector2 dir, float length)
+    private static (float Edge, float Ground, string Name)? PrefabAhead(World world, BridgePlan plan, Vector2 from, Vector2 dir, float length)
     {
         if (plan.Kit.Library is not { } library) return null;
         const int Reach = HighwayStage.PathGrid.HoldReach;
@@ -272,7 +314,7 @@ public static class BridgeTool
         bool alongZ = plan.AlongZ;
         float sign = alongZ ? dir.Y : dir.X;
         float start = alongZ ? from.Y : from.X, across = alongZ ? from.X : from.Y;
-        (float Edge, float Ground)? best = null;
+        (float Edge, float Ground, string Name)? best = null;
         foreach (var p in world.Prefabs)
         {
             if (library.Find(p.Name) is not { IsPart: false, IsBridge: false } info || IsWreck(p.Name)) continue;
@@ -285,7 +327,7 @@ public static class BridgeTool
             if (far <= 0) continue;
             float edge = Math.Max(0, near);
             if (edge - Reach >= length || (best is { } b && b.Edge <= edge)) continue;
-            best = (edge, info.RoadLevelAbove(p.Position.Y));
+            best = (edge, info.RoadLevelAbove(p.Position.Y), p.Name);
         }
         return best;
     }
