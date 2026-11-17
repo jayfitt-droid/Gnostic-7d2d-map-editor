@@ -316,6 +316,8 @@
 
         <!-- More settings inside a stage (#48): a "▸ Per biome" link in the accent colour, so it doesn't look like a drop-down list. -->
         <Style x:Key="LinkExpander" TargetType="Expander">
+            <!-- Without this the theme's black text colour reaches the content (#71). -->
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Expander">
@@ -356,6 +358,9 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="True">
                                 <Setter TargetName="Body" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
