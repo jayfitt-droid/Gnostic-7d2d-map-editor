@@ -273,6 +273,26 @@ public sealed class PrefabTests : IDisposable
     }
 
     [Fact]
+    public void A_poi_placed_without_lot_snapping_goes_where_it_is_put()
+    {
+        var world = Flat();
+        var tile = Tile(lotRotations: 0);
+        var poi = Poi("house", 20, 16, yOffset: -3, faceNorth: 2);
+        var library = PrefabLibrary.Of([tile, poi]);
+        world.Prefabs.Add(new PrefabInstance { Name = tile.Name, Position = new Int3(-150, 28, -150), Rotation = 0 });
+        const float x = -120 + 512, z = -115 + 512;
+
+        // Alt held (#60): no lot, centred on the cursor with the rotation asked for, also when dragged with a lot turn.
+        var free = PrefabPlacer.SpotAt(world, library, poi, x, z, 1, out var lot, snapLots: false);
+        Assert.Null(lot);
+        Assert.Equal((-120 - 8, -115 - 10, 1), (free.X, free.Z, free.Rotation));
+        var dragged = PrefabPlacer.SpotAt(world, library, poi, x, z, 1, out lot, lotTurns: 1, faceStreetIfTurnedDoesNotFit: true,
+            snapLots: false);
+        Assert.Null(lot);
+        Assert.Equal(free, dragged);
+    }
+
+    [Fact]
     public void Too_big_poi_does_not_snap_into_a_lot()
     {
         var world = Flat();
