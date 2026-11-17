@@ -250,6 +250,29 @@ public sealed class PrefabTests : IDisposable
     }
 
     [Fact]
+    public void A_dragged_poi_keeps_its_lot_turn_if_it_fits_and_faces_the_street_if_not()
+    {
+        var world = Flat();
+        var tile = Tile();
+        var poi = Poi("shop", 36, 28);   // the lot is 40 x 30: fits facing the street or turned twice, not turned once
+        var library = PrefabLibrary.Of([tile, poi]);
+        world.Prefabs.Add(new PrefabInstance { Name = tile.Name, Position = new Int3(-150, 28, -150) });
+        const float x = -120 + 512, z = -115 + 512;
+
+        // Turned twice it fits, so it keeps the turn (#42).
+        var kept = PrefabPlacer.SpotAt(world, library, poi, x, z, 0, out var lot, lotTurns: 2, faceStreetIfTurnedDoesNotFit: true);
+        Assert.True(lot!.Fits);
+        Assert.Equal(PrefabPlacer.SpotAt(world, library, poi, x, z, 0, out _, lotTurns: 2), kept);
+
+        // Turned once it doesn't fit: without the option it stays out of the lot; with it, it faces the street in the lot.
+        PrefabPlacer.SpotAt(world, library, poi, x, z, 0, out lot, lotTurns: 1);
+        Assert.False(lot!.Fits);
+        var facing = PrefabPlacer.SpotAt(world, library, poi, x, z, 0, out lot, lotTurns: 1, faceStreetIfTurnedDoesNotFit: true);
+        Assert.True(lot!.Fits);
+        Assert.Equal(PrefabPlacer.SpotAt(world, library, poi, x, z, 0, out _, lotTurns: 0), facing);
+    }
+
+    [Fact]
     public void Too_big_poi_does_not_snap_into_a_lot()
     {
         var world = Flat();

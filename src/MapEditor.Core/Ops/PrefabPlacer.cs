@@ -221,11 +221,25 @@ public static class PrefabPlacer
     /// the height of a neighbouring tile; POIs snap into a street-tile lot under the cursor when they fit
     /// (<paramref name="lot"/>). Otherwise a prefab that meets a road takes the road's height, so the road stays as
     /// drawn and meets it level, else it sits on the median ground. In a lot the POI faces the street, turned
-    /// <paramref name="lotTurns"/> quarter turns more (#37).
+    /// <paramref name="lotTurns"/> quarter turns more (#37). With <paramref name="faceStreetIfTurnedDoesNotFit"/>, a POI
+    /// that doesn't fit the lot turned that way faces the street instead, if it fits like that (a dragged POI, #42).
     /// </summary>
     public static PrefabSpot SpotAt(World world, PrefabLibrary library, PrefabInfo info, float gx, float gz, int rotation,
-        out LotSnap? lot, IReadOnlyCollection<PrefabInstance>? ignore = null, bool snapTiles = true, int lotTurns = 0)
+        out LotSnap? lot, IReadOnlyCollection<PrefabInstance>? ignore = null, bool snapTiles = true, int lotTurns = 0,
+        bool faceStreetIfTurnedDoesNotFit = false)
     {
+        if (faceStreetIfTurnedDoesNotFit && (lotTurns & 3) != 0)
+        {
+            var turned = SpotAt(world, library, info, gx, gz, rotation, out lot, ignore, snapTiles, lotTurns);
+            if (lot is not { Fits: false }) return turned;
+            var facing = SpotAt(world, library, info, gx, gz, rotation, out var facingLot, ignore, snapTiles, 0);
+            if (facingLot is { Fits: true })
+            {
+                lot = facingLot;
+                return facing;
+            }
+            return turned;
+        }
         lot = null;
         rotation &= 3;
         // Towns start their 150 m grid at the corner they were drawn from, so follow the grid of the nearest street
