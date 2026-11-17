@@ -265,6 +265,16 @@ public sealed class MapView : FrameworkElement
         nameof(ShowSpawns), typeof(bool), typeof(MapView),
         new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public bool ShowWorldGrid
+    {
+        get => (bool)GetValue(ShowWorldGridProperty);
+        set => SetValue(ShowWorldGridProperty, value);
+    }
+
+    public static readonly DependencyProperty ShowWorldGridProperty = DependencyProperty.Register(
+        nameof(ShowWorldGrid), typeof(bool), typeof(MapView),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
     private PrefabGhost? _prefabGhost;
 
     /// <summary>The prefab the Prefabs tool is about to place or drop.</summary>
@@ -643,6 +653,7 @@ public sealed class MapView : FrameworkElement
             }
 
         if (DimMap) dc.DrawRectangle(DimBrush, null, new Rect(RenderSize));
+        if (ShowWorldGrid) DrawWorldGrid(dc, visible);
         if (ShowPrefabs) DrawPrefabs(dc, visible);
         if (ShowSpawns) DrawSpawns(dc, visible);
         DrawSearchMatches(dc, visible);
@@ -984,6 +995,50 @@ public sealed class MapView : FrameworkElement
         var b = MapToScreen(new Point((tx + 1) * metres, (ty + 1) * metres));
         double Snap(double v) => Math.Round(v * dpi) / dpi;
         return new Rect(new Point(Snap(a.X), Snap(a.Y)), new Point(Snap(b.X), Snap(b.Y)));
+    }
+
+    /// <summary>The thinnest a grid cell may be on screen, in DIPs, before the grid is left out as clutter.</summary>
+    private const double WorldGridMinCell = 8;
+
+    /// <summary>From <see cref="WorldGridMinCell"/> up to this cell size the grid fades in, so it doesn't pop up as a dense mesh.</summary>
+    private const double WorldGridFullCell = 48;
+
+    private static readonly Pen WorldGridPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(120, 255, 255, 255)), 1));
+    private static readonly Pen WorldGridShadowPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(55, 0, 0, 0)), 1));
+
+    /// <summary>
+    /// The world's shared 150 m street-tile grid, counted from its south-west corner as the Town sites stage and the
+    /// Town tool count it (<see cref="TownGenerator.NearestGridLine"/>), so the lines are where towns snap.
+    /// </summary>
+    private void DrawWorldGrid(DrawingContext dc, Rect visible)
+    {
+        double cell = TownGenerator.Tile * _scale;
+        if (_renderer is null || cell < WorldGridMinCell) return;
+        int size = _renderer.World.Size;
+        int last = size / TownGenerator.Tile * TownGenerator.Tile;
+        var corner = MapToScreen(new Point(0, 0));
+        var far = MapToScreen(new Point(size, size));
+        // Lines on whole device pixels (plus half a pixel for a 1-pixel pen) stay sharp instead of smearing over two.
+        double dip = 1 / PixelsPerDip;
+        double Crisp(double v) => (Math.Floor(v / dip) + 0.5) * dip;
+
+        var vertical = new List<double>();
+        var horizontal = new List<double>();
+        for (int g = 0; g <= last; g += TownGenerator.Tile)
+        {
+            // Map x runs east; map y runs south, so grid z = g is map y = size - g.
+            if (g >= visible.Left - 1 && g <= visible.Right + 1) vertical.Add(Crisp(MapToScreen(new Point(g, 0)).X));
+            double y = size - g;
+            if (y >= visible.Top - 1 && y <= visible.Bottom + 1) horizontal.Add(Crisp(MapToScreen(new Point(0, y)).Y));
+        }
+
+        dc.PushOpacity(Math.Clamp((cell - WorldGridMinCell) / (WorldGridFullCell - WorldGridMinCell), 0.15, 1));
+        // A faint dark line one pixel beside each light one keeps the grid readable on snow and sand.
+        foreach (var x in vertical) dc.DrawLine(WorldGridShadowPen, new Point(x + dip, corner.Y), new Point(x + dip, far.Y));
+        foreach (var y in horizontal) dc.DrawLine(WorldGridShadowPen, new Point(corner.X, y + dip), new Point(far.X, y + dip));
+        foreach (var x in vertical) dc.DrawLine(WorldGridPen, new Point(x, corner.Y), new Point(x, far.Y));
+        foreach (var y in horizontal) dc.DrawLine(WorldGridPen, new Point(corner.X, y), new Point(far.X, y));
+        dc.Pop();
     }
 
     private void DrawPrefabs(DrawingContext dc, Rect visible)

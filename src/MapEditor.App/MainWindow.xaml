@@ -250,6 +250,8 @@
                                         <CheckBox Content="Prefab de_tail when zoomed in" IsChecked="{Binding ShowPrefabDetail}" Margin="22,3,0,3"
                                                   IsEnabled="{Binding ShowPrefabs}" ToolTip="Draw street tiles and POIs from above: roads, pavements and buildings" />
                                         <CheckBox Content="_Spawn points" IsChecked="{Binding ShowSpawns}" Margin="0,3" />
+                                        <CheckBox Content="World _grid (150 m, where towns snap)" IsChecked="{Binding ShowWorldGrid}" Margin="0,3"
+                                                  ToolTip="The world's 150 m street-tile grid. Town sites and the Town tool put towns on it. Shows once you zoom in far enough." />
                                         <Separator Margin="0,6" />
                                         <CheckBox Content="_Dim the map (prefabs stand out)" IsChecked="{Binding DimMap}" Margin="0,3" />
                                     </StackPanel>
@@ -1448,6 +1450,7 @@
                          ShowPrefabs="{Binding ShowPrefabs}"
                          ShowPrefabDetail="{Binding ShowPrefabDetail}"
                          ShowSpawns="{Binding ShowSpawns}"
+                         ShowWorldGrid="{Binding ShowWorldGrid}"
                          DimMap="{Binding DimMap}"
                          AutomationProperties.Name="Map" />
 
