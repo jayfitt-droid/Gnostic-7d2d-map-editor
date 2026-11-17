@@ -165,10 +165,11 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsTownTool => SelectedTool == EditorTool.Town;
 
     /// <summary>
-    /// Tools whose text under the ribbon changes as the mouse moves (a warning, a lot, what's replaced): it keeps room
-    /// for its longest, so the map below doesn't jump.
+    /// While a prefab or trader is being placed, or a town is planned, the text under the ribbon changes as the mouse
+    /// moves (a warning, a lot, what's replaced): it keeps room for its longest, so the map below doesn't jump. Otherwise
+    /// the strip is only as tall as its text (#48).
     /// </summary>
-    public bool ReservesInfoLines => IsPrefabTool || IsTownTool || IsSpawnTool || IsSelectTool;
+    public bool ReservesInfoLines => PlacingPrefab is not null || IsTownTool && HasTownPlan;
     public bool HasRadius => IsBrushTool || IsBiomeTool || IsRadiationTool || IsRoadTool;
 
     [ObservableProperty] private double _brushRadius = 60;
@@ -284,7 +285,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _prefabResultsText = "";
 
     /// <summary>The prefab chosen in the browser; while set, clicks on the map place it.</summary>
-    [ObservableProperty] private PrefabInfo? _selectedPrefabInfo;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ReservesInfoLines))]
+    private PrefabInfo? _selectedPrefabInfo;
 
     /// <summary>Quarter turns for the prefab being placed (0-3, as written to prefabs.xml).</summary>
     [ObservableProperty] private int _prefabRotation;
@@ -525,7 +528,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private IReadOnlyList<PrefabInfo> _traders = [];
 
     /// <summary>The trader the Trader tool places.</summary>
-    [ObservableProperty] private PrefabInfo? _selectedTrader;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ReservesInfoLines))]
+    private PrefabInfo? _selectedTrader;
 
     /// <summary>Picks a different trader at random (any trader if there is only one).</summary>
     public void PickRandomTrader()
@@ -589,7 +594,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>Describes the selection and the planned town.</summary>
     [ObservableProperty] private string _townText = "";
-    [ObservableProperty] private bool _hasTownPlan;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ReservesInfoLines))]
+    private bool _hasTownPlan;
 
     [ObservableProperty] private string _undoText = "Undo";
     [ObservableProperty] private string _redoText = "Redo";
