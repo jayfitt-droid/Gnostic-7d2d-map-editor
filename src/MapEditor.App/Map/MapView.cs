@@ -331,6 +331,22 @@ public sealed class MapView : FrameworkElement
         }
     }
 
+    private IReadOnlySet<PrefabInstance>? _hiddenPrefabs;
+
+    /// <summary>Prefabs not drawn: one being dragged and what stands on it, so only its ghost under the cursor shows.</summary>
+    public IReadOnlySet<PrefabInstance>? HiddenPrefabs
+    {
+        get => _hiddenPrefabs;
+        set
+        {
+            if (ReferenceEquals(_hiddenPrefabs, value)) return;
+            _hiddenPrefabs = value;
+            InvalidateVisual();
+        }
+    }
+
+    private bool Hidden(PrefabInstance p) => _hiddenPrefabs?.Contains(p) == true;
+
     private PrefabInstance? _selectedPrefab;
 
     public PrefabInstance? SelectedPrefab
@@ -986,6 +1002,7 @@ public sealed class MapView : FrameworkElement
             foreach (bool tiles in new[] { true, false })
                 foreach (var p in world.ShownPrefabs)
                 {
+                    if (Hidden(p)) continue;
                     if (p.Name.StartsWith("rwg_tile_", StringComparison.Ordinal) != tiles) continue;
                     if (Prefabs.Find(p.Name) is not { } info) continue;
                     var (sx, sz) = info.Footprint(p.Rotation);
@@ -1001,6 +1018,7 @@ public sealed class MapView : FrameworkElement
         // Street tiles first, then their lots, then POIs and parts on top.
         foreach (var p in world.ShownPrefabs)
         {
+            if (Hidden(p)) continue;
             if (!p.Name.StartsWith("rwg_tile_", StringComparison.Ordinal)) continue;
             var rect = PrefabMapRect(p, half);
             if (!rect.IntersectsWith(visible)) continue;
@@ -1017,6 +1035,7 @@ public sealed class MapView : FrameworkElement
         {
             foreach (var p in world.ShownPrefabs)
             {
+                if (Hidden(p)) continue;
                 if (Prefabs.Find(p.Name) is not { Markers.Count: > 0 } info) continue;
                 if (!PrefabMapRect(p, half).IntersectsWith(visible)) continue;
                 foreach (var m in info.RotatedMarkers(p.Rotation))
@@ -1030,6 +1049,7 @@ public sealed class MapView : FrameworkElement
         var traders = new List<(Rect Rect, bool Detailed)>();
         foreach (var p in world.ShownPrefabs)
         {
+            if (Hidden(p)) continue;
             if (p.Name.StartsWith("rwg_tile_", StringComparison.Ordinal)) continue;
             var rect = PrefabMapRect(p, half);
             if (!rect.IntersectsWith(visible)) continue;
@@ -1058,12 +1078,12 @@ public sealed class MapView : FrameworkElement
         }
         _overlay.End(dc, RenderSize);
 
-        if (_hoverPrefab is { } hover && !ReferenceEquals(hover, _selectedPrefab))
+        if (_hoverPrefab is { } hover && !ReferenceEquals(hover, _selectedPrefab) && !Hidden(hover))
         {
             var rect = PrefabMapRect(hover, half);
             dc.DrawRectangle(HoverFill, HoverPen, new Rect(MapToScreen(rect.TopLeft), MapToScreen(rect.BottomRight)));
         }
-        if (_selectedPrefab is { } selected)
+        if (_selectedPrefab is { } selected && !Hidden(selected))
         {
             var rect = PrefabMapRect(selected, half);
             var screen = new Rect(MapToScreen(rect.TopLeft), MapToScreen(rect.BottomRight));

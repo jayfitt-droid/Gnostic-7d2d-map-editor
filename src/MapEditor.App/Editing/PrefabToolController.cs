@@ -24,6 +24,10 @@ public sealed class PrefabToolController
 
     // Prefab drag: the prefab, where it was grabbed relative to its footprint centre, and where it would land.
     private PrefabInstance? _dragging;
+    /// <summary>Quarter turns given with Q/E while dragging; they turn the ghost and are applied on the drop (one undo step).</summary>
+    private int _dragTurns;
+    /// <summary>Where the cursor last was in a drag, so Q/E can redraw the ghost without a mouse move.</summary>
+    private Point _dragAt;
     private Vector _grab;
     private PrefabSpot? _dropSpot;
     private List<PrefabInstance> _dropCovered = []; // POIs the dragged one covers and replaces on drop
@@ -145,6 +149,8 @@ public sealed class PrefabToolController
         var centre = new Point(world.WorldToGrid(under.Position.X) + sx / 2.0, world.WorldToGrid(under.Position.Z) + sz / 2.0);
         _dragging = under;
         _grab = grid - centre;
+        _dragAt = grid;
+        _dragTurns = 0;
         _dropSpot = null;
     }
 
@@ -293,11 +299,16 @@ public sealed class PrefabToolController
     {
         var p = _dragging!;
         if (Library.Find(p.Name) is not { } info) return;
+        _dragAt = grid;
         var centre = grid - _grab;
         var ignore = PrefabPlacer.Contents(world, Library, p);
         ignore.Add(p);
-        var spot = PrefabPlacer.SpotAt(world, Library, info, (float)centre.X, (float)centre.Y, p.Rotation, out var lot, ignore,
-            snapTiles: SnapsTiles, lotTurns: LotTurnsOf(world, p, info, ignore).Turns);
+        // Only the ghost shows while dragging: the prefab and what stands on it leave their old place.
+        _map.HiddenPrefabs ??= new HashSet<PrefabInstance>(ignore, ReferenceEqualityComparer.Instance);
+        // A POI turned in its lot keeps that turn from the street in the lot it's dragged to (#42), plus any Q/E
+        // turns given while dragging. If it doesn't fit there turned, it faces the street instead.
+        var spot = PrefabPlacer.SpotAt(world, Library, info, (float)centre.X, (float)centre.Y, p.Rotation + _dragTurns, out var lot, ignore,
+            snapTiles: SnapsTiles, lotTurns: LotTurnsOf(world, p, info, ignore).Turns + _dragTurns, faceStreetIfTurnedDoesNotFit: true);
         spot = Snapped(world, info, spot, lot, ignore);
         _dropInLot = lot is { Fits: true };
         _dropSpot = spot;
@@ -311,7 +322,9 @@ public sealed class PrefabToolController
     {
         var p = _dragging!;
         _dragging = null;
+        _dragTurns = 0;
         _map.PrefabGhost = null;
+        _map.HiddenPrefabs = null;
         if (_dropSpot is not { } spot || spot.Position == p.Position && spot.Rotation == p.Rotation)
         {
             Select(p);
@@ -402,6 +415,13 @@ public sealed class PrefabToolController
         {
             _vm.PrefabRotation = (_vm.PrefabRotation + quarterTurns) & 3;
             UpdateGhost();
+            return;
+        }
+        // While dragging, Q/E turns the prefab under the cursor; the turn is made on the drop.
+        if (_dragging is not null)
+        {
+            _dragTurns = (_dragTurns + quarterTurns) & 3;
+            DragTo(world, _dragAt);
             return;
         }
         if (Locked(_selected)) return;
@@ -640,6 +660,8 @@ public sealed class PrefabToolController
     public void Refresh()
     {
         _dragging = null;
+        _dragTurns = 0;
+        _map.HiddenPrefabs = null;
         _spawnSession = null;
         if (World is not { } world || _selected is not null && !world.ShownPrefabs.Contains(_selected)) _selected = null;
         if (World is null || _selectedSpawn is not null && !World.Spawns.Contains(_selectedSpawn)) _selectedSpawn = null;
