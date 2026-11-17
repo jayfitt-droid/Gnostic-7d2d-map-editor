@@ -35,8 +35,17 @@ public enum BridgePreviewKind
     Dragging,
 }
 
-/// <summary>A bridge about to be built or being edited: its deck in map coordinates, its pieces and a label (length and deck height).</summary>
-public sealed record BridgePreview(Rect MapRect, bool AlongZ, int Pieces, string Label, BridgePreviewKind Kind);
+/// <summary>
+/// A bridge about to be built or being edited: its deck in map coordinates, its pieces, a label (length, deck height and
+/// ramps) and the ramps it would get (#43).
+/// </summary>
+public sealed record BridgePreview(Rect MapRect, bool AlongZ, int Pieces, string Label, BridgePreviewKind Kind)
+{
+    public IReadOnlyList<RampPreview> Ramps { get; init; } = [];
+}
+
+/// <summary>A ramp in a bridge preview: the road it would pave, in map coordinates, and whether it needs a look (steep, or stopped short).</summary>
+public sealed record RampPreview(Rect MapRect, bool Warning);
 
 /// <summary>Where the road tool would put its next point for the mouse, and whether that is on a road's end.</summary>
 public sealed record RoadSnap(Point MapPoint, bool OnEnd);

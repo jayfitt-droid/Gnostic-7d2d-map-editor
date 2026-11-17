@@ -699,6 +699,15 @@ public sealed class MapView : FrameworkElement
     private static readonly Brush BridgePlannedBrush = Frozen(new SolidColorBrush(Color.FromArgb(150, 120, 255, 160)));
     private static readonly Brush BridgeGhostBrush = Frozen(new SolidColorBrush(Color.FromArgb(90, 255, 220, 120)));
     private static readonly Brush BridgeLabelBackground = Frozen(new SolidColorBrush(Color.FromArgb(200, 20, 20, 24)));
+    private static readonly Pen DeckEndPen = Frozen(new Pen(Brushes.White, 3) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round });
+    private static readonly Pen DeckEndShadowPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)), 5.5)
+    {
+        StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round,
+    });
+    private static readonly Brush RampBrush = Frozen(new SolidColorBrush(Color.FromArgb(35, 255, 255, 255)));
+    private static readonly Pen RampPen = Frozen(new Pen(Brushes.White, 1.5) { DashStyle = DashStyles.Dash });
+    private static readonly Brush RampWarnBrush = Frozen(new SolidColorBrush(Color.FromArgb(70, 255, 150, 40)));
+    private static readonly Pen RampWarnPen = Frozen(new Pen(new SolidColorBrush(Color.FromRgb(255, 150, 40)), 1.5) { DashStyle = DashStyles.Dash });
     private static readonly Pen BridgeJointPen = Frozen(new Pen(new SolidColorBrush(Color.FromArgb(200, 20, 20, 24)), 1));
 
     /// <summary>The bridge being aimed, planned, selected or dragged: the deck's footprint split into its 9 m pieces, with a label.</summary>
@@ -707,6 +716,14 @@ public sealed class MapView : FrameworkElement
         if (_bridgePreviews is not { } source || _mouseMap is not { } mouse) return;
         foreach (var bridge in source(mouse))
         {
+            // The ramps first, so the deck sits on top where they meet (#43).
+            foreach (var ramp in bridge.Ramps)
+            {
+                var r = new Rect(MapToScreen(ramp.MapRect.TopLeft), MapToScreen(ramp.MapRect.BottomRight));
+                dc.DrawRectangle(ramp.Warning ? RampWarnBrush : RampBrush, null, r);
+                dc.DrawRectangle(null, CursorShadowPen, r);
+                dc.DrawRectangle(null, ramp.Warning ? RampWarnPen : RampPen, r);
+            }
             var box = new Rect(MapToScreen(bridge.MapRect.TopLeft), MapToScreen(bridge.MapRect.BottomRight));
             var fill = bridge.Kind switch
             {
@@ -725,10 +742,30 @@ public sealed class MapView : FrameworkElement
             }
             dc.DrawRectangle(null, CursorShadowPen, box);
             dc.DrawRectangle(null, CursorPen, box);
+            // A bar across each deck end, a little wider than the deck, so it's plain where the deck stops and a ramp starts.
+            if (bridge.Ramps.Count > 0)
+            {
+                const double Over = 4;
+                if (bridge.AlongZ)
+                    foreach (double y in new[] { box.Top, box.Bottom })
+                    {
+                        dc.DrawLine(DeckEndShadowPen, new Point(box.Left - Over, y), new Point(box.Right + Over, y));
+                        dc.DrawLine(DeckEndPen, new Point(box.Left - Over, y), new Point(box.Right + Over, y));
+                    }
+                else
+                    foreach (double x in new[] { box.Left, box.Right })
+                    {
+                        dc.DrawLine(DeckEndShadowPen, new Point(x, box.Top - Over), new Point(x, box.Bottom + Over));
+                        dc.DrawLine(DeckEndPen, new Point(x, box.Top - Over), new Point(x, box.Bottom + Over));
+                    }
+            }
             if (bridge.Label.Length == 0) continue;
             var text = new FormattedText(bridge.Label, System.Globalization.CultureInfo.CurrentUICulture,
                 FlowDirection.LeftToRight, new Typeface("Segoe UI"), 12, Brushes.White, PixelsPerDip);
-            var at = new Point(box.Left, box.Bottom + 4);
+            // Beside the deck, clear of the ramps: right of a north-south bridge, level with its middle; below an east-west one.
+            var at = bridge.AlongZ
+                ? new Point(box.Right + 12, box.Top + (box.Height - text.Height) / 2)
+                : new Point(box.Left + (box.Width - text.Width) / 2, box.Bottom + 10);
             dc.DrawRoundedRectangle(BridgeLabelBackground, null, new Rect(at.X - 4, at.Y - 2, text.Width + 8, text.Height + 4), 3, 3);
             dc.DrawText(text, at);
         }
