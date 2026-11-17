@@ -118,6 +118,46 @@ public sealed class LandField
     /// <summary>Share of the cells that are land.</summary>
     public float LandShare() => _distance.Count(d => d > 0) / (float)_distance.Length;
 
+    /// <summary>
+    /// The islands: each cell's island number as [x, z] (-1 for sea), and each island's middle in world metres (z from
+    /// the south) and size in cells. Cells that touch side by side are one island.
+    /// </summary>
+    public (int[,] Labels, List<(float X, float Z, int Cells)> Islands) Islands()
+    {
+        var labels = new int[Width, Width];
+        for (int z = 0; z < Width; z++)
+            for (int x = 0; x < Width; x++)
+                labels[x, z] = -1;
+        var islands = new List<(float X, float Z, int Cells)>();
+        var queue = new Queue<(int X, int Z)>();
+        for (int z0 = 0; z0 < Width; z0++)
+            for (int x0 = 0; x0 < Width; x0++)
+            {
+                if (labels[x0, z0] >= 0 || !IsLandCell(x0, z0)) continue;
+                int id = islands.Count, cells = 0;
+                double sx = 0, sz = 0;
+                labels[x0, z0] = id;
+                queue.Enqueue((x0, z0));
+                while (queue.TryDequeue(out var c))
+                {
+                    cells++;
+                    sx += c.X;
+                    sz += c.Z;
+                    foreach (var (dx, dz) in Sides)
+                    {
+                        int x = c.X + dx, z = c.Z + dz;
+                        if (x < 0 || z < 0 || x >= Width || z >= Width || labels[x, z] >= 0 || !IsLandCell(x, z)) continue;
+                        labels[x, z] = id;
+                        queue.Enqueue((x, z));
+                    }
+                }
+                islands.Add(((float)(sx / cells + 0.5) * Cell, (float)(sz / cells + 0.5) * Cell, cells));
+            }
+        return (labels, islands);
+    }
+
+    private static readonly (int, int)[] Sides = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+
     /// <summary>Share of land in each tile of <paramref name="tileSize"/> metres, as [x, z].</summary>
     public float[,] TileLand(int tileSize)
     {

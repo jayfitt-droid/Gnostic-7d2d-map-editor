@@ -16,6 +16,11 @@ public enum BiomeLayoutKind
     Circle2,
     /// <summary>Every biome along a line across the middle.</summary>
     Line,
+    /// <summary>
+    /// One biome per island of an archipelago, harder outward from the middle (#46). Not RWG's. Saved as a number: added
+    /// last so older saves keep theirs.
+    /// </summary>
+    PerIsland,
 }
 
 /// <summary>A biome and its share of the map (a weight; the shares are compared with each other, not percentages).</summary>
@@ -283,6 +288,128 @@ public static class BiomeLayout
         Land,
         Sea,
     }
+
+    /// <summary>The biomes in the order a player progresses through them: forest first, wasteland last.</summary>
+    private static readonly uint[] Progression = [ForestColor, BurntColor, DesertColor, SnowColor, WastelandColor];
+
+    /// <summary>
+    /// Which step of the progression (0 = forest) each island gets, as each biome's share of the land by area asks (#46).
+    /// The start island is the one whose size best fits the first biome's share, the nearer the middle the better when
+    /// two fit about as well. From it the islands, in order of distance, are split into one run per biome in progression
+    /// order, so the order holds outward. With at least as many islands as biomes every biome gets one or more; with
+    /// fewer each island gets a biome of its own. Of those splits it takes the one whose areas come closest to the
+    /// shares. An island can't be split, so the match is close, not exact.
+    /// </summary>
+    public static int[] AssignIslands(IReadOnlyList<(float X, float Z, int Cells)> islands, IReadOnlyList<int> weights, float midX, float midZ)
+    {
+        var steps = new int[islands.Count];
+        if (islands.Count == 0 || weights.Count <= 1) return steps;
+        double area = islands.Sum(i => (double)i.Cells), total = weights.Sum();
+        var bandEnd = new double[weights.Count];
+        double sum = 0;
+        for (int b = 0; b < weights.Count; b++) bandEnd[b] = (sum += weights[b]) / total * area;
+
+        double far = Math.Max(1, islands.Max(i => Math.Sqrt(Sq(i.X - midX) + Sq(i.Z - midZ))));
+        int start = Enumerable.Range(0, islands.Count).MinBy(i =>
+            Math.Abs(islands[i].Cells - bandEnd[0]) / area + 0.1 * Math.Sqrt(Sq(islands[i].X - midX) + Sq(islands[i].Z - midZ)) / far);
+
+        var order = Enumerable.Range(0, islands.Count)
+            .OrderBy(i => i == start ? -1 : Sq(islands[i].X - islands[start].X) + Sq(islands[i].Z - islands[start].Z)).ToList();
+        int n = order.Count, k = weights.Count;
+        var target = new double[k];
+        for (int b = 0; b < k; b++) target[b] = (b == 0 ? bandEnd[0] : bandEnd[b] - bandEnd[b - 1]);
+        var prefix = new double[n + 1];
+        for (int j = 0; j < n; j++) prefix[j + 1] = prefix[j] + islands[order[j]].Cells;
+
+        // best[b, j]: the least area error with biomes 0..b given the first j islands in order. Each biome takes a run
+        // of islands; with fewer islands than biomes a run is one island and a biome may be left out (its whole share
+        // missed), else every biome takes at least one. The start island is always the first biome's.
+        bool spare = n < k;
+        var best = new double[k, n + 1];
+        var from = new int[k, n + 1];
+        for (int b = 0; b < k; b++)
+            for (int j = 0; j <= n; j++)
+                best[b, j] = double.PositiveInfinity;
+        for (int j = 1; j <= (spare ? 1 : n); j++) best[0, j] = Math.Abs(prefix[j] - target[0]);
+        for (int b = 1; b < k; b++)
+            for (int j = 1; j <= n; j++)
+            {
+                if (spare && best[b - 1, j] + target[b] < best[b, j])
+                {
+                    best[b, j] = best[b - 1, j] + target[b];
+                    from[b, j] = j;   // left out: no islands
+                }
+                for (int i = spare ? j - 1 : b; i < j; i++)
+                {
+                    if (i < 1) continue;
+                    double cost = best[b - 1, i] + Math.Abs(prefix[j] - prefix[i] - target[b]);
+                    if (cost < best[b, j])
+                    {
+                        best[b, j] = cost;
+                        from[b, j] = i;
+                    }
+                }
+            }
+        for (int b = k - 1, j = n; b >= 0; b--)
+        {
+            int i = b == 0 ? 0 : from[b, j];
+            for (int x = i; x < j; x++) steps[order[x]] = b;
+            j = i;
+        }
+        return steps;
+    }
+
+    /// <summary>
+    /// One biome per island (<see cref="BiomeLayoutKind.PerIsland"/>, #46), painted into a layer of
+    /// <paramref name="worldSize"/>/8 cells. Forest first, then the harder biomes outward, each with about its share of
+    /// the land by area (<see cref="AssignIslands"/>). Biomes with no share are left
+    /// out; mod biomes with a share come after wasteland. The sea takes the nearest island's biome.
+    /// </summary>
+    public static IndexedLayer PaintPerIsland(int worldSize, IReadOnlyList<BiomeShare> shares, LandField land)
+    {
+        var order = Progression.Where(c => shares.Any(s => s.Color == c && s.Weight > 0)).ToList();
+        order.AddRange(shares.Where(s => s.Weight > 0 && !order.Contains(s.Color)).Select(s => s.Color));
+        if (order.Count == 0) order.Add(shares[Math.Max(0, Fallback(shares))].Color);
+
+        var (labels, islands) = land.Islands();
+        var colourOf = new uint[Math.Max(1, islands.Count)];
+        if (islands.Count > 0)
+        {
+            var weights = order.Select(c => shares.Where(s => s.Color == c).Sum(s => s.Weight)).ToList();
+            var steps = AssignIslands(islands, weights, worldSize / 2f, worldSize / 2f);
+            for (int i = 0; i < islands.Count; i++) colourOf[i] = order[steps[i]];
+        }
+        else colourOf[0] = order[0];
+
+        // The sea takes the nearest island's number, spreading out from every coast at once.
+        int w = land.Width;
+        var nearest = (int[,])labels.Clone();
+        var queue = new Queue<(int X, int Z)>();
+        for (int z = 0; z < w; z++)
+            for (int x = 0; x < w; x++)
+                if (nearest[x, z] >= 0) queue.Enqueue((x, z));
+        while (queue.TryDequeue(out var c))
+            foreach (var (dx, dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                int x = c.X + dx, z = c.Z + dz;
+                if (x < 0 || z < 0 || x >= w || z >= w || nearest[x, z] >= 0) continue;
+                nearest[x, z] = nearest[c.X, c.Z];
+                queue.Enqueue((x, z));
+            }
+
+        var palette = colourOf.Distinct().ToList();
+        int cells = worldSize / 8, per = Math.Max(1, LandField.Cell / 8);
+        var grid = new Grid<byte>(cells, cells);
+        for (int z = 0; z < cells; z++)
+            for (int x = 0; x < cells; x++)
+            {
+                int island = nearest[Math.Min(w - 1, x / per), Math.Min(w - 1, z / per)];
+                grid[x, z] = (byte)palette.IndexOf(colourOf[Math.Max(0, island)]);
+            }
+        return new IndexedLayer(grid, palette);
+    }
+
+    private static float Sq(float v) => v * v;
 
     /// <summary>
     /// Paints planned tiles into a biome layer of <paramref name="worldSize"/>/8 cells. Each tile presses the filler
