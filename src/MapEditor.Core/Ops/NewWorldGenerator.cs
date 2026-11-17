@@ -99,6 +99,12 @@ public static class NewWorldGenerator
     /// <param name="land">The world's land shape, which the layout is fitted to; null for land everywhere.</param>
     public static IndexedLayer GenerateBiomes(int size, BiomePlan plan, StampLibrary stamps, int seed, LandField? land = null)
     {
+        // One biome per island (#46) needs islands; on land without a shape it falls back to forest in the middle.
+        if (plan.Layout == BiomeLayoutKind.PerIsland)
+        {
+            if (land is not null) return BiomeLayout.PaintPerIsland(size, plan.Shares, land);
+            plan = plan with { Layout = BiomeLayoutKind.CenterForest };
+        }
         // Separate streams from the terrain noise and borders, as RWG uses its own for the biome paint.
         var tiles = BiomeLayout.PlanTiles(size, plan.Shares, plan.Layout, new Random(seed + 1), land?.LandTiles(BiomeLayout.TileSize));
         var paint = new Random(seed + 3);
