@@ -94,14 +94,62 @@ A 7D2D world is a folder of files the game reads on first load. The editor write
 
 ## Build from source
 
-The source is in this repository. To change it, read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+The full source is in this repository, and each release has a tag, such as `v2.2.0`. You don't need the game to build the editor. To change the code, read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
+### What you need
+
+- Windows 10 or 11 (64-bit)
+- The [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), version 10.0.100 or later
+- [Git](https://git-scm.com/)
+- An internet connection for the first build, which downloads the NuGet packages
+
+### Get the source
+
+Open a terminal and run these commands. Use the tag of the version you want, or leave out `git checkout` to build the latest code.
 
 ```
-dotnet build MapEditor.slnx -c Release
+git clone https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor.git
+cd Gnostic-7d2d-map-editor
+git checkout v2.2.0
+```
+
+### Build the editor
+
+```
+dotnet build src/MapEditor.App -c Release
+```
+
+The program is `src\MapEditor.App\bin\Release\net10.0-windows\Gnostic.exe`.
+
+To run the tests:
+
+```
 dotnet test MapEditor.slnx -c Release
 ```
 
-This needs Windows and the .NET 10 SDK (pinned in `global.json`). `src/MapEditor.App` is the editor, `src/MapEditor.Core` the world model, files and generator, and `src/MapEditor.Cli` a command-line tool for testing and scripting.
+### Make a standalone copy
+
+This copy includes .NET, so it runs on a PC that doesn't have .NET installed.
+
+```
+dotnet publish src/MapEditor.App -c Release -r win-x64 --self-contained -p:Version=2.2.0 -o out/publish
+```
+
+The program is `out\publish\Gnostic.exe`.
+
+### Make the installer and portable zip
+
+This is the script that builds the files on the releases page. It runs the tests first.
+
+```
+powershell -ExecutionPolicy Bypass -File build/release.ps1 -Version 2.2.0
+```
+
+The files are in `out\releases`.
+
+### Where the code is
+
+`src/MapEditor.App` is the editor, `src/MapEditor.Core` the world model, files and generator, and `src/MapEditor.Cli` a command-line tool for testing and scripting.
 
 ## License
 
