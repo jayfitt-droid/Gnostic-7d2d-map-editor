@@ -2,19 +2,19 @@
 
 **A Windows map editor for 7 Days to Die. Edit a world the game generated, build one by hand, or generate a complete world in six stages and change any part of it.**
 
-## New in v2.1.0
+## New in v2.2.0
 
-**Draw your own bridges.** The new Bridge tool builds a bridge with footings and ramps over the sea, a river or a valley. Move it, resize it or take it down, and the ground comes back as it was.
+**Share your maps as a mod.** Package puts one or more maps and their custom prefabs into a mod zip that players unzip into their Mods folder.
 
-**Export the map as a picture.** File > Export Map Image saves the whole map as a PNG with no windows or tools on it, at up to 1 pixel per metre.
+**Teleport to any spot in the game.** Right-click the map to copy a teleport command, or save a list with one command for each issue that Validate finds.
 
-**Friendly names.** Pine Forest and Old West, not pine_forest and oldwest, for biomes, towns, traders and POIs.
+**Fix buttons.** Validate can level a road beside a POI or move a spawn out of the water with one click.
 
-**More land on island worlds.** Islands come closer to the map edges, with less empty sea.
+**One biome per island.** Archipelago worlds can give each island its own biome, with harder biomes on the islands farther out.
 
-**Spawns near the first trader.** Validate and stage 6 keep spawns near the trader that the game's opening quest sends new players to.
+**Better POI placement.** Turn a POI to any side of its lot, keep the turn when you drag it to another lot, and hold Alt to put it anywhere.
 
-Also 21 fixes. The [changelog](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md) lists them all.
+Also a World grid layer, Ctrl+F search and ramps in the Bridge tool's preview. The [changelog](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md) lists every change.
 
 ## Features
 
