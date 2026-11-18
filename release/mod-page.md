@@ -10,7 +10,7 @@
 
 **Fix buttons.** Validate can level a road beside a POI or move a spawn out of the water with one click.
 
-**One biome per island.** Archipelago worlds can give each island its own biome, with harder biomes on the islands farther out.
+**One biome per island.** Island worlds can give each island its own biome, with harder biomes on the islands farther out.
 
 **Better POI placement.** Turn a POI to any side of its lot, keep the turn when you drag it to another lot, and hold Alt to put it anywhere.
 

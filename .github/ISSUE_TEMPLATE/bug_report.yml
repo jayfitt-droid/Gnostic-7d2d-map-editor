@@ -53,7 +53,7 @@ body:
     attributes:
       label: Steps to make it happen
       placeholder: |
-        1. New World, 8192, Archipelago
+        1. New World, 8192, Several islands
         2. Run stages 1 to 4
         3. ...
     validations:
