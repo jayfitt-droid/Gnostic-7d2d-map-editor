@@ -2,6 +2,44 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.2.0 (2026-11-18)
+
+This full release has all the changes since v2.1.0, with all the changes from the three release candidates. Copies of v2.1.0 update to this version from **Help > Check for Updates**.
+
+### New
+
+- **Package maps.** **Package** (or **World > Package Maps**) puts one or more maps from `GeneratedWorlds` into a mod zip, with the custom prefabs that they use. The game's own prefabs are never in the zip. The files from a stopped export (`.mapeditor-staging` and `.mapeditor-backup`) are also not in the zip. Players unzip it into their `Mods` folder. ([#77](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/77))
+- **Teleport commands.** Right-click the map and select **Copy teleport command** to get a command for the game's console (F1) that takes you to that place. A submenu sets the direction that you look in. ([#39](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/39))
+- **Teleport list.** **Teleport list...** in the Issues tab saves a Markdown file with one teleport command for each issue. Each command puts you on the ground 15 m from the issue, out of the water and not in a prefab. You look at the issue. ([#41](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/41))
+- **Fix buttons.** Some issues in the Issues tab have a **Fix** button. **Level road** sets the road beside a POI to the height of the POI. **Move spawn** moves a spawn point out of the water, or into the world, to the nearest dry ground. Each fix is one undo step, and Validate then runs again. ([#40](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/40))
+- **Fixed issues in the teleport list.** The teleport list also shows the issues that you fixed with a **Fix** button while the world is open. Use it to make sure that each fix is good in the game. For a moved spawn point, the command goes to its new position. ([#59](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/59))
+- **One biome per island.** For an archipelago, New World and stage 1 (Terrain) have a new biome layout, **One biome per island**. The forest island is near the middle, and the islands farther out get the harder biomes. ([#46](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/46))
+- **World grid layer.** **Layers > World grid** shows the 150 m street-tile grid that towns snap to. It shows when you zoom in. ([#47](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/47))
+- **Ctrl+F** puts the cursor in the search box of the Prefabs tab, or of the Placed tab when it is open. ([#44](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/44))
+
+### Changes
+
+- **Esc** cancels what the tool is doing and keeps the tool. Press **Esc** again to go back to **Select**. ([#35](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/35))
+- Click a prefab in the Prefabs tab to start the Prefabs tool with that prefab. ([#36](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/36))
+- Press **Q** or **E** to turn a POI to any side of its lot. It stays in the lot. ([#37](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/37))
+- The size filter in the Prefabs tab uses one size band for each lot size. ([#38](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/38))
+- A POI that you turned in its lot keeps its turn when you drag it to a different lot. If it does not fit that lot with the turn, it faces the street. Press **Q** or **E** while you drag a POI to turn it. ([#42](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/42))
+- The Bridge tool's preview shows the ramp at each end, with its length and grade. ([#43](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/43))
+- In **New World**, **Land shape** and **Edges** are now above **Biomes**. The biome layouts that you can select change with the land shape. ([#67](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/67))
+- The side panel tabs, the Generate stages and the ribbon tooltips are easier to read. The open tab is bold and underlined. Each stage is a card with a **Done** label when you completed it. **Per biome**, **Spacing and biomes** and **How the game does it** are links, and their text is easy to read in dark mode. The tool options strip is shorter. ([#48](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/48), [#71](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/71))
+
+### Fixes
+
+- An export keeps the old files of a world in a `.mapeditor-backup` folder while it replaces them. If an earlier export stopped before it finished, that folder can have the only copies of the world's files. The next export deleted it. Now the export stops and shows where the folder is. A failed export also keeps the folder if it cannot put back all the old files. ([#72](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/72))
+- A project that does not have one of its layers, or has a layer of the wrong size, does not open. Before, it opened without that layer, and after the next save the layer was gone. A message tells you which layer has the problem. ([#75](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/75))
+- Hold **Alt** to put a POI or trader anywhere. Before, a POI still snapped into a street-tile lot. ([#60](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/60))
+- A double-click on "There are no spawn points" in the Issues tab no longer goes to the middle of the map.
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
+
 ## v2.2.0-rc.3 (2026-11-17)
 
 The third release candidate for v2.2.0. It has all the changes in v2.2.0-rc.2 and v2.2.0-rc.1 below, and these fixes. Only copies of a test version update to it. To try it, download it from the releases page.
