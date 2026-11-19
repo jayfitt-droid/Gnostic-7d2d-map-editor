@@ -365,7 +365,9 @@ The **Generate** tab in the side panel makes the world in stages, the way the ga
 | 5 Wilderness POIs and gravel roads | POIs outside the towns, and gravel roads to them |
 | 6 Spawn points | Player spawn points |
 
-Click the name of a stage to open its card. One card is open at a time. A **Done** label shows on each stage that you completed.
+Click the name of a stage to open its card. One card is open at a time. A **Done** label shows on each stage that you completed. Click **Help** in a stage to read more about its settings.
+
+Each card shows the settings that you change most, and a row of buttons. The other settings and the stage's **Seed** are under **More settings**. The editor starts with **More settings** closed. Click it to open it.
 
 ### Use stages and tools together
 
@@ -407,7 +409,7 @@ The editor gives a message if a stage cannot run. For example, the Highways stag
 The seed controls the random choices. The same seeds always make the same world.
 
 - **World seed** is at the top of the panel. Click **New** to get a new world seed. The seed of each stage comes from the world seed.
-- Each stage also has its own **Seed** and a **Re-roll** button. **Re-roll** runs that stage again with a new seed. It does not change the other stages.
+- Each stage also has its own **Seed**, under **More settings**, and a **Re-roll** button next to **Generate**. **Re-roll** runs that stage again with a new seed. It does not change the other stages.
 
 ### Presets
 
@@ -437,11 +439,13 @@ Most stages have these buttons:
 
 - **Generate** removes the result of the last run of the stage and makes a new result. It is one undo step.
 - **Remove all** removes everything that the stage made, pinned items too. It puts back the ground. It is one undo step.
-- **Game numbers** or **Game settings** puts back the game's values for your world size. The seed does not change.
+- **Game numbers** or **Game settings** puts back the game's values for your world size. The seed does not change. In stages 5 and 6, **Game settings** is under **More settings**.
 - **Pinned** keeps an item when you run the stage again. The editor pins each item that you put on the map by hand.
 - **Drop** removes one item.
 
 Each stage runs in the background. A progress bar shows. Click **Cancel** to stop the stage.
+
+Stage 3 has the map tool **Place on the map**, and stage 6 has **Edit on the map**. The controls for one item, for example **Place**, **Drop** and **Pinned**, show only while that map tool is on.
 
 ## 7. The six stages
 
@@ -454,15 +458,15 @@ The stage needs a biome map. If the world has no biome map, paint biomes first.
 **Settings:**
 
 - **Plains**, **Hills** and **Mountains** set how much of each type the map gets. The editor compares the three numbers. The game uses 4, 4 and 2.
-- **Per biome**: tick a biome to give it its own numbers. A wasteland that you do not tick gets no mountains, as in the game.
+- **Per biome** (under **More settings**): tick a biome to give it its own numbers. A wasteland that you do not tick gets no mountains, as in the game.
 - **Land shape**: the shape of the land, as in **New World**. For a preset with a coast, **Coast seed** and **Re-roll** change the coast. The terrain seed stays the same. For **Draw your own**, click **Edit land** to open the drawing in Land mode.
 - **Edges** (only for **Land to the edges**): select an edge type for the north, east, south and west edges. The types are **Land** (rough raised land), **Water** (ocean) and **None** (no change). The editor makes the edges again only when you generate the whole map.
-- **Plan the biomes again for this land**: the editor makes the biome layout from **New World** again, for the land shape. The editor ticks this setting when you change the shape. It replaces the biomes that you painted. Undo puts them back. This setting shows only for a world with a generated biome layout from **New World**. When you tick it, a **Biome seed** row shows. Its **Re-roll** makes a new biome layout on the ground that you have, and the terrain does not change. A **Layout** row also shows, where you can select a different layout, for example **One biome per island** for **Several islands**.
+- **Plan the biomes again for this land** (under **More settings**): the editor makes the biome layout from **New World** again, for the land shape. The editor ticks this setting when you change the shape. It replaces the biomes that you painted. Undo puts them back. This setting shows only for a world with a generated biome layout from **New World**. When you tick it, a **Biome seed** row shows. Its **Re-roll** makes a new biome layout on the ground that you have, and the terrain does not change. A **Layout** row also shows, where you can select a different layout, for example **One biome per island** for **Several islands**.
 - **Where**:
   - **Whole map** makes all of the terrain again.
   - **Only an area** makes only the tiles in a rectangle. Click **Select area**, then drag on the map. The new tiles blend into the land around them. Prefabs and roads do not move.
 - **Tile types painted by hand**: select a type and click **Paint**. Then paint 256 m tiles on the map. Shift+drag removes painted tiles. **Clear** removes all painted tiles. When you generate, your painted tiles keep their type. The editor fills the other tiles.
-- **Show the last run's tile types** colours each tile by the type that the last run gave it. This setting is off by default.
+- **Show the last run's tile types** (under **More settings**) colours each tile by the type that the last run gave it. This setting is off by default.
 
 On an island or a peninsula, sea tiles get no plains, hills or mountains.
 
@@ -476,31 +480,29 @@ This stage plans towns and cities, and then builds them. It uses the game's town
 
 **Settings:**
 
-- **The town table** has one row for each town type.
+- **The town table** has one row for each town type, for example **Big city** or **Roadside stop**.
   - **How many**: the number of towns of this type.
+  - Point at a town name to read its description. In a narrow panel, the size estimate is under the name. Drag the edge to widen the panel and see the estimate in the **About** column.
   - **Smallest** and **Biggest**: the size of one town, in street tiles. One street tile is 150 m.
   - **About**: the approximate width of a town of that size.
 - **One trader per town**:
   - Off: the game's rules. Each biome gets its own trader, 2 to 4 times, in the biggest towns of that biome.
   - On: each town gets one trader.
-- **Let towns cross biome borders**:
+- **Let towns cross biome borders** (under **More settings**):
   - Off: the game's rules. All street tiles of a town are in one biome.
   - On: a town can be on two biomes. Each lot gets POIs and traders for the biome under it.
-- **Spacing and biomes**:
-  - The distance of the towns from the map edge, in % of the map. The game uses 10%.
+- **Spacing and biomes** (under **More settings**):
+  - **Edge margin**: the distance of the towns from the map edge, in % of the map. The game uses 10%.
   - **Apart**: the minimum number of street tiles between two towns.
   - **Biomes**: the biomes where a town can start. Leave it empty to use the game's list.
 
-**Plan, review, then build:**
+**Plan, then build:**
 
 1. Click **Plan towns**. The editor selects the town sites and shows each planned town on the map. The world does not change yet.
-2. Click **Review on the map** to change the plan:
-   - Click a town to select it.
-   - Drag a town to move it. The editor plans it again at the new position.
-   - Drag a rectangle on empty ground to add a town. **Add as** sets the type of the new town.
-   - For the selected town, change its type or its number of street tiles. Click **Re-roll** to plan it again, or **Drop** to remove it.
-   - Tick **Pinned** to keep a town when you re-roll the stage. The editor pins each town that you add.
+2. Look at the plan on the map. If you do not like it, click **Re-roll** to plan again with a new seed.
 3. Click **Build**. The editor builds all the planned towns: streets, districts, POIs, traders and flat ground. This is one undo step.
+
+To put a town in a specific position, use the **Town** tool on the ribbon (G).
 
 After **Build**, you can still click **Plan towns** or **Re-roll**. The editor asks first. Then it removes the built towns that are not pinned, with the highways, wilderness POIs and spawns that use them, and plans new towns. Pinned towns stay. Undo puts everything back.
 
@@ -520,11 +522,11 @@ This stage presses lakes, rivers, canyons and craters into the ground. It uses t
   - **Count**: how many of the feature.
   - **Size min** and **Size max**: the scale of the stamps. A scale of 1 is a stamp of about 700 m.
   - If a feature does not fit, the editor leaves it out.
-- **Mountain lakes**: lakes fill at their own ground level, not at the game's fixed 30 m. Lakes can then hold water on high ground and in the mountains.
-- **Long rivers**: each river goes downhill, stamp after stamp, until it gets to water or the map edge. A river that stops on dry land ends in a lake.
-- **Most stamps in one river**: the maximum length of a long river.
+- **Mountain lakes** (under **More settings**): lakes fill at their own ground level, not at the game's fixed 30 m. Lakes can then hold water on high ground and in the mountains.
+- **Long rivers** (under **More settings**): each river goes downhill, stamp after stamp, until it gets to water or the map edge. A river that stops on dry land ends in a lake.
+- **River stamps** (under **More settings**): the maximum number of stamps in one long river.
 
-**Place on the map**: select a feature in **Place**, then click empty ground. The editor pins each feature that you place. Click a feature to select it. Then click **Drop** to remove it, or tick **Pinned**. **Drop** removes all of a long river.
+**Place on the map**: this starts the map tool. The **Place** list shows. Select a feature in **Place**, then click empty ground. The editor pins each feature that you place. Click a feature to select it. Then click **Drop** to remove it, or tick **Pinned**. **Drop** removes all of a long river.
 
 A crater or canyon that touches water fills with water, as in the game.
 
@@ -538,14 +540,14 @@ The game's rules connect each town exit to the nearest of its three nearest town
 
 **Settings:**
 
-- **Route wiggle**: how much the seed bends the routes, in %. Set 0 to get the game's exact routes.
-- **Longest causeway over water**: the longest crossing over water, in metres. A highway goes around wider water.
+- **Route wiggle** (under **More settings**): how much the seed bends the routes, in %. The default is 15%. Set 0 to get the game's exact routes.
+- **Longest causeway** (under **More settings**): the longest crossing over water, in metres. The default is 120 m. A highway goes around wider water.
 - **Join every town**: after the game's rules, the editor connects a group of towns that has no road to the other towns.
 - **Bridge islands** (with **Join every town**): the editor connects towns on different islands with bridges. It uses the game's bridge sections, `rwg_bridge_tile_01` and `rwg_bridge_end_01`. Each bridge goes straight north–south or east–west. A highway goes from each town to the bridge.
-- **Longest bridge over water**: the maximum length of water that a bridge crosses, in metres.
-- **Shortcut bridges**: the editor first connects all the islands. Then it adds a direct bridge between two islands if the route between them crosses three or more bridges.
-- **Allow a second road between two towns**: the game can connect two towns with two highways side by side. Off: one highway connects two towns.
-- **Car wrecks on bridges**: puts a car wreck on the deck about every 100 to 150 m. On by default.
+- **Longest bridge** (under **More settings**): the maximum length of water that a bridge crosses, in metres.
+- **Shortcut bridges** (shows under **Bridge islands** when you tick it): the editor first connects all the islands. Then it adds a direct bridge between two islands if the route between them crosses three or more bridges.
+- **Car wrecks on bridges** (shows under **Bridge islands** when you tick it): puts a car wreck on the deck about every 100 to 150 m. On by default.
+- **Allow a second road** (under **More settings**): the game can connect two towns with two highways side by side. Off: one highway connects two towns.
 
 The bottom of each bridge is 5 m above the water, so boats can go under it. The editor puts a footing under each row of pillars. The footing stays under the water.
 
@@ -563,11 +565,11 @@ In each biome, the editor first uses free 150 m cells far from towns. Each cell 
 
 - **Game count**: select the game's **Few**, **Default** or **Many** count. Then set **×%** to multiply that count. 100% is the game's count.
 - **Tiers**: move the slider left for easier POIs or right for harder POIs. The middle is the game's mix.
-- **Gap from towns and roads**: the minimum distance from towns and roads, in metres. A POI on ground that is higher or lower than a town stays farther away: 4 m for each metre of difference, plus 6 m. This gives a road room to go up or down between them.
+- **Gap** (under **More settings**): the minimum distance from towns and roads, in metres. A POI on ground that is higher or lower than a town stays farther away: 4 m for each metre of difference, plus 6 m. This gives a road room to go up or down between them.
 - **Gravel roads**: a gravel road goes from the road exit of each POI to the nearest road. Any road counts, also a road that you drew.
-- **Longest road**: a POI farther from a road than this gets no gravel road.
+- **Longest road** (under **More settings**): a POI farther from a road than this gets no gravel road.
 
-**Place on the map**: select a POI in **Place**, then click empty ground. The editor pins each POI that you place. Click a POI that this stage placed to select it. **Drop** removes the POI and its gravel road.
+To put a POI in a specific position, use the **Prefabs (POIs)** tool on the ribbon (I).
 
 ### Stage 6: Spawn points
 
@@ -582,9 +584,9 @@ The stage uses all traders in the world. These can come from stage 2, from the T
 
 - **Biomes**: tick the biomes for spawns. The game uses only the forest. Tick none to allow all biomes and all traders.
 - **At least**: the minimum number of spawns. Spawns that are already in the world count. The game uses 12.
-- **At most**: the maximum number of spawns. Set 0 for no limit, as in the game.
-- **Road spawns within this of a trader**: the maximum distance from a trader, in metres. The game uses 900.
-- **Near the opening quest's trader**: the game's first quest sends each new player to one trader. With this setting, all spawns are within 750 m of that trader. On for new projects.
+- **At most** (under **More settings**): the maximum number of spawns. Set 0 for no limit, as in the game.
+- **Trader distance** (under **More settings**): the maximum distance from a trader to a spawn along a gravel road, in metres. The game uses 900.
+- **Near the opening quest's trader** (under **More settings**): the game's first quest sends each new player to one trader. With this setting, all spawns are within 750 m of that trader. On for new projects.
 
 **Edit on the map**: add, move, turn and remove spawns by hand. A spawn that you add or move stays when you run the stage again.
 
