@@ -2849,10 +2849,17 @@ public partial class MainWindow : Window
             var item = (System.Windows.Controls.TabItem)SideTabs.Items[i];
             string name = ((string)item.Header).Replace("_", "");
             item.Tag = icons[i];
+            if (i == MainViewModel.IssuesTab)
+            {
+                item.Uid = "IssuesView";
+                item.SetBinding(System.Windows.Automation.AutomationProperties.HelpTextProperty, nameof(MainViewModel.IssuesText));
+            }
             ReserveScrollBarRoom(item.Content);
             item.ToolTip = name;
             System.Windows.Automation.AutomationProperties.SetName(item, name);
         }
+
+        _vm.Issues.CollectionChanged += (_, _) => _vm.RefreshIssueCounts();
 
         // Alt+G or the arrow keys pick a view while the side bar is closed: show it.
         SideTabs.SelectionChanged += (_, e) =>
@@ -3001,6 +3008,13 @@ public partial class MainWindow : Window
         SidePanelEdge.Visibility = _vm.ShowSidePanel ? Visibility.Visible : Visibility.Collapsed;
         double line = _vm.ShowSidePanel ? 1 : 0;
         SidePanel.BorderThickness = right ? new Thickness(line, 0, 0, 0) : new Thickness(0, 0, line, 0);
+    }
+
+    /// <summary>The Modern status bar's error and warning counts open the Issues view.</summary>
+    private void IssueCounter_Click(object sender, RoutedEventArgs e)
+    {
+        _vm.SidePanelTab = MainViewModel.IssuesTab;
+        _vm.ShowSidePanel = true;
     }
 
     /// <summary>A click on the open view's icon closes the side bar; a click on another icon opens that view.</summary>

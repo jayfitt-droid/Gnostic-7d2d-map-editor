@@ -218,11 +218,23 @@
                             <Path Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Style="{StaticResource IconPath}" Width="24" Height="24" />
                             <Border x:Name="ActiveBar" Width="2" HorizontalAlignment="Left" Visibility="Collapsed"
                                     Background="{DynamicResource AccentFillColorDefaultBrush}" />
+                            <Border x:Name="CountBadge" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,6,7" MinWidth="16" Height="16"
+                                    Padding="3,0" CornerRadius="8" Visibility="Collapsed" Background="{DynamicResource AccentFillColorDefaultBrush}">
+                                <TextBlock Text="{Binding IssueBadgeText}" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+                            </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="TabStripPlacement" Value="Right">
                                 <Setter TargetName="ActiveBar" Property="HorizontalAlignment" Value="Right" />
                             </Trigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding Uid, RelativeSource={RelativeSource Self}}" Value="IssuesView" />
+                                    <Condition Binding="{Binding HasIssueCount}" Value="True" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="CountBadge" Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                             </Trigger>
@@ -838,6 +850,39 @@
                     </Button>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" TextElement.FontSize="12">
+                    <!-- Modern theme (#63): the error and warning counts; a click opens the Issues view. -->
+                    <Button Style="{StaticResource FlatButton}" Padding="6,2" Margin="0,0,10,0" Click="IssueCounter_Click" ToolTip="{Binding IssuesText}"
+                            AutomationProperties.Name="Show issues" AutomationProperties.HelpText="{Binding IssuesText}"
+                            Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{x:Static local:Icons.IssueError}" Width="14" Height="14">
+                                <Path.Style>
+                                    <Style TargetType="Path" BasedOn="{StaticResource IconPath}">
+                                        <Setter Property="Stroke" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ErrorCount}" Value="0">
+                                                <Setter Property="Stroke" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
+                            <TextBlock Text="{Binding ErrorCount}" Margin="4,0,10,0" VerticalAlignment="Center" />
+                            <Path Data="{x:Static local:Icons.ActivityIssues}" Width="14" Height="14">
+                                <Path.Style>
+                                    <Style TargetType="Path" BasedOn="{StaticResource IconPath}">
+                                        <Setter Property="Stroke" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding WarningCount}" Value="0">
+                                                <Setter Property="Stroke" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
+                            <TextBlock Text="{Binding WarningCount}" Margin="4,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <Path Data="{x:Static local:Icons.Cursor}" Style="{StaticResource IconPath}" Width="14" Height="14"
                           Stroke="{DynamicResource TextFillColorSecondaryBrush}" />
                     <TextBlock Text="{Binding CursorText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="280" />
