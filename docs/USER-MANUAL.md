@@ -132,17 +132,30 @@ The game puts you on the ground at that place. The numbers in the command are th
    - **One island** makes one island with ocean on all sides.
    - **Several islands** makes a group of islands with ocean between them.
    - **Peninsula** makes land that touches one edge. Select the edge in **Joined to**.
+   - **Draw your own** opens Land mode so you can place land and water yourself.
 
    For an island or a peninsula, set **Land** (the share of the map that is land) and **Rough coast**. For several islands, also set **Islands**.
 4. Under **Biomes**, select one of these:
    - **One biome** paints one biome on the whole map.
    - **All biomes (generated layout)** makes a layout of all the biomes, as the game does. Select where the biomes start: forest or wasteland in the middle, a ring, two rings, or a line. Then set the **Share of the map** for each biome.
      For **Several islands**, you can also select **One biome per island**. Each island then gets one biome. The forest island is the island with a size near the forest share, near the middle. The islands farther out get the harder biomes in this order: burnt forest, desert, snow, wasteland. The editor tries to give each biome its **Share of the map** of the land. The island sizes are random, so the match is not exact. If there are as many islands as biomes, or more, each biome gets at least one island. A biome with a share of 0 is not used.
-5. Click **Create**. The editor opens the Generate panel at stage 1.
+5. Click **Create**. For **Draw your own**, follow the Land mode steps below. For the preset shapes, the editor opens the Generate panel at stage 1.
 
 The same seed always gives the same biome layout. A biome in the middle stays away from the map edges, so it can get a little less than its share.
 
 On an island world, the share of each biome is a share of the land. The coast seed comes from the world seed.
+
+### Draw land in Land mode
+
+1. Select **Rectangle** and drag a box on the map. The preview shows the coast as you draw. Draw several boxes to make islands. Land joins where two coasts meet. To make land run off the map, drag the box to the map edge.
+2. Hold **Alt** and drag a box to cut water out of the land. Use it to make a bay or an inland sea.
+3. Click **Select boxes**, then click a box on the map. You can also pick a box in the **Land** panel. Drag inside the box to move it. Drag a corner or side handle to resize it. The pointer shows which way the handle moves.
+4. In the **Land** panel, change **Fill** to set how much of the box to fill. Change **Roughness** to set how ragged the coast is. Set a **Coast seed** or click **Re-roll** to change the coast of that box. Use **Delete box** to remove the box. An island with less than about 360 × 360 m of land can disappear. Make its box larger or increase **Fill**.
+5. Click **Build World**. The editor makes the ground, beaches, sea floor, ocean and biomes, then opens the normal tools. Save the world as a `.7dmap` project to keep the boxes.
+
+Use **Ctrl+Z** and **Ctrl+Y** in Land mode to undo and redo changes to the drawing. After **Build World**, one world undo puts back the previous ground and drawing.
+
+To open a saved drawing, go to **Generate > Terrain** and click **Edit land**. **Build World** makes the terrain again for the whole map. Run the later Generate stages again when you need them. **Cancel** discards your changes to the drawing. If you have just started a new world, **Cancel** closes it and returns to the start screen.
 
 ### Open a world
 
@@ -412,7 +425,7 @@ The stage needs a biome map. If the world has no biome map, paint biomes first.
 
 - **Plains**, **Hills** and **Mountains** set how much of each type the map gets. The editor compares the three numbers. The game uses 4, 4 and 2.
 - **Per biome**: tick a biome to give it its own numbers. A wasteland that you do not tick gets no mountains, as in the game.
-- **Land shape**: the shape of the land, as in **New World**. **Coast seed** and its **Re-roll** button change only the coast. The terrain seed does not change. For an island or a peninsula, the editor does not make edges.
+- **Land shape**: the shape of the land, as in **New World**. For a preset with a coast, **Coast seed** and **Re-roll** change the coast. The terrain seed stays the same. For **Draw your own**, click **Edit land** to open the drawing in Land mode.
 - **Edges** (only for **Land to the edges**): select an edge type for the north, east, south and west edges. The types are **Land** (rough raised land), **Water** (ocean) and **None** (no change). The editor makes the edges again only when you generate the whole map.
 - **Plan the biomes again for this land**: the editor makes the biome layout from **New World** again, for the land shape. The editor ticks this setting when you change the shape. It replaces the biomes that you painted. Undo puts them back. This setting shows only for a world with a generated biome layout from **New World**. When you tick it, a **Biome seed** row shows. Its **Re-roll** makes a new biome layout on the ground that you have, and the terrain does not change. A **Layout** row also shows, where you can select a different layout, for example **One biome per island** for **Several islands**.
 - **Where**:
@@ -667,7 +680,7 @@ Press **F1** in the editor to see this list.
 | **Biome** | An area of one type: forest, burnt forest, desert, snow or wasteland. |
 | **Deck** | The road surface of a bridge. |
 | **Footing** | Ground that the editor raises under the pillars of a bridge. |
-| **Land shape** | The outline of the land: land to the edges, one island, several islands or a peninsula. |
+| **Land shape** | The outline of the land. Choose land to the edges, one island, several islands, a peninsula or your own drawing. |
 | **POI** | A point of interest: a building or other place that a player can visit. |
 | **Prefab** | An object from the game that you can put on the map: a POI, a street tile or a part. |
 | **Project** | A `.7dmap` file. It keeps the world and all of your settings. |
