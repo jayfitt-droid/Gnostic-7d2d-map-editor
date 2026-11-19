@@ -19,6 +19,8 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The world's 150 m street-tile grid that towns snap to (#47); off until turned on.</summary>
     [ObservableProperty] private bool _showWorldGrid;
     [ObservableProperty] private bool _dimMap;
+    [ObservableProperty] private bool _showPlayer;
+    [ObservableProperty] private bool _followPlayer;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Layers))]

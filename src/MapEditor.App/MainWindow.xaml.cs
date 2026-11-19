@@ -86,6 +86,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _vm;
         Overview.Target = Map;
+        PlayerOverlay.Target = Map;
+        Map.Panned += (_, _) => _vm.FollowPlayer = false;
+        _playerPollTimer.Tick += PollPlayer_Tick;
         Map.CursorMoved += Map_CursorMoved;
         Map.MenuRequested += (_, p) => ShowMapMenu(p);
         Map.ViewChanged += (_, _) => UpdateZoomText();
@@ -489,6 +492,7 @@ public partial class MainWindow : Window
         GroundLevel.Resolve(world, _vm.Prefabs);
         if (_world is not null || recoveryPath is not null) _autosaves.Discard(recoveryPath);
         _world = world;
+        ResetPlayerTracking();
         _sourcePath = sourcePath;
         _savePath = sourcePath;
         _projectPath = null;
@@ -771,6 +775,8 @@ public partial class MainWindow : Window
                 || (world.ExtraFiles.TryGetValue(WorldFiles.Level, out var levelAfter)
                     && (levelBefore is null || !levelAfter.AsSpan().SequenceEqual(levelBefore)));
             if (_projectPath is not null) world.Name = projectName;
+            if (!string.Equals(GameLinkWorld.ExportName(GameLinkExportFolder), GameLinkWorld.ExportName(folder), StringComparison.OrdinalIgnoreCase))
+                ClearPlayerMarker();
             _savePath = folder;
             _exportPosition = position;
             _projectSettings.ExportHasChanges = false;
@@ -1098,6 +1104,7 @@ public partial class MainWindow : Window
         _autosaves.Discard();
         _tools.CancelRoad();
         _world = null;
+        ResetPlayerTracking();
         _sourcePath = _savePath = _projectPath = null;
         _projectSettings = new ProjectStore.ProjectSettings();
         _exportPosition = null;
@@ -1175,6 +1182,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _vm.ShowPlayer = false;
         StopIssueHotkeys();
         base.OnClosed(e);
         if (!_restartWhenClosed || Environment.ProcessPath is not { } editor) return;
@@ -3323,6 +3331,12 @@ public partial class MainWindow : Window
                 break;
             case nameof(MainViewModel.Layers) when Map.Renderer is { } renderer:
                 Overview.SetRenderer(renderer, _vm.Layers);
+                break;
+            case nameof(MainViewModel.ShowPlayer):
+                UpdatePlayerPolling();
+                break;
+            case nameof(MainViewModel.FollowPlayer):
+                KeepPlayerInView(centre: true);
                 break;
             case nameof(MainViewModel.SelectedTool):
                 if (_vm.SelectedTool == EditorTool.Prefab)

@@ -678,6 +678,12 @@
                                                   ToolTip="The world's 150 m street-tile grid. Town sites and the Town tool put towns on it. Shows once you zoom in far enough." />
                                         <Separator Margin="0,6" />
                                         <CheckBox Content="_Dim the map (prefabs stand out)" IsChecked="{Binding DimMap}" Margin="0,3" />
+                                        <Separator Margin="0,6" />
+                                        <CheckBox x:Name="ShowPlayerCheck" Content="Show player" IsChecked="{Binding ShowPlayer}"
+                                                  IsEnabled="False" Margin="0,3" ToolTip="Show your live position and facing with Gnostic Game Link" />
+                                        <CheckBox Content="Follow" IsChecked="{Binding FollowPlayer}" IsEnabled="{Binding ShowPlayer}"
+                                                  Margin="22,3,0,3" AutomationProperties.Name="Follow player"
+                                                  ToolTip="Keep the player in view. Panning the map turns Follow off." />
                                     </StackPanel>
                                 </Border>
                             </Popup>
@@ -2049,6 +2055,7 @@
                          ShowWorldGrid="{Binding ShowWorldGrid}"
                          DimMap="{Binding DimMap}"
                          AutomationProperties.Name="Map" />
+            <map:PlayerMarkerOverlay x:Name="PlayerOverlay" IsHitTestVisible="False" ClipToBounds="True" />
 
             <!-- Modern theme (#63): the tool's changing help, over the map so the map never moves. Clicks pass through it. -->
             <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="12" MaxWidth="640" Padding="12,8" CornerRadius="6" BorderThickness="1"
