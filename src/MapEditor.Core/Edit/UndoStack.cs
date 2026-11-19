@@ -134,6 +134,7 @@ internal sealed class StateSnapshot(Func<object?> capture, Action<object?> resto
 /// <summary>One undoable edit. <see cref="Swap"/> exchanges stored and live data, so it serves undo and redo.</summary>
 public sealed class UndoStep(string name, List<TileSnapshot> tiles, GridRect bounds)
 {
+    internal object Position { get; } = new();
     public string Name { get; } = name;
     public GridRect Bounds { get; } = bounds;
     public long Bytes { get; } = tiles.Sum(t => t.Bytes);
@@ -274,16 +275,15 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
     private readonly Stack<UndoStep> _redo = new();
     private long _bytes;
 
-    /// <summary>Stands for "no steps to undo" as a save point.</summary>
-    private static readonly object Start = new();
-    /// <summary>The newest undo step when the world was last saved (or <see cref="Start"/>); null when no undo or redo can get back there.</summary>
-    private object? _saved = Start;
+    private static readonly object Empty = new();
+    private object _start = Empty;
+    private object _saved = Empty;
 
-    /// <summary>Where the history is now, for <see cref="MarkSaved"/>. Take it before a save starts.</summary>
-    public object Position => _undo.Last?.Value ?? Start;
+    /// <summary>A token for the current world state, which can be kept without retaining undo data.</summary>
+    public object Position => _undo.Last?.Value.Position ?? _start;
 
     /// <summary>The world is as it was at the last save, as far as undo steps go (undo or redo back to it counts).</summary>
-    public bool AtSavePoint => _saved is not null && ReferenceEquals(_saved, Position);
+    public bool AtSavePoint => ReferenceEquals(_saved, Position);
 
     /// <summary>Notes that the world as it was at <paramref name="position"/> is what was saved.</summary>
     public void MarkSaved(object position) => _saved = position;
@@ -306,9 +306,8 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
         while (_bytes > maxBytes && _undo.Count > 1)
         {
             var oldest = _undo.First!.Value;
-            // Dropping the oldest step moves the bottom of the history up to just after it.
-            if (ReferenceEquals(_saved, Start)) _saved = null;
-            else if (ReferenceEquals(_saved, oldest)) _saved = Start;
+            // The bottom of the history is now the state just after this step.
+            _start = oldest.Position;
             _bytes -= oldest.Bytes;
             _undo.RemoveFirst();
         }
@@ -341,7 +340,7 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
         _undo.Clear();
         _redo.Clear();
         _bytes = 0;
-        _saved = Start;
+        _saved = _start = new();
         Changed?.Invoke(this, EventArgs.Empty);
     }
 }

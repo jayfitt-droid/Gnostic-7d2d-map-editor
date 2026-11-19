@@ -23,5 +23,9 @@ public static class TeleportCommand
     /// status bar, or null if the cell is off the map.
     /// </summary>
     public static string? ForCell(World world, int x, int z, Facing? facing) =>
-        world.Height.Contains(x, z) ? Format(world.GridToWorld(x), world.GridToWorld(z), facing) : null;
+        CoordinatesForCell(world, x, z) is { } target ? Format(target.X, target.Z, facing) : null;
+
+    /// <summary>The game's coordinates for a grid cell, or null if the cell is off the map.</summary>
+    public static (int X, int Z)? CoordinatesForCell(World world, int x, int z) =>
+        world.Height.Contains(x, z) ? (world.GridToWorld(x), world.GridToWorld(z)) : null;
 }

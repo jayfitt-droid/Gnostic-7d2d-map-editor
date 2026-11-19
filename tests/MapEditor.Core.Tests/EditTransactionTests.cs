@@ -322,4 +322,23 @@ public sealed class EditTransactionTests
         undo.Undo();
         Assert.True(undo.AtSavePoint);
     }
+
+    [Fact]
+    public void AnExportPositionStillIdentifiesTheWorldAfterDroppingUndoSteps()
+    {
+        var world = Flat();
+        var undo = new UndoStack(maxBytes: 1);
+        var runner = new EditRunner(undo);
+
+        object original = undo.Position;
+        Dab(runner, world, 1);
+        object exported = undo.Position;
+        Dab(runner, world, 2);
+        undo.Undo();
+
+        Assert.Same(exported, undo.Position);
+        Assert.NotSame(original, undo.Position);
+        undo.Redo();
+        Assert.NotSame(exported, undo.Position);
+    }
 }

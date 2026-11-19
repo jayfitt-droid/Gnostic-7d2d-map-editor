@@ -53,6 +53,22 @@ public sealed class ProjectTests : IDisposable
         Assert.False(File.Exists(path + ".tmp"));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ExportStateSurvivesCloningAndSaving(bool? hasChanges)
+    {
+        var settings = new ProjectStore.ProjectSettings { ExportFolder = "My Island", ExportHasChanges = hasChanges };
+        string path = Path.Combine(_dir, "export" + ProjectStore.Extension);
+
+        ProjectStore.Save(MakeWorld(), path, settings.Clone());
+        ProjectStore.Load(path, out var loaded);
+
+        Assert.Equal("My Island", loaded.ExportFolder);
+        Assert.Equal(hasChanges, loaded.ExportHasChanges);
+    }
+
     [Fact]
     public void Passthrough_image_is_kept_until_its_layer_is_edited()
     {
