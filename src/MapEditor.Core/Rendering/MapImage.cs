@@ -1,6 +1,7 @@
 using MapEditor.Core.GameData;
 using MapEditor.Core.IO;
 using MapEditor.Core.Model;
+using MapEditor.Core.Ops;
 
 namespace MapEditor.Core.Rendering;
 
@@ -8,13 +9,14 @@ namespace MapEditor.Core.Rendering;
 /// <param name="Size">Width and height in pixels; 0 (or more than the world) means the whole world at 1 pixel per metre.</param>
 /// <param name="Layers">The terrain layers to draw.</param>
 /// <param name="Pois">Draw prefab (POI) outlines on top.</param>
-public sealed record MapImageOptions(int Size, MapLayers Layers, bool Pois);
+/// <param name="Grid">Draw the 150 m world grid.</param>
+public sealed record MapImageOptions(int Size, MapLayers Layers, bool Pois, bool Grid = false);
 
 /// <summary>
 /// Renders a whole world to one square north-up picture, without any editor marks. Terrain comes from
-/// <see cref="MapRenderer"/> at the mip level that fits the size, scaled down to it by area averaging; POI outlines
-/// are drawn at the picture's scale. Rows are produced on demand, top to bottom, from a band of rows and one or two
-/// strips of tiles, so a 16k picture never exists in memory whole.
+/// <see cref="MapRenderer"/> at the mip level that fits the size, scaled down to it by area averaging. The world
+/// grid and POI outlines are drawn at the picture's scale, with the outlines on top. Rows are produced on demand,
+/// top to bottom, from a band of rows and one or two strips of tiles, so a 16k picture never exists in memory whole.
 /// </summary>
 public sealed class MapImage
 {
@@ -62,7 +64,7 @@ public sealed class MapImage
         _columns = new (int, int, float[])[Size];
         for (int ox = 0; ox < Size; ox++) _columns[ox] = Taps(ox, _sourceSpan, _sourceWidth);
         _band = new uint[Size * BandRows];
-        _overlay = options.Pois ? new uint[Size * BandRows] : [];
+        _overlay = options.Pois || options.Grid ? new uint[Size * BandRows] : [];
         if (options.Pois) CollectPois();
     }
 
@@ -120,6 +122,7 @@ public sealed class MapImage
         var accum = new float[Size * 4];
         for (int r = 0; r < rows; r++)
             ResampleRow(y0 + r, _band.AsSpan(r * Size, Size), accum);
+        if (_options.Grid) DrawGrid(y0, rows);
         if (_options.Pois) DrawPois(y0, rows);
         _bandIndex = band;
     }
@@ -205,6 +208,45 @@ public sealed class MapImage
         return new Strip(ty, pixels);
     }
 
+    // ---- world grid --------------------------------------------------------
+
+    private const uint WorldGridLine = 0x78787878;   // white at alpha 120, premultiplied
+    private const uint WorldGridShadow = 0x37000000; // black at alpha 55
+
+    private void DrawGrid(int y0, int rows)
+    {
+        Array.Clear(_overlay, 0, Size * rows);
+        DrawLines(1, WorldGridShadow);
+        DrawLines(0, WorldGridLine);
+        CompositeOverlay(rows);
+
+        void DrawLines(int offset, uint colour)
+        {
+            int size = _world.Size;
+            // Floor the scaled position, keeping grid lines on the far edges inside the picture.
+            int Pixel(int metres) => Math.Min((int)((long)metres * Size / size), Size - 1);
+
+            for (int g = 0; g <= size; g += TownGenerator.Tile)
+            {
+                // Count from the south-west corner. Picture rows start at the north edge.
+                int x = Pixel(g) + offset, y = Pixel(size - g) + offset;
+                if (x < Size)
+                    for (int r = 0; r < rows; r++)
+                    {
+                        int i = r * Size + x;
+                        _overlay[i] = Over(colour, _overlay[i]);
+                    }
+
+                if (y >= y0 && y < y0 + rows)
+                {
+                    var row = _overlay.AsSpan((y - y0) * Size, Size);
+                    for (int column = 0; column < row.Length; column++)
+                        row[column] = Over(colour, row[column]);
+                }
+            }
+        }
+    }
+
     // ---- POIs --------------------------------------------------------------
 
     /// <summary>The footprints to outline in picture pixels, in the order the map view draws them: street tiles, POIs, traders.</summary>
@@ -279,6 +321,11 @@ public sealed class MapImage
                     break;
             }
         }
+        CompositeOverlay(rows);
+    }
+
+    private void CompositeOverlay(int rows)
+    {
         for (int r = 0; r < rows; r++)
         {
             var dst = _band.AsSpan(r * Size, Size);

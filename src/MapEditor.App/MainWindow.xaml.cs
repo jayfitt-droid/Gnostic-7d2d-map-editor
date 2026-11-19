@@ -2702,13 +2702,13 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Saves the whole world as a PNG: the layers and POIs the map view shows, as the starting choice. It changes
-    /// nothing in the world, so it is not an edit; the picture is drawn off the UI thread while edits are held off.
+    /// Saves the whole world as a PNG. The starting choice uses the map view's layers, POIs and world grid.
+    /// The picture is drawn off the UI thread while edits are held off.
     /// </summary>
     private async void ExportMapImage_Click(object sender, RoutedEventArgs e)
     {
         if (_world is not { } world || RefuseWhileBusy()) return;
-        var dialog = new MapImageDialog(world.Size, _vm.Layers, _vm.ShowPrefabs) { Owner = this };
+        var dialog = new MapImageDialog(world.Size, _vm.Layers, _vm.ShowPrefabs, _vm.ShowWorldGrid) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.Options is not { } options) return;
         var save = new SaveFileDialog
         {

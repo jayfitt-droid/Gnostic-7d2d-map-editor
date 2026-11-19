@@ -6,7 +6,7 @@ namespace MapEditor.App;
 /// <summary>Asks for the size and layers of a map image export. Starts from what the map view shows.</summary>
 public partial class MapImageDialog : Window
 {
-    public MapImageDialog(int worldSize, MapLayers layers, bool pois)
+    public MapImageDialog(int worldSize, MapLayers layers, bool pois, bool grid)
     {
         InitializeComponent();
         SizeFull.Content = $"Full ({worldSize} x {worldSize}, 1 pixel per metre)";
@@ -29,6 +29,7 @@ public partial class MapImageDialog : Window
         RoadsBox.IsChecked = (layers & MapLayers.Roads) != 0;
         RadiationBox.IsChecked = (layers & MapLayers.Radiation) != 0;
         PoisBox.IsChecked = pois;
+        GridBox.IsChecked = grid;
     }
 
     /// <summary>The chosen options, set when the dialog returns true.</summary>
@@ -43,7 +44,7 @@ public partial class MapImageDialog : Window
         if (WaterBox.IsChecked == true) layers |= MapLayers.Water;
         if (RoadsBox.IsChecked == true) layers |= MapLayers.Roads;
         if (RadiationBox.IsChecked == true) layers |= MapLayers.Radiation;
-        Options = new MapImageOptions(size, layers, PoisBox.IsChecked == true);
+        Options = new MapImageOptions(size, layers, PoisBox.IsChecked == true, GridBox.IsChecked == true);
         DialogResult = true;
     }
 }
