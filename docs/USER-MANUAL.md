@@ -157,7 +157,7 @@ Click **Save** (Ctrl+S). The editor saves a project file (`.7dmap`). A project k
 
 If you opened a world folder, Ctrl+S saves the world back to that folder.
 
-The editor also saves a copy every 5 minutes. If the editor does not close normally, it offers to recover your work when you start it again.
+The editor saves a recovery copy of unsaved work every 5 minutes. When you save, close, or switch worlds, the editor removes the old copy. After a crash, the editor offers to recover the most recent copy. Click **No** to delete the recovery copies.
 
 Projects and recovery copies keep the original biome and radiation images, even if the images are larger than the world.
 
