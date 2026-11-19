@@ -43,6 +43,21 @@ public sealed class GameLinkWorldTests : IDisposable
         Assert.Null(GameLinkWorld.WaypointAt(world, 60, 60, prefabs));
     }
 
+    [Theory]
+    [InlineData("custom farm")]
+    [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    public void WaypointIsHiddenForNamesTheProtocolCannotSend(string name)
+    {
+        var world = new World { Name = "P", Size = 128, Height = new Grid<ushort>(128, 128) };
+        var prefab = new PrefabInstance { Name = name, Position = new(-20, 0, 10) };
+        world.Prefabs.Add(prefab);
+        AddPrefab(name, 12, 8, "rural");
+        var prefabs = PrefabLibrary.Load([_folder]);
+
+        Assert.Same(prefab, WorldQuery.PrefabAt(world, -20, 10, prefabs));
+        Assert.Null(GameLinkWorld.WaypointAt(world, -20, 10, prefabs));
+    }
+
     private void AddPrefab(string name, int x, int z, string tags)
     {
         File.WriteAllText(Path.Combine(_folder, name + ".xml"), $"""

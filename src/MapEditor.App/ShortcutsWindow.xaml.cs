@@ -43,8 +43,8 @@ public partial class ShortcutsWindow : Window
             ]),
             new("Game Link (enable shortcuts in Issues)",
             [
-                new(["Ctrl+Alt+Left"], "Teleport to the previous issue"),
-                new(["Ctrl+Alt+Right"], "Teleport to the next issue"),
+                new(["Ctrl+Alt+Left"], "Teleport to the issue before the selected row"),
+                new(["Ctrl+Alt+Right"], "Teleport to the issue after the selected row"),
             ]),
             new("File",
             [

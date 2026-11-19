@@ -21,6 +21,11 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _dimMap;
     [ObservableProperty] private bool _showPlayer;
     [ObservableProperty] private bool _followPlayer;
+    [ObservableProperty] private bool _gameLinkInstalled;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(GameLinkConnectionText))] private bool _gameLinkConnected;
+    [ObservableProperty] private bool _canTeleportIssues;
+
+    public string GameLinkConnectionText => GameLinkConnected ? "Game Link connected" : "Game Link disconnected";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Layers))]

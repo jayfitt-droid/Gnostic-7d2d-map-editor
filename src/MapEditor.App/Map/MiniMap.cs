@@ -125,7 +125,7 @@ public sealed class MiniMap : FrameworkElement
     {
         if (_target?.Renderer is not { } renderer || ActualWidth <= 0) return;
         double k = renderer.World.Size / ActualWidth;
-        _target.PanTo(new Point(p.X * k, p.Y * k));
+        _target.CenterOn(new Point(p.X * k, p.Y * k));
     }
 
     private static T Frozen<T>(T freezable) where T : Freezable

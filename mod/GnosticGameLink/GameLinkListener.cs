@@ -9,6 +9,7 @@ namespace GnosticGameLink;
 internal sealed class GameLinkListener : IDisposable
 {
     private const int UpdateTimeoutMilliseconds = 2000;
+    private const int AcceptRetryMilliseconds = 100;
     private static readonly Encoding Utf8 = new UTF8Encoding(false);
     private readonly TcpListener listener = new(IPAddress.Loopback, GameLinkProtocol.Port);
     private readonly object gate = new();
@@ -69,11 +70,28 @@ internal sealed class GameLinkListener : IDisposable
 
     private void Listen()
     {
-        try
+        while (!stopped)
         {
-            while (!stopped)
+            TcpClient accepted;
+            try
             {
-                using TcpClient accepted = listener.AcceptTcpClient();
+                accepted = listener.AcceptTcpClient();
+            }
+            catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException)
+            {
+                if (stopped) return;
+                Log.Warning($"[Gnostic Game Link] Could not accept a connection: {ex.Message}");
+                if (ex is ObjectDisposedException)
+                {
+                    Dispose();
+                    return;
+                }
+                Thread.Sleep(AcceptRetryMilliseconds);
+                continue;
+            }
+
+            using (accepted)
+            {
                 lock (gate)
                 {
                     if (stopped)
@@ -85,15 +103,6 @@ internal sealed class GameLinkListener : IDisposable
                 lock (gate)
                     client = null;
             }
-        }
-        catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException)
-        {
-            if (!stopped)
-                Log.Warning($"[Gnostic Game Link] Listener stopped: {ex.Message}");
-        }
-        finally
-        {
-            Dispose();
         }
     }
 
@@ -142,8 +151,6 @@ internal sealed class GameLinkListener : IDisposable
         {
             if (stopped)
                 return GameLinkReply.Error("not_ready", "The game is shutting down.");
-            if (pending != null)
-                return GameLinkReply.Error("busy", "The game is handling another request.");
             pending = work;
         }
 

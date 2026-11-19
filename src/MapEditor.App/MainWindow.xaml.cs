@@ -87,11 +87,16 @@ public partial class MainWindow : Window
         DataContext = _vm;
         Overview.Target = Map;
         PlayerOverlay.Target = Map;
-        Map.Panned += (_, _) => _vm.FollowPlayer = false;
-        _playerPollTimer.Tick += PollPlayer_Tick;
+        _gameLinkPollTimer.Tick += PollGameLink_Tick;
+        RefreshGameLinkInstallation();
+        _gameLinkPollTimer.Start();
         Map.CursorMoved += Map_CursorMoved;
         Map.MenuRequested += (_, p) => ShowMapMenu(p);
-        Map.ViewChanged += (_, _) => UpdateZoomText();
+        Map.ViewChanged += (_, _) =>
+        {
+            if (!_centeringOnPlayer) _vm.FollowPlayer = false;
+            UpdateZoomText();
+        };
         _autosaveTimer.Tick += async (_, _) => await AutosaveAsync();
         _autosaveTimer.Start();
         _vm.PropertyChanged += Vm_PropertyChanged;
@@ -933,9 +938,10 @@ public partial class MainWindow : Window
         {
             _vm.IsBusy = false;
         }
+        var selectedIssue = IssuesList.SelectedItem as ValidationIssue;
         _vm.Issues.Clear();
         foreach (var issue in issues) _vm.Issues.Add(issue);
-        RebuildIssueSteps(issueStops);
+        RebuildIssueSteps(issueStops, selectedIssue);
         int errors = issues.Count(i => i.Severity == IssueSeverity.Error);
         int warnings = issues.Count(i => i.Severity == IssueSeverity.Warning);
         static string Count(int n, string word) => n == 1 ? $"1 {word}" : $"{n} {word}s";
@@ -996,7 +1002,7 @@ public partial class MainWindow : Window
 
     private void Issue_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter) return;
+        if (e.Key != Key.Enter || e.OriginalSource is Button) return;
         JumpToIssue();
         e.Handled = true;
     }
@@ -1182,6 +1188,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        StopGameLinkPolling();
         _vm.ShowPlayer = false;
         StopIssueHotkeys();
         base.OnClosed(e);
@@ -2343,7 +2350,6 @@ public partial class MainWindow : Window
     private ProjectStore.ProjectSettings CopyProjectSettings()
     {
         var settings = _projectSettings.Clone();
-        settings.ExportFolder = GameLinkExportFolder;
         settings.ExportHasChanges = settings.ExportFolder is null ? null : ExportHasChanges;
         return settings;
     }
@@ -3328,6 +3334,9 @@ public partial class MainWindow : Window
                 CommandManager.InvalidateRequerySuggested();
                 UpdateIssueStepControls();
                 CloseIfWaiting();
+                break;
+            case nameof(MainViewModel.GameLinkConnected):
+                UpdateIssueStepControls();
                 break;
             case nameof(MainViewModel.Layers) when Map.Renderer is { } renderer:
                 Overview.SetRenderer(renderer, _vm.Layers);
