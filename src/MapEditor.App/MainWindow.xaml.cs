@@ -2796,6 +2796,7 @@ public partial class MainWindow : Window
     private void UseModernLayout()
     {
         _vm.IsModernTheme = true;
+        UseModernTitleBar();
         System.Windows.Data.BindingOperations.ClearBinding(SidePanel, VisibilityProperty);
         SidePanel.Visibility = Visibility.Visible;
         SidePanel.SetBinding(WidthProperty, nameof(MainViewModel.SideBarOuterWidth));
@@ -2879,6 +2880,87 @@ public partial class MainWindow : Window
         if (node is DependencyObject parent)
             foreach (object child in LogicalTreeHelper.GetChildren(parent)) ReserveScrollBarRoom(child);
     }
+
+    /// <summary>Draws the Modern title bar in the window's own area, with the menus in it.</summary>
+    private void UseModernTitleBar()
+    {
+        var chrome = new System.Windows.Shell.WindowChrome
+        {
+            CaptionHeight = 36,
+            ResizeBorderThickness = SystemParameters.WindowResizeBorderThickness,
+            GlassFrameThickness = new Thickness(0, 0, 0, 1),
+            UseAeroCaptionButtons = false,
+        };
+        System.Windows.Shell.WindowChrome.SetWindowChrome(this, chrome);
+
+        // A slim title row: the menus and quick-access buttons fit inside the window buttons' height.
+        MenuRow.Margin = new Thickness(4, 0, 4, 0);
+        // The theme's menu items are taller than their text needs: let them overlap the row's edges.
+        MainMenu.Margin = new Thickness(0, -7, 0, -7);
+
+        // The whole title row drags the window, also the part a maximized window pushes down.
+        void FitCaption() => chrome.CaptionHeight = TitleRow.ActualHeight + RootDock.Margin.Top;
+        TitleRow.SizeChanged += (_, _) => FitCaption();
+        StateChanged += (_, _) => FitCaption();
+        System.Windows.Shell.WindowChrome.SetIsHitTestVisibleInChrome(MenuRow, true);
+        System.Windows.Shell.WindowChrome.SetIsHitTestVisibleInChrome(WindowControls, true);
+        StateChanged += (_, _) => ShowWindowState();
+        ShowWindowState();
+        SourceInitialized += (_, _) =>
+            System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle)?.AddHook(TitleBarHook);
+    }
+
+    /// <summary>A maximized window reaches past the screen's edges by its frame, so keeps the content on screen.</summary>
+    private void ShowWindowState()
+    {
+        bool maximized = WindowState == WindowState.Maximized;
+        RootDock.Margin = maximized ? SystemParameters.WindowResizeBorderThickness : new Thickness(0);
+        MaximizeGlyph.Text = maximized ? "\uE923" : "\uE922";
+        MaximizeButton.ToolTip = maximized ? "Restore" : "Maximize";
+        System.Windows.Automation.AutomationProperties.SetName(MaximizeButton, maximized ? "Restore" : "Maximize");
+    }
+
+    /// <summary>Tells Windows where the maximize button is, so that hovering it shows the Windows 11 snap layouts.</summary>
+    private nint TitleBarHook(nint window, int message, nint wParam, nint lParam, ref bool handled)
+    {
+        const int hitTest = 0x84, buttonDown = 0xA1, buttonUp = 0xA2, mouseLeave = 0x2A2, maximizeArea = 9;
+        switch (message)
+        {
+            case hitTest:
+                var point = MaximizeButton.PointFromScreen(new Point((short)(lParam & 0xFFFF), (short)(lParam >> 16 & 0xFFFF)));
+                bool over = MaximizeButton.IsVisible && point.X >= 0 && point.Y >= 0
+                    && point.X < MaximizeButton.ActualWidth && point.Y < MaximizeButton.ActualHeight;
+                MaximizeButton.Tag = over ? "Hover" : null;
+                if (!over) break;
+                handled = true;
+                return maximizeArea;
+            case buttonDown when wParam == maximizeArea:
+                handled = true;
+                break;
+            case buttonUp when wParam == maximizeArea:
+                handled = true;
+                ToggleMaximized();
+                break;
+            case mouseLeave:
+                MaximizeButton.Tag = null;
+                break;
+        }
+        return 0;
+    }
+
+    private void ToggleMaximized()
+    {
+        if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this);
+        else SystemCommands.MaximizeWindow(this);
+    }
+
+    private void WindowMinimize_Click(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
+
+    private void WindowMaximize_Click(object sender, RoutedEventArgs e) => ToggleMaximized();
+
+    private void WindowClose_Click(object sender, RoutedEventArgs e) => SystemCommands.CloseWindow(this);
+
+    private void LayoutPopup_Closed(object? sender, EventArgs e) => LayoutButton.IsChecked = false;
 
     /// <summary>Gives a toolbar button the Modern look: a small icon with its word beside it.</summary>
     private void UseModernAction(System.Windows.Controls.Primitives.ButtonBase button, Style style, System.Windows.Media.Geometry icon, string text, bool dropDown = false)

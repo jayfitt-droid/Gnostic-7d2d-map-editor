@@ -130,6 +130,59 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Modern theme (#63): the minimize, maximize and close buttons in the title bar. -->
+        <Style x:Key="ModernCaptionButton" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <!-- Windows owns the maximize button's mouse, for its snap layouts, so the window sets this. -->
+                            <Trigger Property="Tag" Value="Hover">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ModernCloseButton" TargetType="Button" BasedOn="{StaticResource ModernCaptionButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#C42B1C" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#B3271A" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CaptionGlyph" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="10" />
+        </Style>
         <!-- Modern theme (#63): the side bar's resize edge, a dotted grip that shows a blue line while hovered or dragged. -->
         <ControlTemplate x:Key="ModernSash" TargetType="Thumb">
             <Grid Background="Transparent">
@@ -245,8 +298,62 @@
 
     <DockPanel x:Name="RootDock">
         <!-- Menus and the quick-access icons, as on Paint's top row. -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,2,4,0">
-            <Menu Background="Transparent" VerticalAlignment="Center">
+        <DockPanel x:Name="TitleRow" DockPanel.Dock="Top">
+        <!-- Modern theme (#63): the layout buttons and the window's own buttons, at the right of the title bar. -->
+        <StackPanel x:Name="WindowControls" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                    Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}">
+            <ToggleButton Style="{StaticResource FlatButton}" Width="32" Height="28" Padding="0" Margin="2,4" IsChecked="{Binding ShowSidePanel}"
+                          ToolTip="Show or hide the side bar" AutomationProperties.Name="Side bar">
+                <Path Width="16" Height="16">
+                    <Path.Style>
+                        <Style TargetType="Path" BasedOn="{StaticResource IconPath}">
+                            <Setter Property="Data" Value="{x:Static local:Icons.PanelLeft}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding SideBarOnRight}" Value="True">
+                                    <Setter Property="Data" Value="{x:Static local:Icons.PanelRight}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Path.Style>
+                </Path>
+            </ToggleButton>
+            <Grid Margin="2,4,10,4">
+                <ToggleButton x:Name="LayoutButton" Style="{StaticResource FlatButton}" Width="32" Height="28" Padding="0"
+                              ToolTip="Choose the layout" AutomationProperties.Name="Layout">
+                    <Path Data="{x:Static local:Icons.LayoutOptions}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+                </ToggleButton>
+                <Popup IsOpen="{Binding IsChecked, ElementName=LayoutButton}" StaysOpen="False" PlacementTarget="{Binding ElementName=LayoutButton}"
+                       Placement="Bottom" AllowsTransparency="True" Closed="LayoutPopup_Closed">
+                    <Border Padding="14,10" CornerRadius="6" BorderThickness="1" Margin="0,4,0,0"
+                            Background="{DynamicResource SolidBackgroundFillColorQuarternaryBrush}"
+                            BorderBrush="{DynamicResource SurfaceStrokeColorFlyoutBrush}">
+                        <StackPanel>
+                            <CheckBox Content="Side bar on the right" IsChecked="{Binding SideBarOnRight}" Margin="0,3" />
+                            <CheckBox Content="Tool options" IsChecked="{Binding ShowToolOptions}" Margin="0,3" />
+                            <CheckBox Content="Mini map" IsChecked="{Binding ShowMiniMap}" Margin="0,3" />
+                            <Separator Margin="0,6" />
+                            <TextBlock Text="Tool names" FontWeight="SemiBold" Margin="0,0,0,4" />
+                            <RadioButton Content="Automatic" GroupName="ToolNames" IsChecked="{Binding RibbonAuto}" Margin="0,3" />
+                            <RadioButton Content="Always show" GroupName="ToolNames" IsChecked="{Binding RibbonFull}" Margin="0,3" />
+                            <RadioButton Content="Never show" GroupName="ToolNames" IsChecked="{Binding RibbonCompact}" Margin="0,3" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </Grid>
+            <Button Style="{StaticResource ModernCaptionButton}" Click="WindowMinimize_Click" ToolTip="Minimize" AutomationProperties.Name="Minimize">
+                <TextBlock Text="&#xE921;" Style="{StaticResource CaptionGlyph}" />
+            </Button>
+            <Button x:Name="MaximizeButton" Style="{StaticResource ModernCaptionButton}" Click="WindowMaximize_Click" ToolTip="Maximize" AutomationProperties.Name="Maximize">
+                <TextBlock x:Name="MaximizeGlyph" Text="&#xE922;" Style="{StaticResource CaptionGlyph}" />
+            </Button>
+            <Button Style="{StaticResource ModernCloseButton}" Click="WindowClose_Click" ToolTip="Close" AutomationProperties.Name="Close">
+                <TextBlock Text="&#xE8BB;" Style="{StaticResource CaptionGlyph}" />
+            </Button>
+        </StackPanel>
+        <StackPanel x:Name="MenuRow" DockPanel.Dock="Left" Orientation="Horizontal" Margin="4,2,4,0">
+            <Image Source="pack://application:,,,/app.ico" Width="16" Height="16" Margin="6,0,4,0" VerticalAlignment="Center"
+                   Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="Gnostic" />
+            <Menu x:Name="MainMenu" Background="Transparent" VerticalAlignment="Center">
                 <MenuItem Header="_File" SubmenuOpened="FileMenu_SubmenuOpened">
                     <MenuItem Header="_New World..." InputGestureText="Ctrl+N" Command="{x:Static local:MainWindow.NewWorldCommand}" />
                     <MenuItem Header="_Open..." InputGestureText="Ctrl+O" Command="{x:Static local:MainWindow.OpenCommand}"
@@ -318,6 +425,10 @@
                 <Path Data="{x:Static local:Icons.Redo}" Style="{StaticResource IconPath}" Width="16" Height="16" />
             </Button>
         </StackPanel>
+        <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis" IsHitTestVisible="False" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}" />
+        </DockPanel>
 
         <!-- The ribbon: tool groups with their names underneath. -->
         <Border DockPanel.Dock="Top" BorderThickness="0,1,0,1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">

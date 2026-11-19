@@ -8,6 +8,9 @@ namespace MapEditor.App;
 /// </summary>
 public static class Icons
 {
+    public static Geometry PanelLeft { get; } = Make("M3,4 H21 V20 H3 Z M9,4 V20");
+    public static Geometry PanelRight { get; } = Make("M3,4 H21 V20 H3 Z M15,4 V20");
+    public static Geometry LayoutOptions { get; } = Make("M3,4 H21 V20 H3 Z M3,10 H21 M10,10 V20");
     public static Geometry ActivityPlaced { get; } = Make("M8,6 H21 M8,12 H21 M8,18 H21 M3,6 H4 M3,12 H4 M3,18 H4");
     public static Geometry ActivityIssues { get; } = Make("M12,3 L22,21 H2 Z M12,10 V15 M12,18 V18.5");
     public static Geometry ActivityWorld { get; } = Make("M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 Z M3,12 H21 M12,3 C15,6 15,18 12,21 M12,3 C9,6 9,18 12,21");
