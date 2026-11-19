@@ -44,6 +44,19 @@ public sealed class AppSettings
     [System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<RibbonMode>))]
     public RibbonMode RibbonMode { get; set; } = RibbonMode.Auto;
 
+    /// <summary>The interface theme: "Flat" or "Modern". Text, so a value this version doesn't know can't reset the other settings.</summary>
+    public string Theme { get; set; } = FlatTheme;
+
+    public const string FlatTheme = "Flat", ModernTheme = "Modern";
+
+    /// <summary>
+    /// Whether this run uses the Modern theme. The GNOSTIC_THEME environment variable overrides the saved setting for
+    /// one run, to try the theme while it has no menu item.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool UsesModernTheme =>
+        string.Equals(Environment.GetEnvironmentVariable("GNOSTIC_THEME") ?? Theme, ModernTheme, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Generator presets saved from the Generate panel ("Game defaults" isn't stored).</summary>
     public List<MapEditor.Core.Generate.GeneratorPreset> GeneratorPresets { get; set; } = [];
 
