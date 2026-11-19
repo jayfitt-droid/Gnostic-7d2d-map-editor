@@ -135,9 +135,13 @@ Gnostic Game Link is an optional mod for 7 Days to Die 3.4. It connects the edit
 2. Right-click a place in the editor. Click **Teleport Here** to go to the place in the game.
 3. To mark a POI, right-click the POI and click **Add Waypoint**. The game shows a temporary waypoint on the map and compass. The game does not save the waypoint.
 
+The waypoint option shows for POI names of up to 64 characters. The name can use letters A to Z, digits, underscores and hyphens.
+
 The editor compares the world in the game with the last export folder. If they differ, the editor asks you to confirm. Check the world names before you continue.
 
 If the editor cannot connect to Game Link, it shows a message. You can still use **Copy teleport command**.
+
+When Game Link is installed, a plug icon appears in the status bar. It turns green when the game replies. Point to the icon to read the connection status.
 
 After a teleport, the status bar tells you if the editor has changes since export. Export again to use the latest terrain. A saved game keeps the terrain in chunks that it already generated.
 
@@ -145,7 +149,7 @@ After a teleport, the status bar tells you if the editor has changes since expor
 
 Open **Layers** and select **Show player**. When the game has the exported world open, a purple arrow shows where you are and which way you face. The arrow updates about once a second.
 
-Select **Follow** to keep the player in view. Drag the map or move it with the mini map to turn off **Follow**. If Game Link loses its connection, the arrow fades and the status bar tells you. The arrow comes back when the game replies from the matching world. Clear **Show player** to stop checking the game.
+Select **Follow** to keep the player in view. Any change you make to the view turns off **Follow**. You can drag the map, zoom, or go to an issue. If Game Link loses its connection, the arrow fades and the status bar tells you. The arrow comes back when the game replies from the matching world. Clear **Show player** to hide the arrow.
 
 ## 4. Worlds and projects
 
@@ -631,9 +635,9 @@ Other issues need you to decide what to do, so they have no **Fix** button.
 
 ### Check the issues in the game
 
-With Gnostic Game Link, click **Next issue** in the **Issues** tab after you run Validate. The editor selects the issue and takes you to it in the game. Use **Previous issue** to go back. The count shows your place in the list. Issues at the same stop share one teleport. The editor skips issues that have no place on the map.
+With Gnostic Game Link installed, click **Teleport** on an issue in the **Issues** tab. The editor selects that row and takes you to it in the game. The buttons are disabled while Game Link is disconnected. Issues with no place on the map have no **Teleport** button.
 
-Select **Enable in-game shortcuts** to step while the game has focus. Press **Ctrl+Alt+Right** for the next stop or **Ctrl+Alt+Left** for the previous stop. The **Issues** tab and **Help > Keyboard Shortcuts** show both shortcuts. Clear the check box when you finish. The editor also turns the shortcuts off when you close the world or open another one. If you run Validate again, the editor keeps your place at the nearest remaining stop.
+Select **Enable in-game shortcuts** to step while the game has focus. Press **Ctrl+Alt+Right** to go to the issue after the selected row. Press **Ctrl+Alt+Left** to go to the issue before it. The shortcuts skip rows with no place on the map and rows at the same stop as the selected issue. Click a different row to start from there. If Validate removes your selected stop, **Ctrl+Alt+Right** takes you to the first stop you have not visited yet. The **Issues** tab and **Help > Keyboard Shortcuts** show both shortcuts. Clear the check box when you finish. The editor also turns the shortcuts off when you close the world or open another one.
 
 You can make a list of teleport commands, one for each issue that Validate finds. Then you can go to each issue in the game.
 
