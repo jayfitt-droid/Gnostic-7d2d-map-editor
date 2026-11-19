@@ -671,6 +671,12 @@ public sealed partial class MainViewModel : ObservableObject
     protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
+        if (e.PropertyName is nameof(SelectedTool) or nameof(TownText) or nameof(PlacementText) or nameof(SelectionText) or nameof(ShowSelectionText))
+        {
+            base.OnPropertyChanged(nameof(HintCardText));
+            base.OnPropertyChanged(nameof(ShowInlineToolHint));
+        }
+
         switch (e.PropertyName)
         {
             case nameof(BrushRadius) or nameof(StampSize) or nameof(RoadWidth):
@@ -686,7 +692,7 @@ public sealed partial class MainViewModel : ObservableObject
                 or nameof(CardShowsPick) or nameof(SelectedTool) or nameof(SelectionText) or nameof(PlacementText) or nameof(Favourites):
                 foreach (string card in CardProperties) base.OnPropertyChanged(card);
                 break;
-            case nameof(RibbonMode) or nameof(WindowIsShort):
+            case nameof(RibbonMode) or nameof(WindowIsShort) or nameof(WindowIsNarrow) or nameof(WindowIsTight) or nameof(IsModernTheme):
                 foreach (string ribbon in RibbonProperties) base.OnPropertyChanged(ribbon);
                 break;
             case nameof(SelectedBiome) or nameof(RoadType):
@@ -710,15 +716,53 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Set by the window: it is too short for the full ribbon.</summary>
     [ObservableProperty] private bool _windowIsShort;
 
+    /// <summary>Set by the window: it is too narrow for the Modern toolbar's tool names.</summary>
+    [ObservableProperty] private bool _windowIsNarrow;
+
+    /// <summary>The window width (DIPs) that the Modern toolbar needs to show its tool names.</summary>
+    public const double ToolNamesMinWidth = 1210;
+
+    /// <summary>Set by the window: it is too narrow for the words on the Modern toolbar's buttons.</summary>
+    [ObservableProperty] private bool _windowIsTight;
+
+    /// <summary>The window width (DIPs) that the Modern toolbar needs for the words on its buttons as well.</summary>
+    public const double ActionTextMinWidth = 1480;
+
+    /// <summary>Whether the Modern toolbar's Layers, Generate, Validate, Export and Package buttons show their words.</summary>
+    public bool ActionTextShown => IsModernTheme && RibbonMode switch
+    {
+        RibbonMode.Full => true,
+        RibbonMode.Compact => false,
+        _ => !WindowIsTight,
+    };
+
+    /// <summary>Set by the window: the room for the tool hint in the Modern options row, beside the tool's name.</summary>
+    [ObservableProperty] private double _inlineHintMaxWidth = 760;
+
+    /// <summary>Whether the Modern toolbar shows a name under each tool. View > Ribbon can force it on or off.</summary>
+    public bool ToolNamesShown => IsModernTheme && RibbonMode switch
+    {
+        RibbonMode.Full => true,
+        RibbonMode.Compact => false,
+        _ => !WindowIsNarrow && !WindowIsShort,
+    };
+
+    /// <summary>The tool's hint in the Modern options row, for the tools with no options to fill it.</summary>
+    public bool ShowInlineToolHint => IsModernTheme && (IsSelectTool || IsSpawnTool);
+
+    /// <summary>The changing help text on the Modern theme's map card. Empty hides the card.</summary>
+    public string HintCardText =>
+        (IsTownTool ? TownText : IsPrefabTool ? PlacementText : ShowSelectionText ? SelectionText : "") ?? "";
+
     /// <summary>One row of icons with no group names, and fewer reserved lines under the tool options.</summary>
-    public bool IsCompactRibbon => RibbonMode == RibbonMode.Compact || RibbonMode == RibbonMode.Auto && WindowIsShort;
+    public bool IsCompactRibbon => IsModernTheme || RibbonMode == RibbonMode.Compact || RibbonMode == RibbonMode.Auto && WindowIsShort;
 
     // The View > Ribbon choices.
     public bool RibbonAuto { get => RibbonMode == RibbonMode.Auto; set { if (value) RibbonMode = RibbonMode.Auto; } }
     public bool RibbonFull { get => RibbonMode == RibbonMode.Full; set { if (value) RibbonMode = RibbonMode.Full; } }
     public bool RibbonCompact { get => RibbonMode == RibbonMode.Compact; set { if (value) RibbonMode = RibbonMode.Compact; } }
 
-    public double RibbonRowHeight => IsCompactRibbon ? 36 : 72;
+    public double RibbonRowHeight => ToolNamesShown ? 54 : IsCompactRibbon ? 36 : 72;
     public int TerrainColumns => IsCompactRibbon ? TerrainTools.Count : 3;
     public int PaintColumns => IsCompactRibbon ? PaintTools.Count : 2;
     public int BuildColumns => IsCompactRibbon ? BuildTools.Count : 3;
@@ -738,7 +782,7 @@ public sealed partial class MainViewModel : ObservableObject
     [
         nameof(IsCompactRibbon), nameof(RibbonAuto), nameof(RibbonFull), nameof(RibbonCompact), nameof(RibbonRowHeight),
         nameof(TerrainColumns), nameof(PaintColumns), nameof(BuildColumns), nameof(CurrentSwatchSize), nameof(PaletteOrientation),
-        nameof(ReservedInfoText), nameof(ShowToolHint),
+        nameof(ReservedInfoText), nameof(ShowToolHint), nameof(ToolNamesShown), nameof(ActionTextShown), nameof(ShowInlineToolHint),
     ];
 
     [ObservableProperty] private bool _showToolOptions = true;

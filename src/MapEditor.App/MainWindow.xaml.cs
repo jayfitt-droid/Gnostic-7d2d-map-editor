@@ -85,7 +85,13 @@ public partial class MainWindow : Window
         _autosaveTimer.Start();
         _vm.PropertyChanged += Vm_PropertyChanged;
         // The automatic ribbon goes compact below this height (DIPs): 1366×768 at 100%, or 1080p at 150%.
-        SizeChanged += (_, _) => _vm.WindowIsShort = ActualHeight < 800;
+        SizeChanged += (_, _) =>
+        {
+            _vm.WindowIsShort = ActualHeight < 800;
+            _vm.WindowIsNarrow = ActualWidth < MainViewModel.ToolNamesMinWidth;
+            _vm.WindowIsTight = ActualWidth < MainViewModel.ActionTextMinWidth;
+            _vm.InlineHintMaxWidth = Math.Max(200, ActualWidth - 240);
+        };
 
         _edits = new EditRunner(_undo);
         _edits.Committed += (_, _) => OnWorldEdited();
@@ -2799,12 +2805,50 @@ public partial class MainWindow : Window
         SidePanelEdge.Template = (System.Windows.Controls.ControlTemplate)FindResource("ModernSash");
         SidePanelEdge.Width = 9;
 
+        // The ribbon becomes one row of named tools. Its palette and brush rail move to the tool options row.
+        var toolGroup = (Style)FindResource("ModernToolGroup");
+        foreach (var group in new[] { NavigateGroup, TerrainGroup, PaintGroup, BuildGroup }) group.Style = toolGroup;
+        PaletteGroup.Visibility = Visibility.Collapsed;
+        PaletteDivider.Visibility = Visibility.Collapsed;
+        BuildDivider.Visibility = Visibility.Collapsed;
+        LayersDivider.Visibility = Visibility.Collapsed;
+
+        // Layers and the world's actions become bordered buttons at the right of the toolbar.
+        RibbonTools.Children.Remove(LayersGroup);
+        RibbonTools.Children.Remove(WorldGroup);
+        var actions = new System.Windows.Controls.StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        System.Windows.Controls.DockPanel.SetDock(actions, System.Windows.Controls.Dock.Right);
+        actions.Children.Add(LayersGroup);
+        actions.Children.Add(WorldGroup);
+        RibbonDock.Children.Insert(1, actions);
+        // The options toggle lines up with the buttons, with a gap after Package.
+        ToolOptionsToggle.VerticalAlignment = VerticalAlignment.Center;
+        ToolOptionsToggle.Margin = new Thickness(8, 0, 0, 0);
+        ToolOptionsToggle.Width = 30;
+        ToolOptionsToggle.Height = 30;
+        var action = (Style)FindResource("ModernAction");
+        UseModernAction(LayersButton, action, Icons.Layers, "Layers", dropDown: true);
+        UseModernAction(GenerateAction, action, Icons.Generate, "Generate");
+        UseModernAction(ValidateAction, action, Icons.Validate, "Validate");
+        UseModernAction(ExportAction, (Style)FindResource("ModernExportAction"), Icons.Export, "Export");
+        UseModernAction(PackageAction, action, Icons.Package, "Package");
+
+        LeftRail.Visibility = Visibility.Collapsed;
+        ToolHintLines.Visibility = Visibility.Collapsed;
+        System.Windows.Data.BindingOperations.ClearBinding(ToolHintLine, VisibilityProperty);
+        ToolHintLine.Visibility = Visibility.Collapsed;
+
         System.Windows.Media.Geometry[] icons = [Icons.Prefab, Icons.ActivityPlaced, Icons.ActivityIssues, Icons.ActivityWorld, Icons.Generate];
         for (int i = 0; i < icons.Length; i++)
         {
             var item = (System.Windows.Controls.TabItem)SideTabs.Items[i];
             string name = ((string)item.Header).Replace("_", "");
             item.Tag = icons[i];
+            ReserveScrollBarRoom(item.Content);
             item.ToolTip = name;
             System.Windows.Automation.AutomationProperties.SetName(item, name);
         }
@@ -2819,6 +2863,42 @@ public partial class MainWindow : Window
             if (e.PropertyName is nameof(MainViewModel.SideBarOnRight) or nameof(MainViewModel.ShowSidePanel)) PlaceSideBar();
         };
         PlaceSideBar();
+    }
+
+    /// <summary>Scroll bars are drawn over a view's content, so keeps its buttons and text clear of them.</summary>
+    private static void ReserveScrollBarRoom(object? node)
+    {
+        const double room = 14;
+        if (node is System.Windows.Controls.ListBox list)
+        {
+            list.Padding = new Thickness(list.Padding.Left, list.Padding.Top, room, list.Padding.Bottom);
+            return;
+        }
+        if (node is System.Windows.Controls.ScrollViewer { Content: FrameworkElement content })
+            content.Margin = new Thickness(content.Margin.Left, content.Margin.Top, room, content.Margin.Bottom);
+        if (node is DependencyObject parent)
+            foreach (object child in LogicalTreeHelper.GetChildren(parent)) ReserveScrollBarRoom(child);
+    }
+
+    /// <summary>Gives a toolbar button the Modern look: a small icon with its word beside it.</summary>
+    private void UseModernAction(System.Windows.Controls.Primitives.ButtonBase button, Style style, System.Windows.Media.Geometry icon, string text, bool dropDown = false)
+    {
+        var iconStyle = (Style)FindResource("IconPath");
+        var content = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+        content.Children.Add(new System.Windows.Shapes.Path { Data = icon, Style = iconStyle, Width = 16, Height = 16 });
+        var word = new System.Windows.Controls.TextBlock { Text = text, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        word.SetBinding(VisibilityProperty, new System.Windows.Data.Binding(nameof(MainViewModel.ActionTextShown))
+        {
+            Converter = (System.Windows.Data.IValueConverter)FindResource("BoolToVisibility"),
+        });
+        content.Children.Add(word);
+        if (dropDown)
+            content.Children.Add(new System.Windows.Shapes.Path
+            {
+                Data = Icons.ChevronDown, Style = iconStyle, Width = 12, Height = 12, Margin = new Thickness(6, 0, 0, 0),
+            });
+        button.Style = style;
+        button.Content = content;
     }
 
     /// <summary>Puts the Modern theme's side bar on its chosen side, outside the brush rail.</summary>
@@ -2844,7 +2924,11 @@ public partial class MainWindow : Window
     /// <summary>A click on the open view's icon closes the side bar; a click on another icon opens that view.</summary>
     private void ActivityItem_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (((System.Windows.Controls.TabItem)sender).IsSelected && _vm.ShowSidePanel)
+        // A click inside the open view also passes through its tab: only the icon itself counts.
+        var item = (System.Windows.Controls.TabItem)sender;
+        if (e.OriginalSource is not System.Windows.Media.Visual source || !item.IsAncestorOf(source)) return;
+
+        if (item.IsSelected && _vm.ShowSidePanel)
         {
             _vm.ShowSidePanel = false;
             Map.Focus();

@@ -39,6 +39,17 @@ public enum EditorTool
 /// </summary>
 public sealed record ToolItem(EditorTool Tool, string Label, string Shortcut, Geometry Icon, string Hint)
 {
+    /// <summary>The name under the tool's icon in the Modern theme's toolbar.</summary>
+    public string ShortLabel => Tool switch
+    {
+        EditorTool.Biome => "Biome",
+        EditorTool.Radiation => "Radiation",
+        EditorTool.Water => "Water",
+        EditorTool.Prefab => "Prefabs",
+        EditorTool.Spawn => "Spawns",
+        _ => Label,
+    };
+
     public string Display => $"{Label}  ({Shortcut})";
 
     public string ToolTip => $"{Label} ({Shortcut})\n{Hint}";

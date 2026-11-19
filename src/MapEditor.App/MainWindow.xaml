@@ -27,6 +27,109 @@
             <Setter Property="Margin" Value="0,6" />
             <Setter Property="AutoToolTipPlacement" Value="BottomRight" />
         </Style>
+        <!-- Modern theme (#63): a toolbar group, with each tool's name under its icon when the names fit. -->
+        <Style x:Key="ModernToolGroup" TargetType="ListBox" BasedOn="{StaticResource ToolGroup}">
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <StackPanel HorizontalAlignment="Center">
+                            <Path Data="{Binding Icon}" Style="{StaticResource IconPath}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding ShortLabel}" FontSize="11" Margin="0,2,0,0" HorizontalAlignment="Center"
+                                       Visibility="{Binding DataContext.ToolNamesShown, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Setter Property="ToolTip" Value="{Binding}" />
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Chrome" Width="36" Height="34" Margin="1" CornerRadius="4" Background="Transparent"
+                                            BorderThickness="1" BorderBrush="Transparent">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding DataContext.ToolNamesShown, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                            <Setter TargetName="Chrome" Property="Width" Value="52" />
+                                            <Setter TargetName="Chrome" Property="Height" Value="50" />
+                                        </DataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Modern theme (#63): a bordered button on the right of the toolbar. -->
+        <Style x:Key="ModernAction" TargetType="ButtonBase" BasedOn="{StaticResource FlatButton}">
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ButtonBase">
+                        <Border x:Name="Chrome" Height="30" Padding="10,0" CornerRadius="4" BorderThickness="1"
+                                Background="{DynamicResource ButtonBackground}" BorderBrush="{DynamicResource ControlStrokeColorSecondaryBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
+                            </Trigger>
+                            <Trigger Property="ToggleButton.IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ButtonBackgroundDisabled}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Modern theme (#63): Export, the toolbar's one accent button. -->
+        <Style x:Key="ModernExportAction" TargetType="ButtonBase" BasedOn="{StaticResource ModernAction}">
+            <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ButtonBase">
+                        <Border x:Name="Chrome" Height="30" Padding="10,0" CornerRadius="4" Background="{DynamicResource AccentButtonBackground}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentButtonBackgroundPointerOver}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentButtonBackgroundPressed}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentButtonBackgroundDisabled}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <!-- Modern theme (#63): the side bar's resize edge, a dotted grip that shows a blue line while hovered or dragged. -->
         <ControlTemplate x:Key="ModernSash" TargetType="Thumb">
             <Grid Background="Transparent">
@@ -228,21 +331,21 @@
                     </Style.Triggers>
                 </Style>
             </Border.Style>
-            <DockPanel>
-                <ToggleButton DockPanel.Dock="Right" VerticalAlignment="Bottom" Style="{StaticResource FlatButton}" Padding="4"
+            <DockPanel x:Name="RibbonDock">
+                <ToggleButton x:Name="ToolOptionsToggle" DockPanel.Dock="Right" VerticalAlignment="Bottom" Style="{StaticResource FlatButton}" Padding="4"
                               IsChecked="{Binding ShowToolOptions}" ToolTip="Show or hide the tool options"
                               AutomationProperties.Name="Tool options">
                     <Path Data="{x:Static local:Icons.ChevronDown}" Style="{StaticResource IconPath}" Width="12" Height="12" />
                 </ToggleButton>
-                <StackPanel Orientation="Horizontal">
+                <StackPanel x:Name="RibbonTools" Orientation="Horizontal">
                     <StackPanel>
-                        <ListBox Style="{StaticResource ToolGroup}" ItemsSource="{Binding NavigateTools}" SelectedValue="{Binding SelectedTool}"
+                        <ListBox x:Name="NavigateGroup" Style="{StaticResource ToolGroup}" ItemsSource="{Binding NavigateTools}" SelectedValue="{Binding SelectedTool}"
                                  AutomationProperties.Name="Navigate" Height="{Binding RibbonRowHeight}" VerticalContentAlignment="Top" />
                         <TextBlock Text="Navigate" Style="{StaticResource RibbonLabel}" />
                     </StackPanel>
                     <Border Style="{StaticResource RibbonDivider}" />
                     <StackPanel>
-                        <ListBox Style="{StaticResource ToolGroup}" ItemsSource="{Binding TerrainTools}" SelectedValue="{Binding SelectedTool}"
+                        <ListBox x:Name="TerrainGroup" Style="{StaticResource ToolGroup}" ItemsSource="{Binding TerrainTools}" SelectedValue="{Binding SelectedTool}"
                                  AutomationProperties.Name="Terrain tools">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate><UniformGrid Columns="{Binding TerrainColumns}" /></ItemsPanelTemplate>
@@ -252,7 +355,7 @@
                     </StackPanel>
                     <Border Style="{StaticResource RibbonDivider}" />
                     <StackPanel>
-                        <ListBox Style="{StaticResource ToolGroup}" ItemsSource="{Binding PaintTools}" SelectedValue="{Binding SelectedTool}"
+                        <ListBox x:Name="PaintGroup" Style="{StaticResource ToolGroup}" ItemsSource="{Binding PaintTools}" SelectedValue="{Binding SelectedTool}"
                                  AutomationProperties.Name="Paint tools">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate><UniformGrid Columns="{Binding PaintColumns}" /></ItemsPanelTemplate>
@@ -262,7 +365,7 @@
                     </StackPanel>
                     <Border Style="{StaticResource RibbonDivider}" />
                     <StackPanel>
-                        <ListBox Style="{StaticResource ToolGroup}" ItemsSource="{Binding BuildTools}" SelectedValue="{Binding SelectedTool}"
+                        <ListBox x:Name="BuildGroup" Style="{StaticResource ToolGroup}" ItemsSource="{Binding BuildTools}" SelectedValue="{Binding SelectedTool}"
                                  AutomationProperties.Name="Build tools">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate><UniformGrid Columns="{Binding BuildColumns}" /></ItemsPanelTemplate>
@@ -270,10 +373,10 @@
                         </ListBox>
                         <TextBlock Text="Build" Style="{StaticResource RibbonLabel}" />
                     </StackPanel>
-                    <Border Style="{StaticResource RibbonDivider}" />
+                    <Border x:Name="BuildDivider" Style="{StaticResource RibbonDivider}" />
 
                     <!-- Palette: the current biome or road surface, then every biome and both road surfaces. -->
-                    <StackPanel>
+                    <StackPanel x:Name="PaletteGroup">
                         <StackPanel Orientation="Horizontal" Height="{Binding RibbonRowHeight}">
                             <Grid Width="{Binding CurrentSwatchSize}" Height="{Binding CurrentSwatchSize}" Margin="2,0,8,0" VerticalAlignment="Top"
                                   ToolTip="{Binding CurrentSwatch.Label}">
@@ -311,10 +414,10 @@
                         </StackPanel>
                         <TextBlock Text="Palette" Style="{StaticResource RibbonLabel}" />
                     </StackPanel>
-                    <Border Style="{StaticResource RibbonDivider}" />
+                    <Border x:Name="PaletteDivider" Style="{StaticResource RibbonDivider}" />
 
                     <!-- Layers: a drop-down of what the map shows. -->
-                    <StackPanel>
+                    <StackPanel x:Name="LayersGroup">
                         <Grid Height="{Binding RibbonRowHeight}">
                             <ToggleButton x:Name="LayersButton" Style="{StaticResource RibbonAction}"
                                           ToolTip="Choose what the map shows" AutomationProperties.Name="Layers">
@@ -345,32 +448,32 @@
                         </Grid>
                         <TextBlock Text="Layers" Style="{StaticResource RibbonLabel}" />
                     </StackPanel>
-                    <Border Style="{StaticResource RibbonDivider}" />
+                    <Border x:Name="LayersDivider" Style="{StaticResource RibbonDivider}" />
 
-                    <StackPanel>
+                    <StackPanel x:Name="WorldGroup">
                         <StackPanel Orientation="Horizontal" Height="{Binding RibbonRowHeight}">
-                            <Button Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.GenerateCommand}"
+                            <Button x:Name="GenerateAction" Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.GenerateCommand}"
                                     ToolTip="Generate: make terrain and more the way the game's generator does" AutomationProperties.Name="Generate">
                                 <StackPanel>
                                     <Path Data="{x:Static local:Icons.Generate}" Style="{StaticResource IconPath}" Width="24" Height="24" />
                                     <TextBlock Text="Generate" Style="{StaticResource RibbonButtonText}" />
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.ValidateCommand}"
+                            <Button x:Name="ValidateAction" Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.ValidateCommand}"
                                     ToolTip="Validate: check the world for problems (F7)" AutomationProperties.Name="Validate">
                                 <StackPanel>
                                     <Path Data="{x:Static local:Icons.Validate}" Style="{StaticResource IconPath}" Width="24" Height="24" />
                                     <TextBlock Text="Validate" Style="{StaticResource RibbonButtonText}" />
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.ExportCommand}"
+                            <Button x:Name="ExportAction" Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.ExportCommand}"
                                     ToolTip="Export: write a world folder the game can load (Ctrl+E)" AutomationProperties.Name="Export">
                                 <StackPanel>
                                     <Path Data="{x:Static local:Icons.Export}" Style="{StaticResource IconPath}" Width="24" Height="24" />
                                     <TextBlock Text="Export" Style="{StaticResource RibbonButtonText}" />
                                 </StackPanel>
                             </Button>
-                            <Button Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.PackageCommand}"
+                            <Button x:Name="PackageAction" Style="{StaticResource RibbonAction}" Command="{x:Static local:MainWindow.PackageCommand}"
                                     ToolTip="Package maps: zip exported maps and their custom prefabs as a mod" AutomationProperties.Name="Package maps">
                                 <StackPanel>
                                     <Path Data="{x:Static local:Icons.Package}" Style="{StaticResource IconPath}" Width="24" Height="24" />
@@ -395,6 +498,51 @@
                 </StackPanel>
                 <StackPanel>
                     <WrapPanel>
+                        <!-- Modern theme (#63): brush size and strength, the palette's swatches and a short hint, in this row. -->
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Style="{StaticResource OptionGroup}" Visibility="{Binding HasSize, Converter={StaticResource BoolToVisibility}}" ToolTip="Size ([ and ])">
+                                <TextBlock Text="Size" Style="{StaticResource OptionLabel}" />
+                                <Slider Minimum="{Binding SizeMin}" Maximum="{Binding SizeMax}" Value="{Binding SizeValue}" Width="120" VerticalAlignment="Center"
+                                        AutomationProperties.Name="Brush size" />
+                                <TextBlock Text="{Binding SizeText}" Style="{StaticResource OptionLabel}" Margin="8,0,0,0" MinWidth="72" />
+                            </StackPanel>
+                            <StackPanel Style="{StaticResource OptionGroup}" Visibility="{Binding HasStrength, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Strength" Style="{StaticResource OptionLabel}" />
+                                <Slider Minimum="{Binding StrengthMin}" Maximum="1" Value="{Binding StrengthValue}" Width="120" VerticalAlignment="Center"
+                                        AutomationProperties.Name="Brush strength" />
+                                <TextBlock Text="{Binding StrengthText}" Style="{StaticResource OptionLabel}" Margin="8,0,0,0" MinWidth="40" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding BiomeChoices}" Focusable="False" Margin="0,0,20,0" VerticalAlignment="Center"
+                                          Visibility="{Binding IsBiomeTool, Converter={StaticResource BoolToVisibility}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource SwatchButton}" Background="{Binding Color, Converter={StaticResource RgbToBrush}}"
+                                                ToolTip="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}, StringFormat=Paint {0}}"
+                                                AutomationProperties.Name="{Binding Name, Converter={x:Static local:FriendlyNameConverter.Biome}}"
+                                                Tag="{Binding}" Click="BiomeSwatch_Click" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <ItemsControl ItemsSource="{Binding RoadSwatches}" Focusable="False" Margin="0,0,20,0" VerticalAlignment="Center"
+                                          Visibility="{Binding IsRoadTool, Converter={StaticResource BoolToVisibility}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource SwatchButton}" Background="{Binding Color, Converter={StaticResource RgbToBrush}}"
+                                                ToolTip="{Binding Label}" AutomationProperties.Name="{Binding Label}"
+                                                Tag="{Binding}" Click="RoadSwatch_Click" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding CurrentTool.Hint}" ToolTip="{Binding CurrentTool.Hint}" Style="{StaticResource HintText}" TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="{Binding InlineHintMaxWidth}" VerticalAlignment="Center"
+                                       Visibility="{Binding ShowInlineToolHint, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
                         <!-- Brush shape, for the terrain and paint brushes and the road eraser. -->
                         <StackPanel Style="{StaticResource OptionGroup}" Visibility="{Binding HasRadius, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="Shape" Style="{StaticResource OptionLabel}" />
@@ -537,7 +685,7 @@
                     </WrapPanel>
 
                     <!-- One of these at a time, over an invisible six lines that hold the strip's height while the text changes. -->
-                    <Grid>
+                    <Grid x:Name="ToolHintLines">
                         <TextBlock Text="{Binding ReservedInfoText}" Style="{StaticResource HintText}" Margin="0,4,0,0" Opacity="0" IsHitTestVisible="False"
                                    Visibility="{Binding ReservesInfoLines, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock Text="{Binding TownText}" Style="{StaticResource HintText}" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
@@ -547,7 +695,7 @@
                         <TextBlock Text="{Binding SelectionText}" Style="{StaticResource HintText}" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                    Visibility="{Binding ShowSelectionText, Converter={StaticResource BoolToVisibility}}" />
                     </Grid>
-                    <TextBlock Text="{Binding CurrentTool.Hint}" Style="{StaticResource HintText}" Margin="0,4,0,0"
+                    <TextBlock x:Name="ToolHintLine" Text="{Binding CurrentTool.Hint}" Style="{StaticResource HintText}" Margin="0,4,0,0"
                                Visibility="{Binding ShowToolHint, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
             </DockPanel>
@@ -1574,6 +1722,25 @@
                          ShowWorldGrid="{Binding ShowWorldGrid}"
                          DimMap="{Binding DimMap}"
                          AutomationProperties.Name="Map" />
+
+            <!-- Modern theme (#63): the tool's changing help, over the map so the map never moves. Clicks pass through it. -->
+            <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="12" MaxWidth="640" Padding="12,8" CornerRadius="6" BorderThickness="1"
+                    IsHitTestVisible="False" Background="{DynamicResource SolidBackgroundFillColorQuarternaryBrush}"
+                    BorderBrush="{DynamicResource SurfaceStrokeColorFlyoutBrush}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HintCardText}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsModernTheme}" Value="False">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding HintCardText}" Style="{StaticResource HintText}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Border>
 
             <!-- Info card for the prefab selected on the map, or the trader the Trader tool places. -->
             <Border Width="300" Margin="12" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="12" CornerRadius="8" BorderThickness="1"
