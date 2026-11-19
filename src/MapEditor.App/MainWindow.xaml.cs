@@ -142,7 +142,7 @@ public partial class MainWindow : Window
         // So are the panel's seeds, weights, rows and pins (#14).
         _vm.Generate.SettingsChanged += (_, _) => MarkSettingsChanged();
         _vm.Generate.PropertyChanged += (_, _) => _genTools.Refresh();
-        // A stage's map tool (Place features, Place on map, ...) is put down when another stage card opens, so a
+        // A stage's map tool (Place features, Edit on the map, ...) is put down when another stage card opens, so a
         // click made while working on stage 4 can't still place a stage 3 lake.
         _vm.Generate.PropertyChanged += (_, e) =>
         {
@@ -150,19 +150,13 @@ public partial class MainWindow : Window
             int? owner = _vm.SelectedTool switch
             {
                 EditorTool.TerrainTypes or EditorTool.GenerateArea => 1,
-                EditorTool.TownSites => 2,
                 EditorTool.Features => 3,
-                EditorTool.Wilderness => 5,
                 EditorTool.Spawn => 6,
                 _ => null,
             };
             if (owner is { } stage && stage != _vm.Generate.OpenStage) _vm.SelectedTool = EditorTool.Select;
         };
-        _genTools.SiteMoved += async (_, e) => await MoveSiteAsync(e.Site, e.Dx, e.Dz);
-        _genTools.SiteAdded += async (_, cells) => await AddSiteAsync(cells);
         _genTools.FeatureClicked += (_, p) => FeatureClicked(p.X, p.Z);
-        _genTools.WildernessClicked += (_, p) => WildernessClicked(p.X, p.Z);
-        _vm.Generate.SelectedSiteEdited += async (_, _) => await ReplanSelectedAsync(newSeed: false);
         _undo.Changed += (_, _) => UpdateUndoText();
 
         _chosenTheme = _settings.UsesModernTheme ? AppSettings.ModernTheme : AppSettings.FlatTheme;
@@ -288,9 +282,8 @@ public partial class MainWindow : Window
             _vm.Mixer = RwgMixer.Empty;
             _vm.Status = "Could not read rwgmixer.xml, so the Town tool is unavailable: " + ex.Message;
         }
-        // The wilderness card shows the counts for this world size and the game's prefabs.
+        // The wilderness card shows the counts for this world size.
         _vm.Generate.Mixer = _vm.Mixer;
-        _vm.Generate.RefreshPoiChoices(_vm.Prefabs);
         _vm.Generate.RefreshWilderness();
     }
 
@@ -1288,7 +1281,6 @@ public partial class MainWindow : Window
             : "Not run yet. Generate joins the built towns with highways.";
         g.RefreshHighways();
         g.Mixer = _vm.Mixer;
-        g.RefreshPoiChoices(_vm.Prefabs);
         int wild = settings.PlacedWilderness.Count(p => p.Drawn);
         g.WildernessStatus = wild > 0
             ? $"{wild} POI{(wild == 1 ? "" : "s")} placed, {settings.PlacedWilderness.Count(p => p.Road is not null)} with gravel roads."
@@ -1342,7 +1334,6 @@ public partial class MainWindow : Window
         if (sites.Count == 0)
         {
             g.Planned = [];
-            g.SelectedSite = null;
             _genTools.Refresh();
             return;
         }
@@ -1359,7 +1350,6 @@ public partial class MainWindow : Window
             // Often run without waiting for it, so a failure must be shown here or nobody sees it.
             App.LogError(ex);
             g.Planned = [];
-            g.SelectedSite = null;
             g.TownStatusShort = "Planning failed";
             _vm.Status = $"Couldn't plan the towns: {ex.Message}. The world hasn't changed.";
             _genTools.Refresh();
@@ -1373,8 +1363,6 @@ public partial class MainWindow : Window
             g.IsRunning = false;
             _vm.IsBusy = false;
         }
-        if (g.SelectedSite is { } sel && !g.Planned.Any(t => t.Site == sel)) g.SelectedSite = null;
-        g.RefreshSelection();
         _genTools.Refresh();
         CloseIfWaiting();
     }
@@ -1443,13 +1431,12 @@ public partial class MainWindow : Window
         gen.Sites = result.Sites;
         TownSiteStage.MarkBuilt(world, library, gen.Sites);
         g.Planned = towns;
-        g.SelectedSite = null;
         MarkSettingsChanged();
         int planned = towns.Count;
         g.TownStatus = $"Planned {planned} town{(planned == 1 ? "" : "s")} with seed {options.Seed} in {sw.Elapsed.TotalSeconds:0.0} s."
                        + (result.Shortfalls.Count > 0 ? " No room for all of: " + string.Join("; ", result.Shortfalls) + "." : "");
         g.TownStatusShort = $"Planned {planned} town{(planned == 1 ? "" : "s")}, not built yet" + (result.Shortfalls.Count > 0 ? "; some didn't fit" : "");
-        _vm.Status = "Towns planned. Review them on the map, then Build. Nothing has changed in the world yet.";
+        _vm.Status = "Towns planned. Check them on the map, then Build. Nothing has changed in the world yet.";
         _genTools.Refresh();
         CloseIfWaiting();
     }
@@ -1524,7 +1511,6 @@ public partial class MainWindow : Window
         TownSiteStage.MarkBuilt(world, library, gen.Sites);
         if (!gen.Sites.Any(s => s.Built)) gen.Done.Remove(GeneratorStage.TownSites);
         g.Planned = towns;
-        g.SelectedSite = null;
         NoteHighwaysTakenDown(roadsOut);
         Map.InvalidateRegion(ran.Bounds);
         Map.InvalidateVisual();
@@ -1536,7 +1522,7 @@ public partial class MainWindow : Window
                        + (result.Shortfalls.Count > 0 ? " No room for all of: " + string.Join("; ", result.Shortfalls) + "." : "");
         g.TownStatusShort = $"Planned {planned} town{(planned == 1 ? "" : "s")}, not built yet" + (result.Shortfalls.Count > 0 ? "; some didn't fit" : "");
         g.RefreshDone();
-        _vm.Status = "Towns planned. Review them on the map, then Build. Undo (Ctrl+Z) puts the built towns back." + TakeBridgeNote();
+        _vm.Status = "Towns planned. Check them on the map, then Build. Undo (Ctrl+Z) puts the built towns back." + TakeBridgeNote();
         CloseIfWaiting();
     }
 
@@ -1548,18 +1534,11 @@ public partial class MainWindow : Window
         MarkSettingsChanged();
     }
 
-    private void TownsReview_Click(object sender, RoutedEventArgs e)
-    {
-        _vm.SelectedTool = EditorTool.TownSites;
-        Map.Focus();
-    }
-
     private void TownsClear_Click(object sender, RoutedEventArgs e)
     {
         if (_projectSettings.Generator is not { } gen || _vm.IsBusy) return;
         gen.Sites.RemoveAll(s => !s.Built);
         _vm.Generate.Planned = [];
-        _vm.Generate.SelectedSite = null;
         _vm.Generate.TownStatus = "Plan cleared.";
         MarkSettingsChanged();
         _genTools.Refresh();
@@ -1614,7 +1593,6 @@ public partial class MainWindow : Window
         }
         gen.Done.Add(GeneratorStage.TownSites);
         g.Planned = [];
-        g.SelectedSite = null;
         Map.InvalidateRegion(ran.Bounds);
         Map.InvalidateVisual();
         _prefabTools.Refresh();
@@ -1632,85 +1610,6 @@ public partial class MainWindow : Window
         _vm.Status = $"Built {towns.Count} towns in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes them all down again." + TakeBridgeNote();
         _vm.SelectedTool = EditorTool.Select;
         CloseIfWaiting();
-    }
-
-    private async void SiteReroll_Click(object sender, RoutedEventArgs e) => await ReplanSelectedAsync(newSeed: true);
-
-    private void SiteDrop_Click(object sender, RoutedEventArgs e)
-    {
-        if (_projectSettings.Generator is not { } gen || _vm.Generate.SelectedSite is not { } site || _vm.IsBusy) return;
-        gen.Sites.Remove(site);
-        _vm.Generate.Planned = [.. _vm.Generate.Planned.Where(t => t.Site != site)];
-        _vm.Generate.SelectedSite = null;
-        MarkSettingsChanged();
-        _genTools.Refresh();
-    }
-
-    /// <summary>The picked town got a new township, size or seed: grows it again from its first cell.</summary>
-    private async Task ReplanSelectedAsync(bool newSeed)
-    {
-        if (_world is not { } world || _projectSettings.Generator is not { } gen || _vm.Generate.SelectedSite is not { } site || _vm.IsBusy) return;
-        int size = _vm.Generate.TakeRequestedSize() ?? site.Cells.Count;
-        int seed = newSeed ? Random.Shared.Next(1, 1_000_000) : site.Seed;
-        var start = site.Core.First();
-        if (!ReplaceSite(world, gen, site, start, size, seed, site.Township)) return;
-        await ReplanTownsAsync();
-    }
-
-    /// <summary>A town dragged on the map: grows it again from its first cell moved by the drag.</summary>
-    private async Task MoveSiteAsync(TownSite site, int dx, int dz)
-    {
-        if (_world is not { } world || _projectSettings.Generator is not { } gen || _vm.IsBusy) return;
-        var (x, z) = site.Core.First();
-        if (!ReplaceSite(world, gen, site, (x + dx, z + dz), site.Cells.Count, site.Seed, site.Township)) return;
-        await ReplanTownsAsync();
-    }
-
-    /// <summary>A rectangle dragged on empty ground: a pinned town of the panel's "Add as" township, sized to the rectangle.</summary>
-    private async Task AddSiteAsync(GridRect cells)
-    {
-        if (_world is not { } world || _projectSettings.Generator is not { } gen || _vm.IsBusy) return;
-        await _gameDataLoad;
-        if (!TownsReady()) return;
-        string township = _vm.Generate.AddTownship ?? gen.Towns.Rows.FirstOrDefault()?.Township ?? "town";
-        var town = TownCellsNow(world);
-        int size = Math.Max(1, (cells.X1 - cells.X0) * (cells.Z1 - cells.Z0));
-        // Start from the valid cell nearest the rectangle's middle.
-        var middle = ((cells.X0 + cells.X1) / 2, (cells.Z0 + cells.Z1) / 2);
-        var start = Enumerable.Range(cells.X0, cells.X1 - cells.X0).SelectMany(x => Enumerable.Range(cells.Z0, cells.Z1 - cells.Z0).Select(z => (x, z)))
-            .Where(c => town.IsValid(c.x, c.z))
-            .OrderBy(c => Math.Abs(c.x - middle.Item1) + Math.Abs(c.z - middle.Item2)).Select(c => ((int, int)?)c).FirstOrDefault();
-        var added = start is { } s ? TownSiteStage.Regrow(town, _vm.Mixer, gen.Sites, township, s, size, Random.Shared.Next(1, 1_000_000), cells) : null;
-        if (added is null)
-        {
-            _vm.Status = "No town fits there: the cells are taken, too close to another town, wet, steep or a mountain.";
-            return;
-        }
-        added.Pinned = true;
-        gen.Sites.Add(added);
-        _vm.Generate.SelectedSite = added;
-        MarkSettingsChanged();
-        _vm.Status = $"Added a {township} of {added.Cells.Count} tiles, pinned. Build when the plan looks right.";
-        await ReplanTownsAsync();
-    }
-
-    /// <summary>Swaps a site for one grown afresh from <paramref name="start"/>; says so and returns false if none fits.</summary>
-    private bool ReplaceSite(World world, GeneratorSettings gen, TownSite site, (int, int) start, int size, int seed, string township)
-    {
-        var others = gen.Sites.Where(s => s != site).ToList();
-        var grown = TownSiteStage.Regrow(TownCellsNow(world), _vm.Mixer, others, township, start, size, seed);
-        if (grown is null)
-        {
-            _vm.Status = "The town doesn't fit there: the cells are taken, too close to another town, wet, steep or a mountain.";
-            _vm.Generate.RefreshSelection();
-            return false;
-        }
-        grown.Pinned = site.Pinned;
-        gen.Sites[gen.Sites.IndexOf(site)] = grown;
-        _vm.Generate.SelectedSite = grown;
-        MarkSettingsChanged();
-        if (grown.Cells.Count < size) _vm.Status = $"Only {grown.Cells.Count} of {size} tiles fit there.";
-        return true;
     }
 
     // ---- features --------------------------------------------------------------
@@ -2131,18 +2030,6 @@ public partial class MainWindow : Window
         _vm.Generate.WildernessStatus = "Every POI and gravel road this stage placed was taken out.";
     }
 
-    private void WildernessPlace_Click(object sender, RoutedEventArgs e)
-    {
-        _vm.SelectedTool = EditorTool.Wilderness;
-        Map.Focus();
-    }
-
-    private void PoiDrop_Click(object sender, RoutedEventArgs e)
-    {
-        if (_world is not { } world || RefuseWhileBusy() || _projectSettings.Generator is not { } gen || _vm.Generate.SelectedPoi is not { } p) return;
-        RemoveWilderness(world, gen, [p], "Drop POI");
-    }
-
     private void RemoveWilderness(World world, GeneratorSettings gen, List<WildernessPoi> which, string name)
     {
         var reach = PoiReach(world, which);
@@ -2176,51 +2063,6 @@ public partial class MainWindow : Window
                 foreach (var pt in road.Points) r = r.Union(new GridRect((int)pt[0] - 30, (int)pt[1] - 30, (int)pt[0] + 30, (int)pt[1] + 30));
         }
         return r.Clamp(world.Size, world.Size);
-    }
-
-    /// <summary>The Place wilderness POIs tool: a click on a stage 5 POI picks it; anywhere else places a pinned one.</summary>
-    private async void WildernessClicked(float x, float z)
-    {
-        if (_world is not { } world || _vm.IsBusy || _projectSettings.Generator is not { } gen) return;
-        var g = _vm.Generate;
-        var hit = gen.PlacedWilderness.FirstOrDefault(p => p.Drawn && _vm.Prefabs.Find(p.Name) is { } pi
-            && PrefabPlacer.Footprint(world, pi, p.X, p.Z, p.Rotation) is var f && x >= f.X0 && x < f.X1 && z >= f.Z0 && z < f.Z1);
-        if (hit is not null)
-        {
-            g.SelectedPoi = hit;
-            _genTools.Refresh();
-            return;
-        }
-        await _gameDataLoad;
-        if (!WildernessReady()) return;
-        var info = g.PlacePoi == GenerateViewModel.BestPoi ? null : _vm.Prefabs.Find(g.PlacePoi);
-        var (library, mixer, biomes) = (_vm.Prefabs, _vm.Mixer, _vm.Biomes);
-        WildernessPoi? made = null;
-        var notes = new List<string>();
-        int seed = Random.Shared.Next(1, 1_000_000);
-        if (!_edits.Run(world, "Place wilderness POI", session =>
-            {
-                NoteGeneratorState(session);
-                _spawnsTakenDown = TakeDownSpawns(world, gen, session);
-                made = WildernessStage.PlaceByHand(world, info, x, z, new Random(seed).Next(4), gen.Wilderness, gen.PlacedWilderness, library, mixer,
-                    biomes, seed, session, notes);
-            }))
-            return;
-        NoteSpawnsTakenDown();
-        if (made is null)
-        {
-            _vm.Status = "No wilderness prefab fits there.";
-            return;
-        }
-        gen.Done.Add(GeneratorStage.Wilderness);
-        g.RefreshDone();
-        g.SelectedPoi = made;
-        g.RefreshWilderness();
-        Map.InvalidateRegion(PoiReach(world, [made]));
-        Map.InvalidateVisual();
-        _prefabTools.Refresh();
-        _genTools.Refresh();
-        _vm.Status = $"Placed {made.Name}, pinned{(made.Road is not null ? ", with a gravel road" : notes.Count > 0 ? ". " + notes[0] : "")}. Undo (Ctrl+Z) takes it out.";
     }
 
     /// <summary>
@@ -2718,7 +2560,6 @@ public partial class MainWindow : Window
             if (gen?.Sites.Count == 0)
             {
                 g.Planned = [];
-                g.SelectedSite = null;
             }
         }
         string where = area is null ? "the whole map" : "the area";
@@ -3029,7 +2870,7 @@ public partial class MainWindow : Window
     {
         if (node is System.Windows.Controls.Expander { Header: System.Windows.Controls.StackPanel header } stage
             && header.Children.Count == 2 && header.Children[1] is System.Windows.Controls.TextBlock status
-            && header.Children[0] is System.Windows.Controls.StackPanel { Children.Count: 2 } row
+            && header.Children[0] is System.Windows.Controls.WrapPanel { Children.Count: 2 } row
             && row.Children[0] is System.Windows.Controls.TextBlock title && row.Children[1] is System.Windows.Controls.Border done)
         {
             string[] name = title.Text.Split("  ", 2);
@@ -3412,7 +3253,7 @@ public partial class MainWindow : Window
         Map.BrushCursor = _vm.SelectedTool switch
         {
             EditorTool.Select or EditorTool.MultiSelect or EditorTool.Water or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town or EditorTool.Bridge
-                or EditorTool.TerrainTypes or EditorTool.GenerateArea or EditorTool.TownSites or EditorTool.Features or EditorTool.Wilderness => null,
+                or EditorTool.TerrainTypes or EditorTool.GenerateArea or EditorTool.Features => null,
             EditorTool.Road => new BrushCursor(_vm.RoadWidth),
             EditorTool.Stamp => new BrushCursor(_vm.StampSize, Square: true, _vm.StampRotation,
                 _vm.SelectedStamp is { } stamp ? StampPicture.Get(_vm.Stamps, stamp, UpdateToolState) : null),

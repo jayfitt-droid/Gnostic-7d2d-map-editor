@@ -25,12 +25,8 @@ public enum EditorTool
     TerrainTypes,
     /// <summary>The Generate panel's tool: drags the area a stage regenerates.</summary>
     GenerateArea,
-    /// <summary>The Generate panel's tool: picks, moves and adds planned towns.</summary>
-    TownSites,
     /// <summary>The Generate panel's tool: places lakes, rivers, canyons and craters by hand and picks them.</summary>
     Features,
-    /// <summary>The Generate panel's tool: places wilderness POIs by hand and picks them.</summary>
-    Wilderness,
     /// <summary>Selects and edits a group of items on the map.</summary>
     MultiSelect,
 }
