@@ -6,7 +6,7 @@ Game assets (stamps, prefabs, biome colours, `rwgmixer.xml`) are read from your 
 
 ## Install
 
-Download `Gnostic-7D2DMapEditor-win-Setup.exe` from the [latest release](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest) and run it. It installs for your Windows user only, so it needs no administrator rights, and adds Start menu and desktop shortcuts. To run without installing, unzip `Gnostic-7D2DMapEditor-win-Portable.zip` instead. Installed copies can update themselves from **Help > Check for Updates**.
+Download `Gnostic-7D2DMapEditor-win-Setup.exe` from the [latest release](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest) and run it. It installs for your Windows user only, so it needs no administrator rights. Setup adds Start menu and desktop shortcuts and lets you open `.7dmap` projects from File Explorer. To run without installing, unzip `Gnostic-7D2DMapEditor-win-Portable.zip` instead. Installed copies can update themselves from **Help > Check for Updates**.
 
 It needs Windows 10 or 11 (64-bit) and a copy of 7 Days to Die (v3.x).
 
