@@ -8,6 +8,7 @@ using MapEditor.App.Editing;
 using MapEditor.App.Map;
 using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
+using MapEditor.Core.GameLink;
 using MapEditor.Core.Generate;
 using MapEditor.Core.IO;
 using MapEditor.Core.Model;
@@ -55,6 +56,10 @@ public partial class MainWindow : Window
     private string? _savePath;    // world folder Ctrl+S writes to (an opened world folder, or the last export)
     private string? _projectPath; // .7dmap the world was opened from or saved to; Ctrl+S prefers it
     private ProjectStore.ProjectSettings _projectSettings = new();
+    private object? _exportPosition;
+    private string? GameLinkExportFolder => _savePath ?? _projectSettings.ExportFolder;
+    private bool? ExportHasChanges => !ReferenceEquals(_exportPosition, _undo.Position)
+        ? true : _projectSettings.ExportHasChanges;
     /// <summary>
     /// Unsaved changes that are not undo steps: Generate panel settings, plans, a changed export folder, a recovered autosave.
     /// Edits are tracked by the undo history's save point instead, so undoing back to it is not a change (see <see cref="Dirty"/>).
@@ -493,6 +498,8 @@ public partial class MainWindow : Window
         _vm.HasFixedIssues = false;
         _vm.IssuesText = "Press Validate (F7) to check the world.";
         _undo.Clear();
+        _exportPosition = _undo.Position;
+        _projectSettings.ExportHasChanges = sourcePath is null ? null : false;
         _tools.CancelRoad();
         _tools.World = world;
         _prefabTools.World = world;
@@ -682,16 +689,17 @@ public partial class MainWindow : Window
             }
             return false;
         }
+        bool exportStatusChanged = ExportHasChanges != false;
         var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder);
         if (ok && _projectPath is not null)
         {
             // Remember the export in the project, so Export offers the same place next time. Only a new folder, or an
-            // export that changed the world's saved data, makes the project changed (#82).
+            // export that changed the world's saved data or export status, makes the project changed.
             string? recorded = _projectSettings.ExportFolder;
             bool newFolder = recorded is not { Length: > 0 }
                 || !string.Equals(Path.GetFullPath(dialog.Folder), Path.GetFullPath(recorded), StringComparison.OrdinalIgnoreCase);
             _projectSettings.ExportFolder = dialog.Folder;
-            if (newFolder || savedChanged)
+            if (newFolder || savedChanged || exportStatusChanged)
             {
                 _dirty = true;
                 _revision++;
@@ -763,6 +771,8 @@ public partial class MainWindow : Window
                     && (levelBefore is null || !levelAfter.AsSpan().SequenceEqual(levelBefore)));
             if (_projectPath is not null) world.Name = projectName;
             _savePath = folder;
+            _exportPosition = position;
+            _projectSettings.ExportHasChanges = false;
             if (_projectPath is null)
             {
                 // A world edited as a folder is now saved there.
@@ -1084,6 +1094,7 @@ public partial class MainWindow : Window
         _world = null;
         _sourcePath = _savePath = _projectPath = null;
         _projectSettings = new ProjectStore.ProjectSettings();
+        _exportPosition = null;
         _dirty = false;
         _undo.Clear();
         _tools.World = null;
@@ -2313,7 +2324,13 @@ public partial class MainWindow : Window
     }
 
 
-    private ProjectStore.ProjectSettings CopyProjectSettings() => _projectSettings.Clone();
+    private ProjectStore.ProjectSettings CopyProjectSettings()
+    {
+        var settings = _projectSettings.Clone();
+        settings.ExportFolder = GameLinkExportFolder;
+        settings.ExportHasChanges = settings.ExportFolder is null ? null : ExportHasChanges;
+        return settings;
+    }
 
     /// <summary>Generator settings changed (painted tiles, a preset): the project has something new to save.</summary>
     /// <summary>
@@ -3520,9 +3537,13 @@ public partial class MainWindow : Window
         if (_world is not { } world || _vm.IsBusy) return;
         int x = (int)Math.Floor(map.X);
         int z = world.Size - 1 - (int)Math.Floor(map.Y);
-        if (!world.Height.Contains(x, z)) return;
+        if (TeleportCommand.CoordinatesForCell(world, x, z) is not { } target) return;
 
         var menu = new ContextMenu { PlacementTarget = Map, Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint };
+
+        var teleportHere = new MenuItem { Header = "Teleport Here" };
+        teleportHere.Click += async (_, _) => await RunGameLinkActionAsync(world, target.X, target.Z);
+        menu.Items.Add(teleportHere);
 
         var teleport = new MenuItem { Header = "Copy _teleport command" };
         foreach (var (header, facing) in new (string, Facing?)[]
@@ -3537,6 +3558,14 @@ public partial class MainWindow : Window
             teleport.Items.Add(item);
         }
         menu.Items.Add(teleport);
+
+        if (GameLinkWorld.WaypointAt(world, target.X, target.Z, _vm.Prefabs) is { } waypoint)
+        {
+            var addWaypoint = new MenuItem { Header = new TextBlock { Text = $"Add Waypoint: {waypoint.Name}" } };
+            addWaypoint.Click += async (_, _) =>
+                await RunGameLinkActionAsync(world, waypoint.X, waypoint.Z, waypointPrefab: waypoint.Name);
+            menu.Items.Add(addWaypoint);
+        }
 
         menu.IsOpen = true;
     }

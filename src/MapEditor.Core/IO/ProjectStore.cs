@@ -65,6 +65,9 @@ public static class ProjectStore
         /// <summary>The game world folder this project was last exported to.</summary>
         public string? ExportFolder { get; set; }
 
+        /// <summary>Whether the saved world has edits since export. Null if the export state is unknown.</summary>
+        public bool? ExportHasChanges { get; set; }
+
         /// <summary>The Generate panel's seeds, settings, painted tiles and progress for this world.</summary>
         public Generate.GeneratorSettings? Generator { get; set; }
 
@@ -81,6 +84,7 @@ public static class ProjectStore
         public ProjectSettings Clone() => new()
         {
             ExportFolder = ExportFolder,
+            ExportHasChanges = ExportHasChanges,
             Generator = Generator?.Clone(),
             Bridges = [.. Bridges.Select(b => b.Clone())],
         };
