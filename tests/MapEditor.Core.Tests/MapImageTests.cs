@@ -16,8 +16,8 @@ public sealed class MapImageTests
         return world;
     }
 
-    private static MapImage Image(World world, int size, MapLayers layers = MapLayers.Water, bool pois = false) =>
-        new(world, BiomeTable.Vanilla, PrefabLibrary.Empty, new MapImageOptions(size, layers, pois));
+    private static MapImage Image(World world, int size, MapLayers layers = MapLayers.Water, bool pois = false, bool grid = false) =>
+        new(world, BiomeTable.Vanilla, PrefabLibrary.Empty, new MapImageOptions(size, layers, pois, grid));
 
     private static uint[] Rows(MapImage image)
     {
@@ -118,6 +118,79 @@ public sealed class MapImageTests
         Assert.Equal(PoiColours.Premultiply(PoiColours.Prefab), px[256]);
         Assert.Equal(PoiColours.Premultiply(PoiColours.Prefab), px[258]);
         Assert.NotEqual(PoiColours.Premultiply(PoiColours.Prefab), px[262]);
+    }
+
+    [Fact]
+    public void Grid_is_off_by_default()
+    {
+        var world = FlatWorld(512);
+        world.Prefabs.Add(new PrefabInstance { Name = "some_poi", Position = new Int3(0, 0, 248) });
+
+        var omitted = new MapImage(world, BiomeTable.Vanilla, PrefabLibrary.Empty, new MapImageOptions(0, MapLayers.None, true));
+        var off = Image(world, 0, MapLayers.None, pois: true, grid: false);
+
+        Assert.Equal(Rows(omitted), Rows(off));
+    }
+
+    [Fact]
+    public void Grid_draws_light_lines_and_dark_shadows()
+    {
+        var world = FlatWorld(512);
+        var without = Rows(Image(world, 512, MapLayers.None));
+        var with = Rows(Image(world, 512, MapLayers.None, grid: true));
+
+        uint terrain = without[100 * 512 + 100] & 0xFF;
+        uint line = 0xFF000000u | (120 + terrain * 135 / 255) * 0x010101u;
+        uint shadow = 0xFF000000u | (terrain * 200 / 255) * 0x010101u;
+        Assert.Equal(line, with[100 * 512 + 150]);
+        Assert.Equal(shadow, with[100 * 512 + 151]);
+        Assert.Equal(line, with[212 * 512 + 100]);
+        Assert.Equal(shadow, with[213 * 512 + 100]);
+        Assert.Equal(without[100 * 512 + 100], with[100 * 512 + 100]);
+    }
+
+    [Theory]
+    [InlineData(512, new int[] { 0, 150, 300, 450 }, new int[] { 62, 212, 362, 511 })]
+    [InlineData(256, new int[] { 0, 75, 150, 225 }, new int[] { 31, 106, 181, 255 })]
+    [InlineData(16, new int[] { 0, 4, 9, 14 }, new int[] { 1, 6, 11, 15 })]
+    public void Grid_is_counted_from_the_south_west_corner_at_picture_scale(int size, int[] vertical, int[] horizontal)
+    {
+        var world = FlatWorld(512);
+        var without = Rows(Image(world, size, MapLayers.None));
+        var with = Rows(Image(world, size, MapLayers.None, grid: true));
+        int sample = size / 5; // A row and column clear of grid lines and shadows for each size.
+
+        Assert.Equal(vertical, Enumerable.Range(0, size).Where(x => with[sample * size + x] > without[sample * size + x]));
+        Assert.Equal(horizontal, Enumerable.Range(0, size).Where(y => with[y * size + sample] > without[y * size + sample]));
+    }
+
+    [Fact]
+    public void Horizontal_grid_shadow_continues_into_the_next_band()
+    {
+        var world = FlatWorld(512);
+        const int size = 362; // The line 150 m from the south edge scales to row 255.
+        var without = Rows(Image(world, size, MapLayers.None));
+        var with = Rows(Image(world, size, MapLayers.None, grid: true));
+
+        Assert.True(with[255 * size + 100] > without[255 * size + 100]);
+        Assert.True(with[256 * size + 100] < without[256 * size + 100]);
+        Assert.Equal(without[257 * size + 100], with[257 * size + 100]);
+    }
+
+    [Fact]
+    public void Pois_are_outlined_over_the_grid()
+    {
+        var world = FlatWorld(512);
+        // The top of this 8 m footprint lies on the horizontal grid line at row 212.
+        world.Prefabs.Add(new PrefabInstance { Name = "some_poi", Position = new Int3(-106, 0, 36) });
+        var grid = Rows(Image(world, 512, MapLayers.None, grid: true));
+        var both = Rows(Image(world, 512, MapLayers.None, pois: true, grid: true));
+
+        int edge = 212 * 512 + 153;
+        uint outline = PoiColours.Premultiply(PoiColours.Prefab);
+        Assert.NotEqual(outline, grid[edge]);
+        Assert.Equal(outline, both[edge]);
+        Assert.Equal(grid[212 * 512 + 170], both[212 * 512 + 170]);
     }
 
     [Fact]

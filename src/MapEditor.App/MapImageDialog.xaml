@@ -24,6 +24,7 @@
             <CheckBox x:Name="RoadsBox" Content="_Roads" />
             <CheckBox x:Name="RadiationBox" Content="Ra_diation" />
             <CheckBox x:Name="PoisBox" Content="_POIs" />
+            <CheckBox x:Name="GridBox" Content="World _grid" />
         </UniformGrid>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
