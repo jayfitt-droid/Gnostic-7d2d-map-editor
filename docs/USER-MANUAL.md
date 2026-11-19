@@ -159,7 +159,7 @@ Click **Save** (Ctrl+S). The editor saves a project file (`.7dmap`). A project k
 
 If you opened a world folder, Ctrl+S saves the world back to that folder.
 
-The editor saves a recovery copy of unsaved work every 5 minutes. When you save, close, or switch worlds, the editor removes the old copy. After a crash, the editor offers to recover the most recent copy. Click **No** to delete the recovery copies.
+The editor saves a recovery copy of unsaved work every 5 minutes. When you save, close, or switch worlds, the editor deletes the old copy. After a crash, the editor offers to recover the most recent copy. Click **No** to delete the recovery copies.
 
 Projects and recovery copies keep the original biome and radiation images, even if the images are larger than the world.
 
@@ -241,8 +241,8 @@ Click **Multi-select** next to **Select**, or press **M**.
 - Hold **Shift** and drag to add items to the selection. Hold **Shift** and click an item to add or remove it. Click empty ground to clear the selection.
 - Drag a selected item to move the group. Street tiles stay level, and the POIs on them move with them. Other POIs and spawn points sit on the ground at the new location.
 - Press **Q** or **E** to turn the group around its centre. Press **PgUp** or **PgDn** to move the selected prefabs one block higher or lower. Press **Del** to remove the group.
-- A drop replaces covered prefabs. A drop that partly overlaps a street tile or a bridge is blocked. Bridges made with the Bridge tool or Highways stay in place.
-- Each group edit takes one undo step. The selection is shown on the map.
+- A drop replaces covered prefabs. The editor stops the drop if a selected street tile partly overlaps another street tile, or if the group overlaps a bridge. Bridges made with the Bridge tool or Highways stay in place.
+- Each group edit takes one undo step. The map shows the selection.
 
 ### Roads
 
