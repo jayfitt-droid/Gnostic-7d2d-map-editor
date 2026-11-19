@@ -3,6 +3,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using MapEditor.Core.Rendering;
+using static MapEditor.App.Map.Freezables;
 
 namespace MapEditor.App.Map;
 
@@ -126,11 +127,5 @@ public sealed class MiniMap : FrameworkElement
         if (_target?.Renderer is not { } renderer || ActualWidth <= 0) return;
         double k = renderer.World.Size / ActualWidth;
         _target.CenterOn(new Point(p.X * k, p.Y * k));
-    }
-
-    private static T Frozen<T>(T freezable) where T : Freezable
-    {
-        freezable.Freeze();
-        return freezable;
     }
 }

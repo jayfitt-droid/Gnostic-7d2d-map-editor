@@ -9,6 +9,7 @@ using MapEditor.Core.GameData;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
 using MapEditor.Core.Rendering;
+using static MapEditor.App.Map.Freezables;
 
 namespace MapEditor.App.Map;
 
@@ -1008,12 +1009,6 @@ public sealed class MapView : FrameworkElement
     private static readonly Brush RoadAsphaltBrush = Frozen(new SolidColorBrush(Color.FromArgb(150, 40, 40, 46)));
     private static readonly Brush RoadGravelBrush = Frozen(new SolidColorBrush(Color.FromArgb(150, 180, 154, 106)));
 
-    private static Brush Frozen(Brush brush)
-    {
-        brush.Freeze();
-        return brush;
-    }
-
     private void DrawBrushCursor(DrawingContext dc)
     {
         if (_brushCursor is not { } brush || _mouseMap is not { } m) return;
@@ -1494,11 +1489,5 @@ public sealed class MapView : FrameworkElement
             _invalidateQueued = 0;
             InvalidateVisual();
         });
-    }
-
-    private static T Frozen<T>(T freezable) where T : Freezable
-    {
-        freezable.Freeze();
-        return freezable;
     }
 }
