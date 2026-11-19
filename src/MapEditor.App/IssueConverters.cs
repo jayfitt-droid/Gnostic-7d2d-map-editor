@@ -23,6 +23,16 @@ public sealed class FavouriteStarConverter : IMultiValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>Collapsed when the value is true: shows "Not run" on a Generate stage that isn't done.</summary>
+public sealed class InverseBoolToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is true ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>A one-character mark for an issue's severity.</summary>
 public sealed class SeverityGlyphConverter : IValueConverter
 {
