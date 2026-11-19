@@ -149,6 +149,8 @@ On an island world, the share of each biome is a share of the land. The coast se
 - Click **Open** (Ctrl+O). Select a project (`.7dmap`), or the `dtm.raw` or `map_info.xml` of a world.
 - Or click **File > Open World Folder** and select the world folder.
 
+Double-click a `.7dmap` file in File Explorer to open it in the installed editor. The portable copy does not register this file type.
+
 Sometimes the editor cannot read an entry in a world file, for example a POI or a spawn point. Then it leaves out that entry and shows a warning. The rest of the world opens. If `biomes.png` or `radiation.png` does not fit the world size, the editor keeps the file as it is and shows a warning in the **World** tab. The map does not show or paint that layer, and export writes the file back with no change.
 
 ### Save your work
