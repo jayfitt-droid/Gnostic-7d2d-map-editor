@@ -55,7 +55,7 @@ public partial class MainWindow : Window
     private string? _projectPath; // .7dmap the world was opened from or saved to; Ctrl+S prefers it
     private ProjectStore.ProjectSettings _projectSettings = new();
     /// <summary>
-    /// Unsaved changes that are not undo steps: Generate panel settings, plans, the export folder, a recovered autosave.
+    /// Unsaved changes that are not undo steps: Generate panel settings, plans, a changed export folder, a recovered autosave.
     /// Edits are tracked by the undo history's save point instead, so undoing back to it is not a change (see <see cref="Dirty"/>).
     /// </summary>
     private bool _dirty;
@@ -572,7 +572,7 @@ public partial class MainWindow : Window
     {
         if (_world is null) return false;
         if (!saveAs && _projectPath is null && _sourcePath is not null && _savePath is not null)
-            return await WriteWorldAsync(_savePath);
+            return (await WriteWorldAsync(_savePath)).Ok;
 
         string? path = saveAs ? null : _projectPath;
         while (path is null)
@@ -667,19 +667,25 @@ public partial class MainWindow : Window
             }
             return false;
         }
-        bool ok = await WriteWorldAsync(dialog.Folder);
+        var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder);
         if (ok && _projectPath is not null)
         {
-            // Remember the export in the project, so Export offers the same place next time.
+            // Remember the export in the project, so Export offers the same place next time. Only a new folder, or an
+            // export that changed the world's saved data, makes the project changed (#82).
+            string? recorded = _projectSettings.ExportFolder;
+            bool newFolder = recorded is not { Length: > 0 }
+                || !string.Equals(Path.GetFullPath(dialog.Folder), Path.GetFullPath(recorded), StringComparison.OrdinalIgnoreCase);
             _projectSettings.ExportFolder = dialog.Folder;
-            _dirty = true;
-            _revision++;
+            if (newFolder || savedChanged)
+            {
+                _dirty = true;
+                _revision++;
+            }
             UpdateTitle();
         }
         return ok;
     }
 
-    /// <summary>Writes the world as a game world folder.</summary>
     /// <summary>
     /// Why some prefabs will keep RWG's heights in an export instead of being written at ground level, or null if
     /// none will.
@@ -695,9 +701,13 @@ public partial class MainWindow : Window
                + $"ground level, because {why} ({list}). They still load at the right height.";
     }
 
-    private async Task<bool> WriteWorldAsync(string folder)
+    /// <summary>
+    /// Writes the world as a game world folder. <c>SavedChanged</c> is true when the write also changed data the
+    /// project saves: a new level GUID in main.ttw, a main.ttw the world did not have, or an added spawn point.
+    /// </summary>
+    private async Task<(bool Ok, bool SavedChanged)> WriteWorldAsync(string folder)
     {
-        if (_world is not { } world) return false;
+        if (_world is not { } world) return (false, false);
         string projectName = world.Name;
         SpawnPoint? addedSpawn = null;
         _vm.IsBusy = true;
@@ -715,7 +725,7 @@ public partial class MainWindow : Window
                     _vm.Status = "Export cancelled";
                     ThemedMessageBox.Show(this, "The world needs a main.ttw and none could be found to copy. Generate any world in the game once, then export again.",
                         "Export World", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return false;
+                    return (false, false);
                 }
                 template = File.ReadAllBytes(found.Path);
             }
@@ -727,9 +737,15 @@ public partial class MainWindow : Window
             world.Name = Path.GetFileName(folder);
             var options = new WorldWriteOptions { Overwrite = true, LevelTemplate = template, NewLevelGuid = newGuid, Prefabs = _vm.Prefabs };
             int keptBoxForm = GroundLevel.KeptInBoxForm(world.Prefabs, _vm.Prefabs).Count;
+            // A copy: the writer keeps a new level GUID in the world, and the old bytes say whether it changed.
+            byte[]? levelBefore = world.ExtraFiles.TryGetValue(WorldFiles.Level, out var level) ? (byte[])level.Clone() : null;
             long revision = _revision;
             var position = _undo.Position;
             await Task.Run(() => WorldWriter.Write(world, folder, options));
+            // Both a new level GUID kept in the world and an added spawn point are part of what the project saves.
+            bool savedChanged = addedSpawn is not null
+                || (world.ExtraFiles.TryGetValue(WorldFiles.Level, out var levelAfter)
+                    && (levelBefore is null || !levelAfter.AsSpan().SequenceEqual(levelBefore)));
             if (_projectPath is not null) world.Name = projectName;
             _savePath = folder;
             if (_projectPath is null)
@@ -748,7 +764,7 @@ public partial class MainWindow : Window
                 + (addedSpawn is null ? "" : $" Added a spawn point at {addedSpawn.X:0}, {addedSpawn.Z:0} because the world had none.")
                 + (keptBoxForm == 0 ? "" : $" {keptBoxForm:N0} prefab{(keptBoxForm == 1 ? "" : "s")} not in the game folder kept RWG's heights.");
             WarnAboutExistingGames(Path.GetFileName(folder));
-            return true;
+            return (true, savedChanged);
         }
         catch (Exception ex) when (IsWriteError(ex))
         {
@@ -761,7 +777,7 @@ public partial class MainWindow : Window
             }
             _vm.Status = "Export failed";
             ThemedMessageBox.Show(this, ex.Message, "Export World", MessageBoxButton.OK, MessageBoxImage.Error);
-            return false;
+            return (false, false);
         }
         finally
         {
