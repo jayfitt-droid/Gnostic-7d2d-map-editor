@@ -20,6 +20,9 @@ public sealed class AppSettings
     /// <summary>Whether the side panel was open when the editor last closed. Shown on a first run.</summary>
     public bool ShowSidePanel { get; set; } = true;
 
+    /// <summary>In the Modern theme, whether the side bar is on the right of the map. The Flat theme always has it there.</summary>
+    public bool SideBarOnRight { get; set; }
+
     /// <summary>Whether View > Mini Map is on.</summary>
     public bool ShowMiniMap { get; set; } = true;
 

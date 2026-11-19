@@ -136,6 +136,8 @@ public partial class MainWindow : Window
         _vm.Generate.SelectedSiteEdited += async (_, _) => await ReplanSelectedAsync(newSeed: false);
         _undo.Changed += (_, _) => UpdateUndoText();
 
+        if (_settings.UsesModernTheme) UseModernLayout();
+
         Loaded += async (_, _) =>
         {
             _gameDataLoad = LoadGameDataAsync();
@@ -143,6 +145,7 @@ public partial class MainWindow : Window
             _vm.RibbonMode = _settings.RibbonMode;
             _vm.ShowMiniMap = _settings.ShowMiniMap;
             _vm.ShowSidePanel = _settings.ShowSidePanel;
+            _vm.SideBarOnRight = _settings.SideBarOnRight;
             if (_settings.SidePanelWidth > 0)
                 _vm.SidePanelWidth = Math.Clamp(_settings.SidePanelWidth, MainViewModel.MinSidePanelWidth, MainViewModel.MaxSidePanelWidth);
             _vm.Favourites = new HashSet<string>(_settings.FavouritePrefabs, StringComparer.OrdinalIgnoreCase);
@@ -1117,6 +1120,7 @@ public partial class MainWindow : Window
             _settings.ShowMiniMap = _vm.ShowMiniMap;
             _settings.SidePanelWidth = _vm.SidePanelWidth;
             _settings.ShowSidePanel = _vm.ShowSidePanel;
+            _settings.SideBarOnRight = _vm.SideBarOnRight;
             _settings.WindowMaximized = WindowState == WindowState.Maximized;
             _settings.WindowWidth = RestoreBounds.Width;
             _settings.WindowHeight = RestoreBounds.Height;
@@ -2782,11 +2786,79 @@ public partial class MainWindow : Window
         _vm.ShowSidePanel = true;
     }
 
-    /// <summary>Dragging the side panel's left edge: left widens it, right narrows it, leaving the map at least 300 wide.</summary>
+    /// <summary>Turns the side panel's tabs into the Modern theme's activity bar and side bar. Flat never comes here.</summary>
+    private void UseModernLayout()
+    {
+        _vm.IsModernTheme = true;
+        System.Windows.Data.BindingOperations.ClearBinding(SidePanel, VisibilityProperty);
+        SidePanel.Visibility = Visibility.Visible;
+        SidePanel.SetBinding(WidthProperty, nameof(MainViewModel.SideBarOuterWidth));
+        SidePanelClose.Visibility = Visibility.Collapsed;
+        SideTabs.Margin = new Thickness(0);
+        SideTabs.Style = (Style)FindResource("ModernSideTabs");
+        SidePanelEdge.Template = (System.Windows.Controls.ControlTemplate)FindResource("ModernSash");
+        SidePanelEdge.Width = 9;
+
+        System.Windows.Media.Geometry[] icons = [Icons.Prefab, Icons.ActivityPlaced, Icons.ActivityIssues, Icons.ActivityWorld, Icons.Generate];
+        for (int i = 0; i < icons.Length; i++)
+        {
+            var item = (System.Windows.Controls.TabItem)SideTabs.Items[i];
+            string name = ((string)item.Header).Replace("_", "");
+            item.Tag = icons[i];
+            item.ToolTip = name;
+            System.Windows.Automation.AutomationProperties.SetName(item, name);
+        }
+
+        // Alt+G or the arrow keys pick a view while the side bar is closed: show it.
+        SideTabs.SelectionChanged += (_, e) =>
+        {
+            if (IsLoaded && ReferenceEquals(e.OriginalSource, SideTabs)) _vm.ShowSidePanel = true;
+        };
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(MainViewModel.SideBarOnRight) or nameof(MainViewModel.ShowSidePanel)) PlaceSideBar();
+        };
+        PlaceSideBar();
+    }
+
+    /// <summary>Puts the Modern theme's side bar on its chosen side, outside the brush rail.</summary>
+    private void PlaceSideBar()
+    {
+        bool right = _vm.SideBarOnRight;
+        var side = right ? System.Windows.Controls.Dock.Right : System.Windows.Controls.Dock.Left;
+        // Moving the panel reloads its contents, so only move it when the side changes.
+        if (System.Windows.Controls.DockPanel.GetDock(SidePanel) != side)
+        {
+            RootDock.Children.Remove(SidePanel);
+            int rail = RootDock.Children.IndexOf(LeftRail);
+            RootDock.Children.Insert(right ? rail + 1 : rail, SidePanel);
+            System.Windows.Controls.DockPanel.SetDock(SidePanel, side);
+        }
+        SideTabs.TabStripPlacement = side;
+        SidePanelEdge.HorizontalAlignment = right ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        SidePanelEdge.Visibility = _vm.ShowSidePanel ? Visibility.Visible : Visibility.Collapsed;
+        double line = _vm.ShowSidePanel ? 1 : 0;
+        SidePanel.BorderThickness = right ? new Thickness(line, 0, 0, 0) : new Thickness(0, 0, line, 0);
+    }
+
+    /// <summary>A click on the open view's icon closes the side bar; a click on another icon opens that view.</summary>
+    private void ActivityItem_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (((System.Windows.Controls.TabItem)sender).IsSelected && _vm.ShowSidePanel)
+        {
+            _vm.ShowSidePanel = false;
+            Map.Focus();
+            e.Handled = true;
+        }
+        else _vm.ShowSidePanel = true;
+    }
+
+    /// <summary>Dragging the side panel's inner edge: towards the map widens it, leaving the map at least 300 wide.</summary>
     private void SidePanelEdge_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
     {
         double max = Math.Min(MainViewModel.MaxSidePanelWidth, Math.Max(MainViewModel.MinSidePanelWidth, ActualWidth - 300));
-        _vm.SidePanelWidth = Math.Clamp(_vm.SidePanelWidth - e.HorizontalChange, MainViewModel.MinSidePanelWidth, max);
+        double change = _vm.IsModernTheme && !_vm.SideBarOnRight ? e.HorizontalChange : -e.HorizontalChange;
+        _vm.SidePanelWidth = Math.Clamp(_vm.SidePanelWidth + change, MainViewModel.MinSidePanelWidth, max);
     }
 
     private void CloseSidePanel_Click(object sender, RoutedEventArgs e)
