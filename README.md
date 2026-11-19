@@ -30,6 +30,8 @@ The window is laid out like Microsoft Paint:
 | **Side panel** | The **Prefabs** browser, the **Placed** list (search the prefabs in your world; double-click one to find and select it), validation **Issues** (double-click one to jump to it) and **World** info |
 | **Status bar** | Cursor position (game coordinates, height, biome, prefab), brush size, world size, messages and zoom |
 
+**Settings > Theme** switches between **Flat**, the layout above, and **Modern**, with the menus in a slim title bar, one row of named tools and a side bar you can put on either side.
+
 The usual workflow:
 
 1. **New World** (Ctrl+N) or **Open** (Ctrl+O) a project, or a world's `dtm.raw` or `map_info.xml`. **File > Open World Folder** opens a folder directly.

@@ -72,6 +72,30 @@ On a short window, the ribbon becomes one row of icons. To keep the ribbon full 
 
 The editor shows the game's own names, for example **Pine Forest** and **Old West**, not `pine_forest` and `oldwest`. A POI shows its game name with its file name below it, and search finds either name. Saved files keep the game's file names.
 
+### Choose a theme
+
+The editor has two themes. Both themes use the light or dark setting of Windows.
+
+| Theme | What it shows |
+|---|---|
+| **Flat** | The ribbon and the side panel that this manual shows. This is the default theme. |
+| **Modern** | A slim title bar, one row of named tools and a side bar with icons. |
+
+To change the theme:
+
+1. Click **Settings > Theme**, then click **Flat** or **Modern**.
+2. Click **Restart now**. If the world has changes, the editor asks you to save them.
+
+The tools and the panels do the same work in the two themes. The Modern theme has these differences:
+
+| Area | In the Modern theme |
+|---|---|
+| **Title bar** | It holds the menus. The **Side bar** button shows or hides the side bar. The **Layout** button holds the layout settings. |
+| **Toolbar** | Each tool shows its name. **Layers**, **Generate**, **Validate**, **Export** and **Package** are at the right. In a narrow window, the toolbar shows only icons. |
+| **Tool options** | This row also holds the **size** and **strength** sliders, and the biome colours and road surfaces. |
+| **Side bar** | Click an icon to open a view. Click the icon of the open view to close the side bar. To move the side bar, click **View > Side Bar on the Right**. |
+| **Status bar** | It shows the number of errors and warnings. Click the numbers to open the **Issues** view. |
+
 ### Move around the map
 
 - Turn the mouse wheel, or press **+** and **-**, to zoom.
