@@ -14,6 +14,16 @@ What changed in each version is in the [changelog](CHANGELOG.md).
 
 The [user manual](docs/USER-MANUAL.md) explains every tool and each stage of the Generate panel.
 
+## Gnostic Game Link (optional)
+
+Gnostic Game Link connects the editor to 7 Days to Die 3.4 on the same PC. Use it to teleport, check validation issues one by one, show your player on the editor map, or add a temporary waypoint to a POI.
+
+1. Close the game. Download `GnosticGameLink-<version>.zip` from the editor's [release page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest).
+2. Extract the `GnosticGameLink` folder into `%AppData%\7DaysToDie\Mods`. Create the `Mods` folder if you need it.
+3. Start the game with Easy Anti-Cheat (EAC) off. Play in single-player or host the game on this PC.
+
+Keep the same world open in the game and the editor. [Use Gnostic Game Link](docs/USER-MANUAL.md#use-gnostic-game-link).
+
 ## First run
 
 The editor looks for the game through Steam. If it can't find it, use **Settings > Game Folder** and pick the folder that contains `Data`. Biome colours, prefabs and stamps load from there.
@@ -150,6 +160,16 @@ powershell -ExecutionPolicy Bypass -File build/release.ps1 -Version 2.2.0
 ```
 
 The files are in `out\releases`.
+
+### Build the Game Link mod
+
+Use Windows with the .NET Framework 4.8 Developer Pack and 7 Days to Die 3.4 installed. Put the game install folder in `mod/GnosticGameLink/game-path.local.txt`, a file Git ignores. You can also pass the game install folder with `-GamePath`.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File mod/GnosticGameLink/build.ps1
+```
+
+The ZIP is in `mod/GnosticGameLink/dist`. To copy the mod to `%AppData%\7DaysToDie\Mods`, close the game and add `-Install`.
 
 ### Where the code is
 
