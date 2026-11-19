@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xml>
+  <Name value="GnosticGameLink" />
+  <DisplayName value="Gnostic Game Link" />
+  <Description value="Links Gnostic Map Editor to your local player in 7 Days to Die." />
+  <Version value="1.0.0" />
+  <SkipWithAntiCheat value="true" />
+</xml>
