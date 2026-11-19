@@ -465,8 +465,6 @@ The stage needs a biome map. If the world has no biome map, paint biomes first.
 - **Where**:
   - **Whole map** makes all of the terrain again.
   - **Only an area** makes only the tiles in a rectangle. Click **Select area**, then drag on the map. The new tiles blend into the land around them. Prefabs and roads do not move.
-- **Tile types painted by hand**: select a type and click **Paint**. Then paint 256 m tiles on the map. Shift+drag removes painted tiles. **Clear** removes all painted tiles. When you generate, your painted tiles keep their type. The editor fills the other tiles.
-- **Show the last run's tile types** (under **More settings**) colours each tile by the type that the last run gave it. This setting is off by default.
 
 On an island or a peninsula, sea tiles get no plains, hills or mountains.
 
