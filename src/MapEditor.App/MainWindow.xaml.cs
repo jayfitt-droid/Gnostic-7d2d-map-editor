@@ -2859,6 +2859,7 @@ public partial class MainWindow : Window
             System.Windows.Automation.AutomationProperties.SetName(item, name);
         }
 
+        UseModernStages(((System.Windows.Controls.TabItem)SideTabs.Items[MainViewModel.GenerateTab]).Content);
         _vm.Issues.CollectionChanged += (_, _) => _vm.RefreshIssueCounts();
 
         // Alt+G or the arrow keys pick a view while the side bar is closed: show it.
@@ -2871,6 +2872,62 @@ public partial class MainWindow : Window
             if (e.PropertyName is nameof(MainViewModel.SideBarOnRight) or nameof(MainViewModel.ShowSidePanel)) PlaceSideBar();
         };
         PlaceSideBar();
+    }
+
+    /// <summary>Gives each Generate stage the Modern row: a numbered circle, its name and status, and Done or Not run.</summary>
+    private void UseModernStages(object? node)
+    {
+        if (node is System.Windows.Controls.Expander { Header: System.Windows.Controls.StackPanel header } stage
+            && header.Children.Count == 2 && header.Children[1] is System.Windows.Controls.TextBlock status
+            && header.Children[0] is System.Windows.Controls.StackPanel { Children.Count: 2 } row
+            && row.Children[0] is System.Windows.Controls.TextBlock title && row.Children[1] is System.Windows.Controls.Border done)
+        {
+            string[] name = title.Text.Split("  ", 2);
+            string donePath = System.Windows.Data.BindingOperations.GetBinding(done, VisibilityProperty).Path.Path;
+            header.Children.Remove(status);
+            row.Children.Remove(done);
+            done.Margin = new Thickness(8, 0, 0, 0);
+            done.VerticalAlignment = VerticalAlignment.Top;
+
+            var number = new System.Windows.Controls.Border
+            {
+                Style = (Style)FindResource("ModernStageNumber"),
+                Child = new System.Windows.Controls.TextBlock
+                {
+                    Text = name[0], FontSize = 12, FontWeight = FontWeights.SemiBold,
+                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+                },
+            };
+            var notRun = new System.Windows.Controls.Border
+            {
+                Style = (Style)FindResource("ModernNotRunPill"),
+                Child = new System.Windows.Controls.TextBlock { Text = "Not run" },
+            };
+            notRun.SetBinding(VisibilityProperty, new System.Windows.Data.Binding(donePath) { Converter = new InverseBoolToVisibilityConverter() });
+
+            var words = new System.Windows.Controls.StackPanel();
+            words.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = name[^1], FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap,
+            });
+            words.Children.Add(status);
+
+            var line = new System.Windows.Controls.DockPanel();
+            System.Windows.Controls.DockPanel.SetDock(number, System.Windows.Controls.Dock.Left);
+            System.Windows.Controls.DockPanel.SetDock(done, System.Windows.Controls.Dock.Right);
+            System.Windows.Controls.DockPanel.SetDock(notRun, System.Windows.Controls.Dock.Right);
+            line.Children.Add(number);
+            line.Children.Add(done);
+            line.Children.Add(notRun);
+            line.Children.Add(words);
+
+            stage.Header = line;
+            stage.Margin = new Thickness(0, name[0] == "1" ? 12 : 0, 0, 0);
+            stage.Style = (Style)FindResource("ModernStageExpander");
+            return;
+        }
+        if (node is DependencyObject parent)
+            foreach (object child in LogicalTreeHelper.GetChildren(parent)) UseModernStages(child);
     }
 
     /// <summary>Scroll bars are drawn over a view's content, so keeps its buttons and text clear of them.</summary>
