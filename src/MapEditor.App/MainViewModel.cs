@@ -71,6 +71,7 @@ public sealed partial class MainViewModel : ObservableObject
     public IReadOnlyList<ToolItem> NavigateTools { get; } =
     [
         new(EditorTool.Select, "Select", "V", Icons.Cursor, "Click a POI, trader, street tile or spawn point to select it, drag it to move it. Q/E turn it, PgUp/PgDn raise or lower it, Del removes it. Drag empty ground to pan."),
+        new(EditorTool.MultiSelect, "Multi-select", "M", Icons.MultiSelect, "Drag a box around items. Shift+drag adds items and Shift+click toggles one. Drag a selected item to move the group. Q/E turn it, PgUp/PgDn change prefab height, and Del removes it."),
     ];
 
     public IReadOnlyList<ToolItem> TerrainTools { get; } =
@@ -130,7 +131,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsBrushTool), nameof(IsStampTool), nameof(IsFlattenTool), nameof(IsNoiseTool),
         nameof(HasRadius), nameof(IsBiomeTool), nameof(IsRadiationTool), nameof(IsWaterTool), nameof(IsRoadTool), nameof(IsBridgeTool),
-        nameof(IsPrefabTool), nameof(IsTraderTool), nameof(IsPrefabsTool), nameof(PlacingPrefab), nameof(IsSpawnTool), nameof(IsSelectTool), nameof(ShowSelectionText), nameof(IsTownTool), nameof(ReservesInfoLines), nameof(CurrentTool),
+        nameof(IsPrefabTool), nameof(IsTraderTool), nameof(IsPrefabsTool), nameof(PlacingPrefab), nameof(IsSpawnTool), nameof(IsSelectTool), nameof(IsMultiSelectTool), nameof(ShowSelectionText), nameof(IsTownTool), nameof(ReservesInfoLines), nameof(CurrentTool),
         nameof(IsTerrainTypesTool), nameof(IsGenerateAreaTool), nameof(IsTownSitesTool),
         nameof(HasSize), nameof(SizeValue), nameof(SizeMin), nameof(SizeMax), nameof(SizeText),
         nameof(HasStrength), nameof(StrengthValue), nameof(StrengthMin), nameof(StrengthText), nameof(CurrentSwatch))]
@@ -159,6 +160,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsPrefabsTool => SelectedTool == EditorTool.Prefab;
     public bool IsSpawnTool => SelectedTool == EditorTool.Spawn;
     public bool IsSelectTool => SelectedTool == EditorTool.Select;
+    public bool IsMultiSelectTool => SelectedTool == EditorTool.MultiSelect;
 
     /// <summary>The selection text under the ribbon: for spawns, which have no info card.</summary>
     public bool ShowSelectionText => IsSpawnTool || IsSelectTool && !HasPrefabSelection;
@@ -720,13 +722,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _windowIsNarrow;
 
     /// <summary>The window width (DIPs) that the Modern toolbar needs to show its tool names.</summary>
-    public const double ToolNamesMinWidth = 1210;
+    public const double ToolNamesMinWidth = 1264;
 
     /// <summary>Set by the window: it is too narrow for the words on the Modern toolbar's buttons.</summary>
     [ObservableProperty] private bool _windowIsTight;
 
     /// <summary>The window width (DIPs) that the Modern toolbar needs for the words on its buttons as well.</summary>
-    public const double ActionTextMinWidth = 1480;
+    public const double ActionTextMinWidth = 1534;
 
     /// <summary>Whether the Modern toolbar's Layers, Generate, Validate, Export and Package buttons show their words.</summary>
     public bool ActionTextShown => IsModernTheme && RibbonMode switch
@@ -748,7 +750,7 @@ public sealed partial class MainViewModel : ObservableObject
     };
 
     /// <summary>The tool's hint in the Modern options row, for the tools with no options to fill it.</summary>
-    public bool ShowInlineToolHint => IsModernTheme && (IsSelectTool || IsSpawnTool);
+    public bool ShowInlineToolHint => IsModernTheme && (IsSelectTool || IsMultiSelectTool || IsSpawnTool);
 
     /// <summary>The changing help text on the Modern theme's map card. Empty hides the card.</summary>
     public string HintCardText =>

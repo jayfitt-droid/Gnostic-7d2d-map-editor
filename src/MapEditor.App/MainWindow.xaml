@@ -551,7 +551,11 @@
                 <StackPanel x:Name="RibbonTools" Orientation="Horizontal">
                     <StackPanel>
                         <ListBox x:Name="NavigateGroup" Style="{StaticResource ToolGroup}" ItemsSource="{Binding NavigateTools}" SelectedValue="{Binding SelectedTool}"
-                                 AutomationProperties.Name="Navigate" Height="{Binding RibbonRowHeight}" VerticalContentAlignment="Top" />
+                                 AutomationProperties.Name="Navigate" Height="{Binding RibbonRowHeight}" VerticalContentAlignment="Top">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" VerticalAlignment="Top" /></ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                        </ListBox>
                         <TextBlock Text="Navigate" Style="{StaticResource RibbonLabel}" />
                     </StackPanel>
                     <Border Style="{StaticResource RibbonDivider}" />

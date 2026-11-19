@@ -21,7 +21,14 @@ public sealed class ToolInputEventArgs(ToolPhase phase, Point mapPoint, Modifier
 
     /// <summary>2 for the second press of a double-click.</summary>
     public int ClickCount { get; } = clickCount;
+
+    /// <summary>The drag ended because the map lost the mouse capture.</summary>
+    public bool CaptureLost { get; init; }
 }
+
+/// <summary>The Multi-select tool's box and selected items, in map coordinates.</summary>
+public sealed record MultiSelectionOverlay(Rect? Box,
+    IReadOnlyList<(Rect Bounds, int Front)> Prefabs, IReadOnlyList<(Point Centre, float Rotation)> Spawns);
 
 /// <summary>A road being drawn: its points in map coordinates and its full width in metres.</summary>
 public sealed record RoadPreview(IReadOnlyList<Point> MapPoints, double WidthMetres, bool Asphalt);

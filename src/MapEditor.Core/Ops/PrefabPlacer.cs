@@ -356,7 +356,7 @@ public static class PrefabPlacer
     }
 
     /// <summary>The ground height of a street tile sharing an edge with this one, so streets meet level.</summary>
-    private static int? NeighbourTileGround(World world, PrefabLibrary library, PrefabInfo info, int x, int z, int rotation,
+    internal static int? NeighbourTileGround(World world, PrefabLibrary library, PrefabInfo info, int x, int z, int rotation,
         IReadOnlyCollection<PrefabInstance>? ignore)
     {
         var (sx, sz) = info.Footprint(rotation);

@@ -39,8 +39,8 @@ public sealed class TerrainToolController
     private void OnToolInput(object? sender, ToolInputEventArgs e)
     {
         if (World is not { } world) return;
-        // The Select, Prefabs, Trader, Spawn points, Town, Bridge and Generate tools have their own controllers.
-        if (_vm.SelectedTool is EditorTool.Select or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town
+        // The selection, Prefabs, Trader, Spawn points, Town, Bridge and Generate tools have their own controllers.
+        if (_vm.SelectedTool is EditorTool.Select or EditorTool.MultiSelect or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town
             or EditorTool.TerrainTypes or EditorTool.GenerateArea or EditorTool.TownSites or EditorTool.Features or EditorTool.Wilderness
             or EditorTool.Bridge) return;
         // No edits while the world is being saved or replaced; a stroke already under way may finish.
