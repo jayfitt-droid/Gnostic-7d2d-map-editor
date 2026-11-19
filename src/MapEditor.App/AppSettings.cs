@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using MapEditor.Core.GameData;
+using MapEditor.Core.Generate;
 
 namespace MapEditor.App;
 
@@ -63,6 +64,12 @@ public sealed class AppSettings
     /// <summary>Generator presets saved from the Generate panel ("Game defaults" isn't stored).</summary>
     public List<MapEditor.Core.Generate.GeneratorPreset> GeneratorPresets { get; set; } = [];
 
+    /// <summary>Town presets saved from the Town sites card.</summary>
+    public List<TownPreset> TownPresets { get; set; } = [];
+
+    /// <summary>The starter presets have been added. Keep this set when the user deletes them.</summary>
+    public bool TownPresetsInitialized { get; set; }
+
     /// <summary>Overrides the release feed for update checks (see Updates).</summary>
     public string? UpdateUrl { get; set; }
 
@@ -83,6 +90,13 @@ public sealed class AppSettings
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             settings = new AppSettings();
+        }
+
+        if (!settings.TownPresetsInitialized)
+        {
+            var names = settings.TownPresets.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            settings.TownPresets.AddRange(StarterTownPresets.Create().Where(p => names.Add(p.Name)));
+            settings.TownPresetsInitialized = true;
         }
 
         if (settings.GameFolder is null || !GameInstall.IsValid(settings.GameFolder))

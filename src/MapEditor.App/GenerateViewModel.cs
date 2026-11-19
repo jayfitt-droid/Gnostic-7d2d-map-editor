@@ -382,6 +382,15 @@ public sealed partial class GenerateViewModel : ObservableObject
         OnPropertyChanged(nameof(TownTotalText));
     }
 
+    /// <summary>Updates the town sites controls after applying a town preset.</summary>
+    public void RefreshTownSettings()
+    {
+        RefreshTownRows();
+        OnPropertyChanged(nameof(EdgeMarginPercent));
+        OnPropertyChanged(nameof(OneTraderPerTown));
+        OnPropertyChanged(nameof(TownsCrossBorders));
+    }
+
     /// <summary>What the table adds up to: how many towns, and about how many street tiles.</summary>
     public string TownTotalText
     {
@@ -933,6 +942,10 @@ public sealed partial class GenerateViewModel : ObservableObject
     public ObservableCollection<GeneratorPreset> Presets { get; } = [];
 
     [ObservableProperty] private string _presetName = "";
+
+    public ObservableCollection<TownPreset> TownPresets { get; } = [];
+
+    [ObservableProperty] private string _townPresetName = "";
 }
 
 /// <summary>A biome's row in the Generate panel: its own plains, hills and mountains weights, when ticked.</summary>
