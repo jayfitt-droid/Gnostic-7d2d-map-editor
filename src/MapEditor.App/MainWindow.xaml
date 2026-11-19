@@ -1190,6 +1190,23 @@
                                 </Button>
                                 <TextBlock Text="{Binding IssuesText}" Style="{StaticResource HintText}" VerticalAlignment="Center" />
                             </DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Margin="0,8,0,0">
+                                <TextBlock Text="Teleport to issues with Game Link" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <WrapPanel>
+                                    <Button x:Name="PreviousIssueButton" Content="Previous issue" Click="PreviousIssue_Click" IsEnabled="False"
+                                            Margin="0,4,6,0" ToolTip="Teleport to the previous issue" />
+                                    <TextBlock x:Name="IssueStepPosition" Text="0 of 0" Style="{StaticResource HintText}"
+                                               VerticalAlignment="Center" Margin="0,4,6,0" />
+                                    <Button x:Name="NextIssueButton" Content="Next issue" Click="NextIssue_Click" IsEnabled="False"
+                                            Margin="0,4,0,0" ToolTip="Teleport to the next issue" />
+                                </WrapPanel>
+                                <CheckBox x:Name="IssueHotkeysCheck" Content="Enable in-game shortcuts" Click="IssueHotkeys_Click" IsEnabled="False"
+                                          Margin="0,6,0,0" ToolTip="Use the issue teleport shortcuts while the game has focus" />
+                                <WrapPanel>
+                                    <TextBlock Text="Ctrl+Alt+Left · Previous issue" Style="{StaticResource HintText}" Margin="0,0,12,0" />
+                                    <TextBlock Text="Ctrl+Alt+Right · Next issue" Style="{StaticResource HintText}" />
+                                </WrapPanel>
+                            </StackPanel>
                             <ListBox x:Name="IssuesList" ItemsSource="{Binding Issues}" Margin="0,8,0,0" MouseDoubleClick="Issue_DoubleClick"
                                      KeyDown="Issue_KeyDown" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      AutomationProperties.Name="Issues" ToolTip="Double-click or press Enter to find it on the map">

@@ -2,6 +2,7 @@ using System.Windows;
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
 using MapEditor.Core.Model;
+using MapEditor.Core.Validate;
 
 namespace MapEditor.App;
 
@@ -11,9 +12,11 @@ public partial class MainWindow
     private bool _gameLinkActionRunning;
 
     /// <summary>Checks the running game and sends a teleport or a temporary POI waypoint.</summary>
-    private async Task RunGameLinkActionAsync(World world, int x, int z, Facing? facing = null, string? waypointPrefab = null)
+    private async Task RunGameLinkActionAsync(World world, int x, int z, Facing? facing = null,
+        string? waypointPrefab = null, TeleportSpot? issueStop = null)
     {
-        if (!CanUseGameLink(world)) return;
+        bool CanContinue() => CanUseGameLink(world) && (issueStop is null || IsPendingIssueStep(issueStop));
+        if (!CanContinue()) return;
         if (_gameLinkActionRunning)
         {
             _vm.Status = "A Game Link request is already in progress.";
@@ -21,11 +24,12 @@ public partial class MainWindow
         }
 
         _gameLinkActionRunning = true;
+        UpdateIssueStepControls();
         _vm.Status = "Checking the game...";
         try
         {
             GameLinkReply status = await _gameLink.GetStatusAsync();
-            if (!CanUseGameLink(world)) return;
+            if (!CanContinue()) return;
             if (status.Status is not { } game)
             {
                 ShowGameLinkError(status.Error);
@@ -51,13 +55,13 @@ public partial class MainWindow
                 _vm.Status = teleport ? "Teleport cancelled." : "Waypoint cancelled.";
                 return;
             }
-            if (!CanUseGameLink(world) || folder != GameLinkExportFolder) return;
+            if (!CanContinue() || folder != GameLinkExportFolder) return;
 
             _vm.Status = teleport ? "Teleporting..." : "Adding waypoint...";
             GameLinkReply reply = waypointPrefab is null
                 ? await _gameLink.TeleportAsync(x, z, facing)
                 : await _gameLink.AddWaypointAsync(x, z, waypointPrefab);
-            if (!CanUseGameLink(world)) return;
+            if (!CanContinue()) return;
             if (!reply.Ok)
             {
                 ShowGameLinkError(reply.Error);
@@ -82,7 +86,8 @@ public partial class MainWindow
                 if (matches && await Task.Run(() => HasSavedGameChunks(exportName)))
                     message += " Saves keep terrain in chunks they already generated.";
             }
-            if (!CanUseGameLink(world)) return;
+            if (!CanContinue()) return;
+            if (issueStop is not null) CompleteIssueStep(issueStop);
             _vm.Status = message;
             if (!GameWindow.TryActivate())
                 _vm.Status += " Switch to the game to see the destination.";
@@ -90,6 +95,7 @@ public partial class MainWindow
         finally
         {
             _gameLinkActionRunning = false;
+            UpdateIssueStepControls();
         }
     }
 
@@ -101,6 +107,7 @@ public partial class MainWindow
         if (error == GameLinkError.Unavailable)
         {
             _vm.Status = string.Empty;
+            Activate();
             ThemedMessageBox.Show(this, message, "Gnostic Game Link", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -116,6 +123,7 @@ public partial class MainWindow
             : $"The game has {world} open. This project has no export folder yet.";
         string title = teleport ? "Teleport Here" : "Add Waypoint";
         string action = teleport ? "Teleport Anyway" : "Add Waypoint Anyway";
+        Activate();
         return ThemedMessageBox.Show(this, message, title, MessageBoxButton.OKCancel,
             MessageBoxImage.Warning, [action, "Cancel"]) == MessageBoxResult.OK;
     }

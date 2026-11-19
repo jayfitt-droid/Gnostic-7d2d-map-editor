@@ -26,6 +26,7 @@ internal static class GameWindow
                     continue;
                 }
                 if (window == IntPtr.Zero) continue;
+                if (GetForegroundWindow() == window) return true;
                 if (IsIconic(window)) ShowWindowAsync(window, Restore);
                 if (SetForegroundWindow(window)) return true;
             }
@@ -36,6 +37,9 @@ internal static class GameWindow
             foreach (Process game in games) game.Dispose();
         }
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
