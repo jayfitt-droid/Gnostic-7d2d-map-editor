@@ -600,6 +600,8 @@ The world then shows under **New Game** in the game.
 
 Click **File > Export Map Image**. The editor saves the whole map as a PNG, north at the top, with no windows or tools on it. Select the size (1024, 2048, 4096, or 1 pixel for each metre) and the layers, POIs and world grid to show.
 
+If the export fails or you cancel it, the editor keeps the existing PNG file.
+
 ### Package maps as a mod
 
 Use **Package** to share your maps with other players. The editor puts one or more exported maps into a mod zip. The zip also holds the custom prefabs that the maps use. A player unzips it into the game's `Mods` folder.
