@@ -86,7 +86,8 @@ public sealed partial class GenerateViewModel : ObservableObject
     [ObservableProperty] private string _terrainStatus = "Not run yet.";
 
     public bool CanEdit => HasWorld && !IsRunning;
-    public bool CanGenerate => CanEdit && (WholeMap || Area is not null);
+    public bool CanGenerate => CanEdit && (WholeMap || Area is not null) && CanGenerateLandShape;
+    public bool CanGenerateLandShape => !IsDrawn || Shape.Drawing is not null;
 
     // ---- seeds ---------------------------------------------------------------
 
@@ -182,7 +183,10 @@ public sealed partial class GenerateViewModel : ObservableObject
             if (value == Shape.Kind) return;
             Shape.Kind = value;
             Changed();
-            OnPropertyChanged(nameof(IsShaped));
+            OnPropertyChanged(nameof(HasCoastSettings));
+            OnPropertyChanged(nameof(IsDrawn));
+            OnPropertyChanged(nameof(CanGenerateLandShape));
+            OnPropertyChanged(nameof(CanGenerate));
             OnPropertyChanged(nameof(IsEdges));
             OnPropertyChanged(nameof(IsArchipelago));
             OnPropertyChanged(nameof(IsPeninsula));
@@ -190,7 +194,8 @@ public sealed partial class GenerateViewModel : ObservableObject
         }
     }
 
-    public bool IsShaped => Shape.IsShaped;
+    public bool HasCoastSettings => Shape.IsShaped && !IsDrawn;
+    public bool IsDrawn => Shape.Kind == LandShapeKind.Drawn;
     public bool IsEdges => !Shape.IsShaped;
     public bool IsArchipelago => Shape.Kind == LandShapeKind.Archipelago;
     public bool IsPeninsula => Shape.Kind == LandShapeKind.Peninsula;

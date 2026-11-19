@@ -46,7 +46,7 @@ public sealed class EditSession(string name, World? world = null)
     /// Whether the edit changed anything: a list it touched, a layer or colour it added, or a cell that now differs
     /// from before. A brush dab or stamp that touched cells without changing them leaves no undo step (#22).
     /// </summary>
-    public bool HasChanges => _layers?.Changed == true || _tiles.Values.Any(t => t.Differs);
+    public bool HasChanges => _layers?.Changed == true || _states.Values.Any(s => s.Differs) || _tiles.Values.Any(t => t.Differs);
 
     /// <summary>
     /// Puts back everything the edit changed so far, for an edit that failed partway. The session is empty afterwards;
@@ -99,11 +99,11 @@ public sealed class EditSession(string name, World? world = null)
     /// Saves some state outside the world (the generator's Done marks, plans and status lines) the first time it is
     /// touched, so undo and redo swap it with the edit. <paramref name="capture"/> reads the state now and
     /// <paramref name="restore"/> puts a captured value back; both run on the thread that touches, undoes or rolls back,
-    /// so call this from the UI thread. It doesn't count as a change on its own (#15).
+    /// so call this from the UI thread. It counts as a change on its own only if a comparison is supplied.
     /// </summary>
-    public void TouchState(object key, Func<object?> capture, Action<object?> restore)
+    public void TouchState(object key, Func<object?> capture, Action<object?> restore, Func<object?, object?, bool>? same = null)
     {
-        if (!_states.ContainsKey(key)) _states[key] = new StateSnapshot(capture, restore);
+        if (!_states.ContainsKey(key)) _states[key] = new StateSnapshot(capture, restore, same);
     }
 
     public UndoStep ToStep()
@@ -116,11 +116,12 @@ public sealed class EditSession(string name, World? world = null)
 }
 
 /// <summary>State outside the world, captured before an edit; swapping exchanges it with the live state.</summary>
-internal sealed class StateSnapshot(Func<object?> capture, Action<object?> restore) : TileSnapshot
+internal sealed class StateSnapshot(Func<object?> capture, Action<object?> restore, Func<object?, object?, bool>? same) : TileSnapshot
 {
     private object? _stored = capture();
 
     public override long Bytes => 256;
+    public override bool Differs => same is not null && !same(_stored, capture());
 
     public override void Swap()
     {

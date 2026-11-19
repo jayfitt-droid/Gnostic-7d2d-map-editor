@@ -30,6 +30,18 @@ public sealed class ToolInputEventArgs(ToolPhase phase, Point mapPoint, Modifier
 public sealed record MultiSelectionOverlay(Rect? Box,
     IReadOnlyList<(Rect Bounds, int Front)> Prefabs, IReadOnlyList<(Point Centre, float Rotation)> Spawns);
 
+/// <summary>The drawn coast and box outlines in Land mode, in map coordinates.</summary>
+public sealed record LandPreview(ImageSource? Coast, IReadOnlyList<(Rect Bounds, bool CutsWater)> Boxes, int? Selected)
+{
+    /// <summary>The corners and side midpoints used for both drawing and picking resize handles.</summary>
+    internal static Point[] ResizeHandles(Rect box) =>
+    [
+        box.TopLeft, box.TopRight, box.BottomLeft, box.BottomRight,
+        new(box.Left + box.Width / 2, box.Top), new(box.Left + box.Width / 2, box.Bottom),
+        new(box.Left, box.Top + box.Height / 2), new(box.Right, box.Top + box.Height / 2),
+    ];
+}
+
 /// <summary>A road being drawn: its points in map coordinates and its full width in metres.</summary>
 public sealed record RoadPreview(IReadOnlyList<Point> MapPoints, double WidthMetres, bool Asphalt);
 

@@ -22,7 +22,7 @@ public enum EdgeStyle
 /// <param name="Biome">biomes.png colour for the whole map, when there is no <paramref name="BiomePlan"/>.</param>
 /// <param name="Edges">North, east, south, west.</param>
 /// <param name="BiomePlan">A generated layout of several biomes (RWG's method), from the same seed.</param>
-/// <param name="Shape">The land's outline; an island, archipelago or peninsula replaces the edges.</param>
+/// <param name="Shape">The land's outline, which replaces border stamps when it has a coastline.</param>
 public sealed record NewWorldOptions(
     string Name,
     int Size,

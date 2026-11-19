@@ -28,7 +28,15 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _cursorText = "";
     [ObservableProperty] private string _worldSummary = "";
     [ObservableProperty] private string _gameFolderText = "";
-    [ObservableProperty] private bool _isBusy;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanBuildLand))] private bool _isBusy;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWorldMode), nameof(CanBuildLand), nameof(SidePanelVisible), nameof(SideBarOuterWidth),
+        nameof(WorldOptionsVisible), nameof(WorldMiniMapVisible), nameof(HintCardText), nameof(ShowPrefabCard))]
+    private bool _isLandMode;
+
+    public bool IsWorldMode => !IsLandMode;
+    public bool CanBuildLand => IsLandMode && !IsBusy;
 
     public BiomeTable Biomes
     {
@@ -315,7 +323,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// The info card: the prefab selected on the map, or with the Trader tool the trader it will place, so the card
     /// always shows the trader picked in the options.
     /// </summary>
-    public bool ShowPrefabCard => IsTraderTool ? SelectedTrader is not null : HasPrefabSelection && (IsPrefabTool || IsSelectTool);
+    public bool ShowPrefabCard => !IsLandMode && (IsTraderTool ? SelectedTrader is not null : HasPrefabSelection && (IsPrefabTool || IsSelectTool));
 
     /// <summary>
     /// The card shows the prefab picked in the browser instead of the map prefab, as its replacement. Set when a prefab
@@ -754,7 +762,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>The changing help text on the Modern theme's map card. Empty hides the card.</summary>
     public string HintCardText =>
-        (IsTownTool ? TownText : IsPrefabTool ? PlacementText : ShowSelectionText ? SelectionText : "") ?? "";
+        IsLandMode ? "" : (IsTownTool ? TownText : IsPrefabTool ? PlacementText : ShowSelectionText ? SelectionText : "") ?? "";
 
     /// <summary>One row of icons with no group names, and fewer reserved lines under the tool options.</summary>
     public bool IsCompactRibbon => IsModernTheme || RibbonMode == RibbonMode.Compact || RibbonMode == RibbonMode.Auto && WindowIsShort;
@@ -787,9 +795,13 @@ public sealed partial class MainViewModel : ObservableObject
         nameof(ReservedInfoText), nameof(ShowToolHint), nameof(ToolNamesShown), nameof(ActionTextShown), nameof(ShowInlineToolHint),
     ];
 
-    [ObservableProperty] private bool _showToolOptions = true;
-    [ObservableProperty] private bool _showMiniMap = true;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarOuterWidth))] private bool _showSidePanel;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(WorldOptionsVisible))] private bool _showToolOptions = true;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(WorldMiniMapVisible))] private bool _showMiniMap = true;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarOuterWidth), nameof(SidePanelVisible))] private bool _showSidePanel;
+
+    public bool WorldOptionsVisible => IsWorldMode && ShowToolOptions;
+    public bool WorldMiniMapVisible => IsWorldMode && ShowMiniMap;
+    public bool SidePanelVisible => IsLandMode || ShowSidePanel;
 
     /// <summary>Whether this run uses the Modern theme.</summary>
     [ObservableProperty] private bool _isModernTheme;
@@ -801,7 +813,7 @@ public sealed partial class MainViewModel : ObservableObject
     public const double ActivityBarWidth = 48;
 
     /// <summary>The Modern theme's activity bar plus, when open, the side bar.</summary>
-    public double SideBarOuterWidth => ActivityBarWidth + (ShowSidePanel ? SidePanelWidth : 0);
+    public double SideBarOuterWidth => IsLandMode ? SidePanelWidth : ActivityBarWidth + (ShowSidePanel ? SidePanelWidth : 0);
 
     /// <summary>The open view's name, as the Modern theme's side bar shows it.</summary>
     public string SideBarTitle => SidePanelTab switch

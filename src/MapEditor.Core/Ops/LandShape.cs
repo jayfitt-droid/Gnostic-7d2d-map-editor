@@ -16,6 +16,8 @@ public enum LandShapeKind
     Archipelago,
     /// <summary>Land joined to one edge, with ocean on the other three.</summary>
     Peninsula,
+    /// <summary>Land and water drawn by the user.</summary>
+    Drawn,
 }
 
 /// <summary>A side of the map.</summary>
@@ -50,16 +52,26 @@ public sealed class LandShape
     /// <summary>The edge a peninsula is joined to.</summary>
     public MapEdge PeninsulaEdge { get; set; } = MapEdge.South;
 
+    /// <summary>The saved drawing used by <see cref="LandShapeKind.Drawn"/>.</summary>
+    public LandDrawing? Drawing { get; set; }
+
     /// <summary>True for a shape that has an outline of its own (not <see cref="LandShapeKind.Edges"/>).</summary>
     [JsonIgnore] public bool IsShaped => Kind != LandShapeKind.Edges;
 
-    public LandShape Clone() => (LandShape)MemberwiseClone();
+    public LandShape Clone()
+    {
+        var clone = (LandShape)MemberwiseClone();
+        clone.Drawing = Drawing?.Clone();
+        return clone;
+    }
 
     /// <summary>Whether <paramref name="other"/> gives the same land (settings that don't apply to the kind are ignored).</summary>
     public bool SameLand(LandShape? other)
     {
         if (other is null || other.Kind != Kind) return false;
         if (Kind == LandShapeKind.Edges) return true;
+        if (Kind == LandShapeKind.Drawn)
+            return Drawing?.SameLand(other.Drawing) ?? (other.Drawing is null || other.Drawing.Boxes.Count == 0);
         return other.Seed == Seed && other.LandPercent == LandPercent && other.Roughness == Roughness
                && (Kind != LandShapeKind.Archipelago || other.Islands == Islands)
                && (Kind != LandShapeKind.Peninsula || other.PeninsulaEdge == PeninsulaEdge);
@@ -213,6 +225,15 @@ public static class LandShapes
     {
         if (!shape.IsShaped) return null;
         int w = worldSize / LandField.Cell;
+        if (shape.Kind == LandShapeKind.Drawn)
+        {
+            var drawn = new bool[w * w];
+            var cuts = new sbyte[drawn.Length];
+            Array.Fill(cuts, (sbyte)-1);
+            shape.Drawing?.Rasterize(worldSize, drawn, cuts);
+            RemoveSmallPatches(drawn, cuts, w);
+            return new LandField(worldSize, SignedDistance(drawn, w));
+        }
         var rand = new Random(shape.Seed);
         var noise = new Noise(shape.Seed ^ 0x5EA5);
         float rough = Math.Clamp(shape.Roughness, 0, 100) / 100f;

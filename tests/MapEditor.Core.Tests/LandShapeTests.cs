@@ -64,6 +64,17 @@ public sealed class LandShapeTests
         Assert.Null(LandShapes.Build(4096, new LandShape()));
     }
 
+    [Fact]
+    public void A_saved_drawn_shape_builds_its_own_coast()
+    {
+        var shape = JsonSerializer.Deserialize<LandShape>("""
+            {"Kind":"Drawn","Drawing":{"Boxes":[{"X0":512,"Z0":1024,"X1":2560,"Z1":3072}]}}
+            """)!;
+        var land = LandShapes.Build(4096, shape)!;
+        Assert.True(land.IsLand(1536, 2048));
+        Assert.False(land.IsLand(3200, 2048));
+    }
+
     [Theory]
     [InlineData(4096)]
     [InlineData(8192)]

@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using MapEditor.Core.Edit;
 using MapEditor.Core.Model;
@@ -21,6 +22,7 @@ public static class ProjectStore
     /// 3 (v2.1.0): <see cref="ProjectSettings.Bridges"/>, the Bridge tool's list. Older projects have none, and load with it empty.
     /// 4 (v2.1.0): <see cref="Generate.SpawnOptions.NearStarterTrader"/>, on for new projects. Older projects load with it off, so
     /// their spawns stage keeps working as before.
+    /// 5: <see cref="Ops.LandShapeKind.Drawn"/> and its drawing. Older projects have no drawing.
     /// </summary>
     /// <remarks>
     /// Users keep projects from every release, and each release must open them all. project.json holds the records
@@ -35,7 +37,7 @@ public static class ProjectStore
     /// SaveCompatibilityTests load a project saved by each release (tests/.../SaveSamples) and fail when a value is
     /// lost or changes meaning. For each release, add a sample with tools/save-samples/make-sample.ps1.
     /// </remarks>
-    public const int FormatVersion = 4;
+    public const int FormatVersion = 5;
 
     private const string ManifestEntry = "project.json";
     private const string HeightEntry = "layers/height.u16";
@@ -108,7 +110,9 @@ public static class ProjectStore
         public List<SpawnDto> Spawns { get; set; } = [];
         public List<PassthroughDto> Passthrough { get; set; } = [];
         public List<string> ExtraFiles { get; set; } = [];
-        public ProjectSettings Settings { get; set; } = new();
+        public ProjectSettings? Settings { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public ProjectSettings? DrawnWorldSettings { get; set; }
     }
 
     /// <summary>
@@ -127,6 +131,10 @@ public static class ProjectStore
         foreach (var name in world.ExtraFiles.Keys)
             if (!WorldFiles.IsSafeExtraName(name))
                 throw new InvalidOperationException($"The world has an extra file named '{name}', which can't be kept in a project.");
+        // Format 4 reads Settings before checking Format. Keep the new named enum out of that field so those
+        // editors report the newer format, instead of failing to read the enum before they get to that check.
+        bool hasDrawnShape = settings?.Generator is { } gen &&
+            (gen.Terrain.Shape.Kind == Ops.LandShapeKind.Drawn || gen.Biomes?.PlannedFor.Kind == Ops.LandShapeKind.Drawn);
         var manifest = new Manifest
         {
             Format = FormatVersion,
@@ -143,7 +151,8 @@ public static class ProjectStore
                 p.GroundLevel, p.GroundLevelOffset)).ToList(),
             Spawns = world.Spawns.Select(s => new SpawnDto(s.X, s.Y, s.Z, s.RotationY)).ToList(),
             ExtraFiles = world.ExtraFiles.Keys.ToList(),
-            Settings = settings ?? new ProjectSettings(),
+            Settings = hasDrawnShape ? null : settings ?? new ProjectSettings(),
+            DrawnWorldSettings = hasDrawnShape ? settings : null,
         };
 
         // A passthrough image is only used while its layer still matches it (see WorldWriter), so an edited layer's
@@ -247,10 +256,10 @@ public static class ProjectStore
             world.ExtraFiles[file] = bytes;
         }
 
-        settings = manifest.Settings ?? new ProjectSettings();
+        settings = manifest.DrawnWorldSettings ?? manifest.Settings ?? new ProjectSettings();
         // Format 3 added the bridge list; a project from before it has none.
         if (manifest.Format < 3 || settings.Bridges is null) settings.Bridges = [];
-        FillMissing(settings);
+        FillMissing(settings, size);
         // Format 4 added the starter-trader spawns option, on by default; older projects keep the old way.
         if (manifest.Format < 4 && settings.Generator is { } gen) gen.Spawns.NearStarterTrader = false;
         return world;
@@ -261,7 +270,7 @@ public static class ProjectStore
     /// Each missing part gets its defaults, and null entries are dropped from the lists, so the editor opens the
     /// project instead of failing on it later (#22).
     /// </summary>
-    private static void FillMissing(ProjectSettings settings)
+    private static void FillMissing(ProjectSettings settings, int size)
     {
         settings.Bridges.RemoveAll(b => b is null);
         if (settings.Generator is not { } g) return;
@@ -269,6 +278,7 @@ public static class ProjectStore
         g.Terrain.BiomeWeights ??= [];
         g.Terrain.Edges ??= [Ops.EdgeStyle.Land, Ops.EdgeStyle.Land, Ops.EdgeStyle.Land, Ops.EdgeStyle.Land];
         g.Terrain.Shape ??= new();
+        FitDrawing(g.Terrain.Shape, size);
         g.Towns ??= new();
         g.Towns.Rows ??= [];
         g.Towns.Rows.RemoveAll(r => r is null);
@@ -295,6 +305,21 @@ public static class ProjectStore
         {
             b.Shares ??= [];
             b.PlannedFor ??= new();
+            FitDrawing(b.PlannedFor, size);
+        }
+    }
+
+    private static void FitDrawing(Ops.LandShape shape, int size)
+    {
+        if (shape.Drawing is not { } drawing) return;
+        var boxes = drawing.Boxes;
+        boxes.RemoveAll(box => box is null || box.Bounds.Clamp(size, size).IsEmpty);
+        for (int i = 0; i < boxes.Count; i++)
+        {
+            var box = boxes[i];
+            var bounds = box.Bounds.Clamp(size, size);
+            if (bounds != box.Bounds)
+                boxes[i] = box with { X0 = bounds.X0, Z0 = bounds.Z0, X1 = bounds.X1, Z1 = bounds.Z1 };
         }
     }
 
