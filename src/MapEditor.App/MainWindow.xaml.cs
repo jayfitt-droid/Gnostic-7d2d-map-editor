@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private readonly EditRunner _edits;
     private readonly TerrainToolController _tools;
     private readonly PrefabToolController _prefabTools;
+    private readonly MultiSelectToolController _multiSelect;
     private readonly TownToolController _townTools;
     private readonly GenerateToolController _genTools;
     private readonly BridgeToolController _bridgeTools;
@@ -109,6 +110,9 @@ public partial class MainWindow : Window
         _prefabTools.BridgeOf = p => BridgeTool.Owner(_projectSettings.Bridges, p);
         // The Highways stage's bridge pieces stay as it built them: they can be selected, not moved or deleted.
         _prefabTools.IsStageBridge = p => BridgeTool.StageOwner(_projectSettings.Generator?.PlacedRoads, p) is not null;
+        _multiSelect = new MultiSelectToolController(Map, _vm, _edits,
+            p => _prefabTools.BridgeOf?.Invoke(p) is not null, p => _prefabTools.IsStageBridge?.Invoke(p) == true);
+        Map.ToolInput += _multiSelect.OnToolInput;
         _prefabTools.BridgePicked += (_, bridge) =>
         {
             _vm.SelectedTool = EditorTool.Bridge;
@@ -488,6 +492,7 @@ public partial class MainWindow : Window
         _tools.World = world;
         _prefabTools.World = world;
         _prefabTools.Refresh();
+        _multiSelect.SetWorld(world);
         _vm.PlacedWorld = world;
         _townTools.World = world;
         _genTools.World = world;
@@ -505,6 +510,7 @@ public partial class MainWindow : Window
         var renderer = new MapRenderer(world, _vm.Biomes);
         Map.Prefabs = _vm.Prefabs;
         Map.Renderer = renderer;
+        _multiSelect.Refresh();
         Overview.SetRenderer(renderer, _vm.Layers);
         _vm.WorldSummary = WorldSummaryFormatter.Format(world);
         _vm.WorldSizeText = $"{world.Size} × {world.Size} m";
@@ -518,7 +524,7 @@ public partial class MainWindow : Window
     // ---- save --------------------------------------------------------------
 
     private void HasWorld_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _world is not null && !_vm.IsBusy && !_tools.IsStroking && !_prefabTools.IsDragging && !_townTools.IsDragging;
+        e.CanExecute = _world is not null && !_vm.IsBusy && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging;
 
     /// <summary>
     /// True (and says so) while a save, export or load is running. Saves write the live world on another thread,
@@ -986,7 +992,7 @@ public partial class MainWindow : Window
     private async Task AutosaveAsync()
     {
         if (!_vm.Autosave || _autosaving || !Dirty || _world is not { } world || _vm.IsBusy
-            || _tools.IsStroking || _prefabTools.IsDragging || _townTools.IsDragging)
+            || _tools.IsStroking || _prefabTools.IsDragging || _multiSelect.IsDragging || _townTools.IsDragging)
             return;
         _autosaving = true;
         try
@@ -1072,6 +1078,7 @@ public partial class MainWindow : Window
         _tools.World = null;
         _prefabTools.World = null;
         _prefabTools.Refresh();
+        _multiSelect.SetWorld(null);
         _vm.PlacedWorld = null;
         _townTools.World = null;
         _townTools.Refresh();
@@ -2747,10 +2754,10 @@ public partial class MainWindow : Window
     // ---- undo --------------------------------------------------------------
 
     private void Undo_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _undo.CanUndo && !_tools.IsStroking && !_prefabTools.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
+        e.CanExecute = _undo.CanUndo && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
 
     private void Redo_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _undo.CanRedo && !_tools.IsStroking && !_prefabTools.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
+        e.CanExecute = _undo.CanRedo && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
 
     private void Undo_Executed(object sender, ExecutedRoutedEventArgs e)
     {
@@ -2794,6 +2801,7 @@ public partial class MainWindow : Window
         // Edits, undo and redo move the history; Dirty compares it with the save point.
         UpdateTitle();
         _vm.RefreshPlaced();
+        _multiSelect.Refresh();
         if (Map.Renderer is { } renderer) Overview.SetRenderer(renderer, _vm.Layers);
     }
 
@@ -2811,6 +2819,7 @@ public partial class MainWindow : Window
         Map.InvalidateVisual();
         _prefabTools.Refresh();
         _townTools.Refresh();
+        _multiSelect.Refresh();
         _vm.Status = $"{e.Session.Name} failed; nothing was changed.";
         // Shown after the input event that ran the edit, so a stroke's mouse handling isn't cut off by a dialog.
         string message = $"{e.Session.Name} failed, so it was undone and the world is as it was.\n\n{e.Error.Message}"
@@ -3255,6 +3264,7 @@ public partial class MainWindow : Window
                 // The trader starts facing north, as a new pick in the browser does.
                 if (_vm.IsTraderTool && _vm.SelectedTrader is { } trader) _vm.PrefabRotation = trader.RotationToFaceNorth & 3;
                 _prefabTools.Refresh();
+                _multiSelect.Refresh();
                 _townTools.Refresh();
                 _genTools.Refresh();
                 UpdateToolState();
@@ -3304,7 +3314,7 @@ public partial class MainWindow : Window
         if (!_vm.IsPrefabTool) Map.HoverPrefab = null;
         Map.BrushCursor = _vm.SelectedTool switch
         {
-            EditorTool.Select or EditorTool.Water or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town or EditorTool.Bridge
+            EditorTool.Select or EditorTool.MultiSelect or EditorTool.Water or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town or EditorTool.Bridge
                 or EditorTool.TerrainTypes or EditorTool.GenerateArea or EditorTool.TownSites or EditorTool.Features or EditorTool.Wilderness => null,
             EditorTool.Road => new BrushCursor(_vm.RoadWidth),
             EditorTool.Stamp => new BrushCursor(_vm.StampSize, Square: true, _vm.StampRotation,
@@ -3338,6 +3348,13 @@ public partial class MainWindow : Window
         {
             if (e.Key == Key.Enter && _bridgeTools.Build()) { e.Handled = true; return; }
             if (e.Key == Key.Delete && _bridgeTools.DeleteSelected()) { e.Handled = true; return; }
+        }
+        if (_vm.IsMultiSelectTool && e.Key is Key.Delete or Key.PageUp or Key.PageDown)
+        {
+            if (e.Key == Key.Delete) _multiSelect.Delete();
+            else _multiSelect.NudgeHeight(e.Key == Key.PageUp ? 1 : -1);
+            e.Handled = true;
+            return;
         }
         if (e.Key == Key.Delete && (_vm.IsPrefabTool || _vm.IsSpawnTool || _vm.IsSelectTool)) { _prefabTools.DeleteSelected(); e.Handled = true; return; }
         if (e.Key is Key.PageUp or Key.PageDown && (_vm.IsPrefabTool || _vm.IsSelectTool))
@@ -3394,6 +3411,7 @@ public partial class MainWindow : Window
         bool stopped = _vm.IsRoadTool && _tools.CancelRoad()
                        || _vm.IsBridgeTool && _bridgeTools.Cancel()
                        || _vm.IsTownTool && _townTools.Cancel()
+                       || _vm.IsMultiSelectTool && _multiSelect.Cancel()
                        || (_vm.IsPrefabTool || _vm.IsSpawnTool) && _prefabTools.Cancel();
         if (stopped) return;
         _vm.SelectedPrefabInfo = null;
@@ -3429,6 +3447,7 @@ public partial class MainWindow : Window
         else if (_vm.IsSpawnTool) _prefabTools.RotateSpawn(degrees < 0 ? -45 : 45);
         else if (_vm.IsSelectTool && _prefabTools.HasSpawnSelected) _prefabTools.RotateSpawn(degrees < 0 ? -45 : 45);
         else if (_vm.IsSelectTool) _prefabTools.Rotate(degrees < 0 ? 1 : -1);
+        else if (_vm.IsMultiSelectTool) _multiSelect.Rotate(degrees < 0 ? 1 : -1);
         else if (_vm.SelectedTool == EditorTool.Stamp) _vm.StampRotation = (_vm.StampRotation + degrees + 360) % 360;
         else if (_vm.HasRadius && _vm.IsSquareBrush) _vm.BrushRotation = (_vm.BrushRotation + degrees + 360) % 360;
     }

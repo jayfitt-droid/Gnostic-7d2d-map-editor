@@ -40,6 +40,7 @@ public static class Icons
     public static Geometry Package { get; } = Make("M3,8 L12,3 L21,8 V17 L12,22 L3,17 Z M3,8 L12,13 L21,8 M12,13 V22");
     public static Geometry Fit { get; } = Make("M3,8 V3 H8 M16,3 H21 V8 M21,16 V21 H16 M8,21 H3 V16 M8,8 H16 V16 H8 Z");
     public static Geometry Cursor { get; } = Make("M5,3 L5,19 L9,15 L12,21 L14.5,20 L11.5,14 L17,14 Z");
+    public static Geometry MultiSelect { get; } = Make("M3,7 V3 H7 M10,3 H14 M17,3 H21 V7 M21,10 V13 M3,10 V14 M3,17 V21 H7 M10,21 H12 M10,8 V17 L13,15 L16,21 L18,20 L15,14 H20 Z");
     public static Geometry Selection { get; } = Make("M3,3 H7 M10,3 H14 M17,3 H21 V7 M21,10 V14 M21,17 V21 H17 M14,21 H10 M7,21 H3 V17 M3,14 V10 M3,7 V3");
     public static Geometry WorldSize { get; } = Make("M3,3 H21 V21 H3 Z M3,9 H21 M9,3 V21");
     public static Geometry Panel { get; } = Make("M3,3 H21 V21 H3 Z M15,3 V21");

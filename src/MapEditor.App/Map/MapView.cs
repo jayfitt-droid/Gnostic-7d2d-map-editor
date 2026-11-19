@@ -381,6 +381,19 @@ public sealed class MapView : FrameworkElement
         }
     }
 
+    private MultiSelectionOverlay? _multiSelection;
+
+    public MultiSelectionOverlay? MultiSelection
+    {
+        get => _multiSelection;
+        set
+        {
+            if (_multiSelection is null && value is null) return;
+            _multiSelection = value;
+            InvalidateVisual();
+        }
+    }
+
     private bool _showLots;
 
     /// <summary>Outlines the POI lots of street tiles, so POIs can be dropped into them.</summary>
@@ -568,7 +581,7 @@ public sealed class MapView : FrameworkElement
         if (_toolDrag)
         {
             _toolDrag = false;
-            ToolInput?.Invoke(this, new ToolInputEventArgs(ToolPhase.Up, _mouseMap ?? default, Keyboard.Modifiers));
+            ToolInput?.Invoke(this, new ToolInputEventArgs(ToolPhase.Up, _mouseMap ?? default, Keyboard.Modifiers) { CaptureLost = true });
         }
         // And a pan, so the next press isn't taken for a second button mid-drag.
         if (_dragStart is not null)
@@ -663,6 +676,7 @@ public sealed class MapView : FrameworkElement
         DrawSpawnGhost(dc);
         DrawRoadPreview(dc);
         DrawBridgePreviews(dc);
+        DrawMultiSelection(dc, visible);
         DrawBrushCursor(dc);
     }
 
@@ -1329,15 +1343,35 @@ public sealed class MapView : FrameworkElement
         {
             var m = new Point(s.X + half, world.Size - (s.Z + half));
             if (!visible.Contains(m)) continue;
-            var c = MapToScreen(m);
-            // The tick shows which way the player faces: RotationY is degrees clockwise from north.
-            double a = s.RotationY * Math.PI / 180;
-            var facing = new Vector(Math.Sin(a), -Math.Cos(a));
-            bool selected = ReferenceEquals(s, _selectedSpawn);
-            dc.DrawLine(CursorShadowPen, c, c + facing * 16);
-            dc.DrawLine(SpawnFacingPen, c, c + facing * 16);
-            dc.DrawEllipse(selected ? SelectedSpawnFill : SpawnFill, SpawnPen, c, selected ? 7 : 5, selected ? 7 : 5);
+            DrawSpawn(dc, MapToScreen(m), s.RotationY, ReferenceEquals(s, _selectedSpawn));
         }
+    }
+
+    private static void DrawSpawn(DrawingContext dc, Point centre, float rotation, bool selected)
+    {
+        // The tick shows which way the player faces: RotationY is degrees clockwise from north.
+        double a = rotation * Math.PI / 180;
+        var facing = new Vector(Math.Sin(a), -Math.Cos(a));
+        dc.DrawLine(CursorShadowPen, centre, centre + facing * 16);
+        dc.DrawLine(SpawnFacingPen, centre, centre + facing * 16);
+        dc.DrawEllipse(selected ? SelectedSpawnFill : SpawnFill, SpawnPen, centre, selected ? 7 : 5, selected ? 7 : 5);
+    }
+
+    private void DrawMultiSelection(DrawingContext dc, Rect visible)
+    {
+        if (_multiSelection is not { } selection) return;
+        Rect Screen(Rect r) => new(MapToScreen(r.TopLeft), MapToScreen(r.BottomRight));
+        foreach (var (bounds, front) in selection.Prefabs)
+        {
+            if (!bounds.IntersectsWith(visible)) continue;
+            var screen = Screen(bounds);
+            dc.DrawRectangle(SelectedFill, SelectedPen, screen);
+            if (front >= 0) DrawFrontArrow(dc, screen, front, SelectedPen);
+        }
+        foreach (var (centre, rotation) in selection.Spawns)
+            if (visible.Contains(centre)) DrawSpawn(dc, MapToScreen(centre), rotation, selected: true);
+        if (selection.Box is { } box)
+            dc.DrawRectangle(SelectedFill, SelectedPen, Screen(box));
     }
 
     // ---- tile generation ---------------------------------------------------

@@ -31,6 +31,8 @@ public enum EditorTool
     Features,
     /// <summary>The Generate panel's tool: places wilderness POIs by hand and picks them.</summary>
     Wilderness,
+    /// <summary>Selects and edits a group of items on the map.</summary>
+    MultiSelect,
 }
 
 /// <summary>
@@ -47,6 +49,7 @@ public sealed record ToolItem(EditorTool Tool, string Label, string Shortcut, Ge
         EditorTool.Water => "Water",
         EditorTool.Prefab => "Prefabs",
         EditorTool.Spawn => "Spawns",
+        EditorTool.MultiSelect => "Multi",
         _ => Label,
     };
 
