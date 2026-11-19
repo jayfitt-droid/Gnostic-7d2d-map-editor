@@ -16,4 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\MapEditor.Core\MapEditor.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="app.ico" />
+  </ItemGroup>
 </Project>
