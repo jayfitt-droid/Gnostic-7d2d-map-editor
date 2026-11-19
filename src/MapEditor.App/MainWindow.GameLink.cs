@@ -13,12 +13,11 @@ public partial class MainWindow
 
     /// <summary>Checks the running game and sends a teleport or a temporary POI waypoint.</summary>
     private async Task RunGameLinkActionAsync(World world, int x, int z, Facing? facing = null,
-        string? waypointPrefab = null, TeleportSpot? issueStop = null, ValidationIssue? issueRow = null)
+        string? waypointPrefab = null, ValidationIssue? issue = null, Action? onTeleported = null)
     {
         string? folder = GameLinkExportFolder;
-        int issueSelectionRevision = _issueSelectionRevision;
         bool SameExport() => ReferenceEquals(_world, world) && folder == GameLinkExportFolder;
-        bool CanSend() => CanUseGameLink(world) && SameExport() && (issueStop is null || IsPendingIssueStep(issueStop));
+        bool CanSend() => CanUseGameLink(world) && SameExport() && (issue is null || _issueStepper.StopFor(issue) is not null);
         if (!CanSend()) return;
         if (_gameLinkActionRunning)
         {
@@ -91,8 +90,7 @@ public partial class MainWindow
                 return;
             }
 
-            if (issueStop is not null && ReferenceEquals(_world, world))
-                CompleteIssueStep(issueStop, issueRow, issueSelectionRevision);
+            if (ReferenceEquals(_world, world)) onTeleported?.Invoke();
             string message = $"Teleported to {x}, {z}.";
             string? exportName = SameExport() ? GameLinkWorld.ExportName(folder) : null;
             if (exportName is not null)
