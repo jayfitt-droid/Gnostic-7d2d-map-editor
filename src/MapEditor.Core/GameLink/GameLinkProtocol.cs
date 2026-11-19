@@ -28,6 +28,7 @@ internal static class GameLinkProtocol
     private const string RequestName = "GNOSTICLINK";
     private static readonly string VersionText = Version.ToString(CultureInfo.InvariantCulture);
     public static readonly string RequestPrefix = RequestName + " " + VersionText + " ";
+    private static readonly string[] CompassFacings = new[] { "n", "ne", "e", "se", "s", "sw", "w", "nw" };
 
     public static bool IsPrefabName(string name) =>
         name.Length is >= 1 and <= 64 &&
@@ -97,20 +98,8 @@ internal static class GameLinkProtocol
         switch (parts[2])
         {
             case "TELEPORT":
-                string? facing = parts[5] switch
-                {
-                    "n" => "n",
-                    "ne" => "ne",
-                    "e" => "e",
-                    "se" => "se",
-                    "s" => "s",
-                    "sw" => "sw",
-                    "w" => "w",
-                    "nw" => "nw",
-                    "-" => "-",
-                    _ => null
-                };
-                if (facing == null)
+                string facing = parts[5];
+                if (facing != "-" && Array.IndexOf(CompassFacings, facing) < 0)
                     return GameLinkParseResult.BadRequest;
                 request = new(GameLinkRequestKind.Teleport, x, z, facing == "-" ? null : facing);
                 return GameLinkParseResult.Ok;

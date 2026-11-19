@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MapEditor.Core.GameLink;
+using static MapEditor.App.Map.Freezables;
 
 namespace MapEditor.App.Map;
 
@@ -70,11 +71,5 @@ public sealed class PlayerMarkerOverlay : FrameworkElement
         dc.PushTransform(new MatrixTransform(transform));
         dc.DrawGeometry(Fill, Outline, Arrow);
         dc.Pop();
-    }
-
-    private static T Frozen<T>(T freezable) where T : Freezable
-    {
-        freezable.Freeze();
-        return freezable;
     }
 }
