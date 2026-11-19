@@ -119,8 +119,6 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The Generate panel's own tools, picked from the panel rather than the ribbon; they have no shortcut.</summary>
     public IReadOnlyList<ToolItem> GenerateTools { get; } =
     [
-        new(EditorTool.TerrainTypes, "Paint tile types", "", Icons.TileTypes,
-            "Drag to paint the type picked in the Generate panel onto 256 m tiles; Shift+drag clears. Generating fills only the tiles left clear."),
         new(EditorTool.GenerateArea, "Generate area", "", Icons.Selection,
             "Drag a rectangle over the tiles to generate; the panel's Generate then remakes only those, blended into the land around them."),
         new(EditorTool.Features, "Place features", "", Icons.Water,
@@ -133,7 +131,6 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The Generate panel: seeds, stage settings, presets and progress.</summary>
     public GenerateViewModel Generate { get; } = new();
 
-    public bool IsTerrainTypesTool => SelectedTool == EditorTool.TerrainTypes;
     public bool IsGenerateAreaTool => SelectedTool == EditorTool.GenerateArea;
     public bool IsFeaturesTool => SelectedTool == EditorTool.Features;
 
@@ -143,7 +140,7 @@ public sealed partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsBrushTool), nameof(IsStampTool), nameof(IsFlattenTool), nameof(IsNoiseTool),
         nameof(HasRadius), nameof(IsBiomeTool), nameof(IsRadiationTool), nameof(IsWaterTool), nameof(IsRoadTool), nameof(IsBridgeTool),
         nameof(IsPrefabTool), nameof(IsTraderTool), nameof(IsPrefabsTool), nameof(PlacingPrefab), nameof(IsSpawnTool), nameof(IsSelectTool), nameof(IsMultiSelectTool), nameof(ShowSelectionText), nameof(IsTownTool), nameof(ReservesInfoLines), nameof(CurrentTool),
-        nameof(IsTerrainTypesTool), nameof(IsGenerateAreaTool), nameof(IsFeaturesTool),
+        nameof(IsGenerateAreaTool), nameof(IsFeaturesTool),
         nameof(HasSize), nameof(SizeValue), nameof(SizeMin), nameof(SizeMax), nameof(SizeText),
         nameof(HasStrength), nameof(StrengthValue), nameof(StrengthMin), nameof(StrengthText), nameof(CurrentSwatch))]
     private EditorTool _selectedTool = EditorTool.Select;

@@ -42,7 +42,8 @@ public sealed partial class GenerateViewModel : ObservableObject
     {
         _settings = settings;
         WorldSize = worldSize;
-        if (settings.PaintedTerrain is { } p && p.Length != Tiles * Tiles) settings.PaintedTerrain = null;
+        // Tile types painted by hand are gone (#115): the Terrain tools change the ground instead.
+        settings.PaintedTerrain = null;
         LastPlan = settings.TerrainPlan;
         LastMask = null;
         Area = null;
@@ -311,39 +312,9 @@ public sealed partial class GenerateViewModel : ObservableObject
         ? $"{(a.X1 - a.X0) * TerrainStage.TileSize} × {(a.Z1 - a.Z0) * TerrainStage.TileSize} m ({(a.X1 - a.X0) * (a.Z1 - a.Z0)} tiles)"
         : "No area yet: press Select area, then drag on the map.";
 
-    // ---- painted tile types --------------------------------------------------
+    // ---- tile types -----------------------------------------------------------
 
-    public IReadOnlyList<TerrainType> PaintTypes { get; } = [TerrainType.Plains, TerrainType.Hills, TerrainType.Mountains];
-
-    [ObservableProperty] private TerrainType _paintType = TerrainType.Mountains;
-
-    /// <summary>Show the types the last run gave every tile, under the painted ones.</summary>
-    [ObservableProperty] private bool _showPlan;
-
-    public int PaintedCount => _settings.PaintedTerrain?.Count(t => t != TerrainType.None) ?? 0;
-
-    public string PaintedText => PaintedCount == 0 ? "No tiles painted." : $"{PaintedCount} tile{(PaintedCount == 1 ? "" : "s")} painted.";
-
-    /// <summary>Paints one tile (or clears it with <see cref="TerrainType.None"/>). Returns whether it changed.</summary>
-    public bool PaintTile(int x, int z, TerrainType type)
-    {
-        if ((uint)x >= (uint)Tiles || (uint)z >= (uint)Tiles) return false;
-        var painted = _settings.PaintedTerrain ??= new TerrainType[Tiles * Tiles];
-        if (painted[x + z * Tiles] == type) return false;
-        painted[x + z * Tiles] = type;
-        OnPropertyChanged(nameof(PaintedCount));
-        OnPropertyChanged(nameof(PaintedText));
-        return true;
-    }
-
-    public void ClearPainted()
-    {
-        _settings.PaintedTerrain = null;
-        OnPropertyChanged(nameof(PaintedCount));
-        OnPropertyChanged(nameof(PaintedText));
-    }
-
-    /// <summary>The types the last terrain run gave each tile, for the map overlay.</summary>
+    /// <summary>The types the last terrain run gave each tile.</summary>
     public TerrainType[]? LastPlan { get; set; }
 
     /// <summary>The biome cells the last run's mountains painted, put back by the next run.</summary>

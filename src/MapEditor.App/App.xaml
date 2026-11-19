@@ -12,7 +12,6 @@
         <local:SeverityGlyphConverter x:Key="SeverityGlyph" />
         <local:SeverityBrushConverter x:Key="SeverityBrush" />
         <local:FavouriteStarConverter x:Key="FavouriteStar" />
-        <local:TerrainTypeBrushConverter x:Key="TerrainTypeBrush" />
         <local:StageOpenConverter x:Key="StageOpen" />
 
         <!-- A line icon from Icons.cs, drawn in the text colour of the control it sits in. -->

@@ -1358,7 +1358,7 @@
                                     <Button DockPanel.Dock="Right" MinWidth="60" Content="Delete" Margin="6,0,0,0" Click="PresetDelete_Click"
                                             ToolTip="Delete the chosen preset" />
                                     <Button DockPanel.Dock="Right" Content="Use" Margin="6,0,0,0" Click="PresetUse_Click"
-                                            ToolTip="Take the chosen preset's settings. The seeds, edges and painted tiles stay this world's." />
+                                            ToolTip="Take the chosen preset's settings. The seeds and edges stay this world's." />
                                     <ComboBox x:Name="PresetBox" ItemsSource="{Binding Generate.Presets}" DisplayMemberPath="Name" MinWidth="0"
                                               HorizontalAlignment="Stretch" AutomationProperties.Name="Preset" />
                                 </DockPanel>
@@ -1475,33 +1475,6 @@
                                                         ToolTip="Drag a rectangle on the map" />
                                                 <TextBlock Text="{Binding Generate.AreaText}" Style="{StaticResource HintText}" TextWrapping="Wrap" VerticalAlignment="Center" />
                                             </DockPanel>
-
-                                            <TextBlock Text="Tile types painted by hand; generating fills the rest" Style="{StaticResource HintText}"
-                                                       TextWrapping="Wrap" Margin="0,16,0,6" />
-                                            <DockPanel>
-                                                <Button DockPanel.Dock="Left" Click="GeneratePaintTiles_Click" Margin="0,0,6,0"
-                                                        ToolTip="Paint the chosen type onto 256 m tiles; Shift+drag clears">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <Path Data="{x:Static local:Icons.TileTypes}" Style="{StaticResource IconPath}" Width="14" Height="14" Margin="0,0,6,0" />
-                                                        <TextBlock Text="Paint" />
-                                                    </StackPanel>
-                                                </Button>
-                                                <Button DockPanel.Dock="Right" Content="Clear" Margin="6,0,0,0" Click="GenerateClearPainted_Click"
-                                                        ToolTip="Clear every painted tile" />
-                                                <ComboBox MinWidth="0" ItemsSource="{Binding Generate.PaintTypes}" SelectedItem="{Binding Generate.PaintType}"
-                                                          HorizontalAlignment="Stretch" AutomationProperties.Name="Tile type to paint">
-                                                    <ComboBox.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <Rectangle Width="12" Height="12" Margin="0,0,8,0" Fill="{Binding Converter={StaticResource TerrainTypeBrush}}"
-                                                                           Stroke="{DynamicResource ControlStrokeColorSecondaryBrush}" />
-                                                                <TextBlock Text="{Binding}" />
-                                                            </StackPanel>
-                                                        </DataTemplate>
-                                                    </ComboBox.ItemTemplate>
-                                                </ComboBox>
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding Generate.PaintedText}" Style="{StaticResource HintText}" Margin="0,4,0,0" />
                                         </StackPanel>
 
                                         <DockPanel Margin="0,18,0,0">
@@ -1576,10 +1549,6 @@
                                                                   ToolTip="Where each biome goes. On an archipelago, One biome per island gives each island one biome: forest first, harder ones farther out, each close to its share of the land." />
                                                     </DockPanel>
                                                 </StackPanel>
-                                                <CheckBox IsChecked="{Binding Generate.ShowPlan}" Margin="0,8,0,0"
-                                                          ToolTip="Tint every tile by the type the last Generate gave it">
-                                                    <TextBlock Text="Show the last run's tile types" TextWrapping="Wrap" />
-                                                </CheckBox>
                                             </StackPanel>
                                         </Expander>
                                         <Expander Style="{StaticResource LinkExpander}" Header="Help" Margin="0,6,0,0" HorizontalAlignment="Stretch">
