@@ -13,10 +13,13 @@ public partial class MainWindow
 
     /// <summary>Checks the running game and sends a teleport or a temporary POI waypoint.</summary>
     private async Task RunGameLinkActionAsync(World world, int x, int z, Facing? facing = null,
-        string? waypointPrefab = null, TeleportSpot? issueStop = null)
+        string? waypointPrefab = null, TeleportSpot? issueStop = null, ValidationIssue? issueRow = null)
     {
-        bool CanContinue() => CanUseGameLink(world) && (issueStop is null || IsPendingIssueStep(issueStop));
-        if (!CanContinue()) return;
+        string? folder = GameLinkExportFolder;
+        int issueSelectionRevision = _issueSelectionRevision;
+        bool SameExport() => ReferenceEquals(_world, world) && folder == GameLinkExportFolder;
+        bool CanSend() => CanUseGameLink(world) && SameExport() && (issueStop is null || IsPendingIssueStep(issueStop));
+        if (!CanSend()) return;
         if (_gameLinkActionRunning)
         {
             _vm.Status = "A Game Link request is already in progress.";
@@ -25,11 +28,21 @@ public partial class MainWindow
 
         _gameLinkActionRunning = true;
         UpdateIssueStepControls();
-        _vm.Status = "Checking the game...";
+        const string checking = "Checking the game...";
+        _vm.Status = checking;
+        void ReportCancellation()
+        {
+            if (_vm.Status == checking) _vm.Status = "Game Link action cancelled before it was sent.";
+        }
         try
         {
             GameLinkReply status = await _gameLink.GetStatusAsync();
-            if (!CanContinue()) return;
+            _vm.GameLinkConnected = status.Status is not null;
+            if (!CanSend())
+            {
+                ReportCancellation();
+                return;
+            }
             if (status.Status is not { } game)
             {
                 ShowGameLinkError(status.Error);
@@ -48,23 +61,27 @@ public partial class MainWindow
             }
 
             bool teleport = waypointPrefab is null;
-            string? folder = GameLinkExportFolder;
             bool matches = GameLinkWorld.Matches(folder, game.World);
             if (!matches && !ConfirmGameLinkWorld(folder, game.World, teleport))
             {
                 _vm.Status = teleport ? "Teleport cancelled." : "Waypoint cancelled.";
                 return;
             }
-            if (!CanContinue() || folder != GameLinkExportFolder) return;
+            if (!CanSend())
+            {
+                ReportCancellation();
+                return;
+            }
 
             _vm.Status = teleport ? "Teleporting..." : "Adding waypoint...";
             GameLinkReply reply = waypointPrefab is null
                 ? await _gameLink.TeleportAsync(x, z, facing)
                 : await _gameLink.AddWaypointAsync(x, z, waypointPrefab);
-            if (!CanContinue()) return;
             if (!reply.Ok)
             {
-                ShowGameLinkError(reply.Error);
+                if (reply.Error is GameLinkError.Unavailable or GameLinkError.NoReply) _vm.GameLinkConnected = false;
+                if (CanUseGameLink(world) && SameExport()) ShowGameLinkError(reply.Error);
+                else _vm.Status = GameLinkErrorText(reply.Error);
                 return;
             }
 
@@ -74,8 +91,11 @@ public partial class MainWindow
                 return;
             }
 
+            if (issueStop is not null && ReferenceEquals(_world, world))
+                CompleteIssueStep(issueStop, issueRow, issueSelectionRevision);
             string message = $"Teleported to {x}, {z}.";
-            if (GameLinkWorld.ExportName(folder) is { } exportName)
+            string? exportName = SameExport() ? GameLinkWorld.ExportName(folder) : null;
+            if (exportName is not null)
             {
                 message += ExportHasChanges switch
                 {
@@ -83,13 +103,15 @@ public partial class MainWindow
                     null => " The export may be older than this project.",
                     false => "",
                 };
-                if (matches && await Task.Run(() => HasSavedGameChunks(exportName)))
-                    message += " Saves keep terrain in chunks they already generated.";
             }
-            if (!CanContinue()) return;
-            if (issueStop is not null) CompleteIssueStep(issueStop);
             _vm.Status = message;
-            if (!GameWindow.TryActivate())
+            if (matches && exportName is not null && await Task.Run(() => HasSavedGameChunks(exportName))
+                && SameExport() && _vm.Status == message)
+            {
+                message += " Saves keep terrain in chunks they already generated.";
+                _vm.Status = message;
+            }
+            if (CanUseGameLink(world) && SameExport() && _vm.Status == message && !GameWindow.TryActivate())
                 _vm.Status += " Switch to the game to see the destination.";
         }
         finally

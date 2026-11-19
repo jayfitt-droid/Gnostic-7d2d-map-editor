@@ -14,6 +14,7 @@ public static class Icons
     public static Geometry IssueError { get; } = Make("M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 Z M9,9 L15,15 M15,9 L9,15");
     public static Geometry ActivityPlaced { get; } = Make("M8,6 H21 M8,12 H21 M8,18 H21 M3,6 H4 M3,12 H4 M3,18 H4");
     public static Geometry ActivityIssues { get; } = Make("M12,3 L22,21 H2 Z M12,10 V15 M12,18 V18.5");
+    public static Geometry GameLink { get; } = Make("M9,3 V8 M15,3 V8 M6,8 H18 M8,8 V12 A4,4 0 0 0 16,12 V8 M12,16 V21");
     public static Geometry ActivityWorld { get; } = Make("M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 Z M3,12 H21 M12,3 C15,6 15,18 12,21 M12,3 C9,6 9,18 12,21");
     public static Geometry Pan { get; } = Make("M12,2 V22 M2,12 H22 M9,5 L12,2 L15,5 M9,19 L12,22 L15,19 M5,9 L2,12 L5,15 M19,9 L22,12 L19,15");
     public static Geometry Raise { get; } = Make("M2,21 L9,10 L13,15 L16,12 L22,21 Z M18,9 V2 M15,5 L18,2 L21,5");

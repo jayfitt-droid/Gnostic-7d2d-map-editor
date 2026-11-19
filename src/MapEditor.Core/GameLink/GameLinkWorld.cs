@@ -43,7 +43,7 @@ public static class GameLinkWorld
     {
         var prefab = WorldQuery.PrefabAt(world, x, z, prefabs,
             info => info is { IsStreetTile: false, IsPart: false, IsInternal: false });
-        if (prefab is null || prefabs.Find(prefab.Name) is not { } info) return null;
+        if (prefab is null || !GameLinkProtocol.IsPrefabName(prefab.Name) || prefabs.Find(prefab.Name) is not { } info) return null;
         var (width, depth) = info.Footprint(prefab.Rotation);
         return new(prefab.Name, prefab.Position.X + width / 2, prefab.Position.Z + depth / 2);
     }

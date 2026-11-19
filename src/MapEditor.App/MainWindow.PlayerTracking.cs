@@ -1,29 +1,47 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
 
 namespace MapEditor.App;
 
 public partial class MainWindow
 {
-    private readonly DispatcherTimer _playerPollTimer = new() { Interval = TimeSpan.FromSeconds(1) };
-    private CancellationTokenSource? _playerPollRequest;
+    private readonly DispatcherTimer _gameLinkPollTimer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private CancellationTokenSource? _gameLinkPollRequest;
+    private bool _gameLinkPollingStopped;
     private string? _playerTrackingStatus;
+    private bool _centeringOnPlayer;
 
-    private bool CanPollPlayer => _vm.ShowPlayer && !_vm.IsBusy && !_gameLinkActionRunning;
+    private bool CanPollGameLink => !_gameLinkPollingStopped && !_vm.IsBusy && !_gameLinkActionRunning;
 
     private void UpdatePlayerPolling()
     {
-        if (_vm.ShowPlayer)
+        _gameLinkPollTimer.Interval = TimeSpan.FromSeconds(_vm.ShowPlayer ? 1 : 3);
+        if (!_vm.ShowPlayer)
         {
-            if (_playerPollRequest is null) _playerPollTimer.Start();
-            return;
+            _vm.FollowPlayer = false;
+            ClearPlayerMarker();
         }
+        if (!_gameLinkPollingStopped && _gameLinkPollRequest is null) _gameLinkPollTimer.Start();
+    }
 
-        _playerPollTimer.Stop();
-        _playerPollRequest?.Cancel();
-        _vm.FollowPlayer = false;
-        ClearPlayerMarker();
+    private void StopGameLinkPolling()
+    {
+        _gameLinkPollingStopped = true;
+        _gameLinkPollTimer.Stop();
+        _gameLinkPollRequest?.Cancel();
+    }
+
+    private void RefreshGameLinkInstallation()
+    {
+        string folder = Path.Combine(GameInstall.UserModsDir, "GnosticGameLink");
+        bool installed = File.Exists(Path.Combine(folder, "ModInfo.xml")) && File.Exists(Path.Combine(folder, "GnosticGameLink.dll"));
+        if (_vm.GameLinkInstalled == installed) return;
+        _vm.GameLinkInstalled = installed;
+        if (!installed) StopIssueHotkeys();
+        UpdateIssueStepControls();
     }
 
     private void ResetPlayerTracking()
@@ -38,38 +56,44 @@ public partial class MainWindow
         ReportPlayerTrackingStatus(null);
     }
 
-    /// <summary>Schedules the next poll after the current one finishes, including after a rapid off/on toggle.</summary>
-    private async void PollPlayer_Tick(object? sender, EventArgs e)
+    /// <summary>One status request serves the connection indicator and, when enabled, the player marker.</summary>
+    private async void PollGameLink_Tick(object? sender, EventArgs e)
     {
-        _playerPollTimer.Stop();
+        _gameLinkPollTimer.Stop();
         try
         {
-            if (!CanPollPlayer || _world is not { } world) return;
+            if (!CanPollGameLink) return;
+            RefreshGameLinkInstallation();
+            var world = _world;
             string? folder = GameLinkExportFolder;
-            if (GameLinkWorld.ExportName(folder) is null)
+            bool showPlayer = _vm.ShowPlayer && world is not null;
+            bool canShowPlayer = showPlayer && GameLinkWorld.ExportName(folder) is not null;
+            if (showPlayer && !canShowPlayer) ReportPlayerTrackingStatus("Export this world to show the player.");
+            if (!_vm.GameLinkInstalled && !canShowPlayer)
             {
-                ReportPlayerTrackingStatus("Export this world to show the player.");
+                _vm.GameLinkConnected = false;
                 return;
             }
 
             using var request = new CancellationTokenSource();
-            _playerPollRequest = request;
+            _gameLinkPollRequest = request;
             try
             {
                 var reply = await _gameLink.GetStatusAsync(request.Token);
-                if (request.IsCancellationRequested || !CanPollPlayer || !ReferenceEquals(world, _world) || folder != GameLinkExportFolder)
-                    return;
-                UpdatePlayerMarker(folder, world.Size, reply);
+                if (request.IsCancellationRequested || !CanPollGameLink) return;
+                _vm.GameLinkConnected = reply.Status is not null;
+                if (canShowPlayer && _vm.ShowPlayer && ReferenceEquals(world, _world) && folder == GameLinkExportFolder)
+                    UpdatePlayerMarker(folder, world!.Size, reply);
             }
             catch (OperationCanceledException) when (request.IsCancellationRequested)
             {
-                // Show player was turned off or the editor closed.
+                // The editor closed.
             }
         }
         finally
         {
-            _playerPollRequest = null;
-            if (_vm.ShowPlayer && _world is not null) _playerPollTimer.Start();
+            _gameLinkPollRequest = null;
+            if (!_gameLinkPollingStopped) _gameLinkPollTimer.Start();
         }
     }
 
@@ -114,6 +138,10 @@ public partial class MainWindow
         var position = new Point(marker.MapX, marker.MapY);
         var visible = Map.VisibleMapRect;
         visible.Inflate(-visible.Width * 0.15, -visible.Height * 0.15);
-        if (centre || !visible.Contains(position)) Map.CenterOn(position);
+        if (!centre && visible.Contains(position)) return;
+
+        _centeringOnPlayer = true;
+        try { Map.CenterOn(position); }
+        finally { _centeringOnPlayer = false; }
     }
 }

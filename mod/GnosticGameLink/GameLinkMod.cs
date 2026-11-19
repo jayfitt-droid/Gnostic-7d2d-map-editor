@@ -107,7 +107,7 @@ public sealed class GameLinkMod : IModApi
         decorator?.GetWorldPrefabs(prefabs);
         foreach (PrefabInstance instance in prefabs)
         {
-            if (!string.Equals(instance.prefab?.PrefabName, request.PrefabName, StringComparison.Ordinal))
+            if (!string.Equals(instance.prefab?.PrefabName, request.PrefabName, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             Vector3i origin = instance.boundingBoxPosition;
