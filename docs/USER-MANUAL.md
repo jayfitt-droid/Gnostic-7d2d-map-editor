@@ -637,7 +637,7 @@ Other issues need you to decide what to do, so they have no **Fix** button.
 
 With Gnostic Game Link installed, click **Teleport** on an issue in the **Issues** tab. The editor selects that row and takes you to it in the game. The buttons are disabled while Game Link is disconnected. Issues with no place on the map have no **Teleport** button.
 
-Select **Enable in-game shortcuts** to step while the game has focus. Press **Ctrl+Alt+Right** to go to the issue after the selected row. Press **Ctrl+Alt+Left** to go to the issue before it. The shortcuts skip rows with no place on the map and rows at the same stop as the selected issue. Click a different row to start from there. If Validate removes your selected stop, **Ctrl+Alt+Right** takes you to the first stop you have not visited yet. The **Issues** tab and **Help > Keyboard Shortcuts** show both shortcuts. Clear the check box when you finish. The editor also turns the shortcuts off when you close the world or open another one.
+Select **Enable in-game shortcuts** to step while the game has focus. Press **Ctrl+Alt+Right** to go to the issue after the selected row. Press **Ctrl+Alt+Left** to go to the issue before it. The shortcuts skip rows with no place on the map and rows at the same stop as the selected issue. Click a different row to start from there. With no row selected, **Ctrl+Alt+Right** takes you to the first issue with a place on the map. The **Issues** tab and **Help > Keyboard Shortcuts** show both shortcuts. Clear the check box when you finish. The editor also turns the shortcuts off when you close the world or open another one.
 
 You can make a list of teleport commands, one for each issue that Validate finds. Then you can go to each issue in the game.
 
