@@ -54,7 +54,7 @@ public sealed class AppSettings
 
     /// <summary>
     /// Whether this run uses the Modern theme. The GNOSTIC_THEME environment variable overrides the saved setting for
-    /// one run, to try the theme while it has no menu item.
+    /// one run, for testing.
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool UsesModernTheme =>

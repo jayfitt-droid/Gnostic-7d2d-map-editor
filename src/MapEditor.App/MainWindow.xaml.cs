@@ -142,6 +142,8 @@ public partial class MainWindow : Window
         _vm.Generate.SelectedSiteEdited += async (_, _) => await ReplanSelectedAsync(newSeed: false);
         _undo.Changed += (_, _) => UpdateUndoText();
 
+        _chosenTheme = _settings.UsesModernTheme ? AppSettings.ModernTheme : AppSettings.FlatTheme;
+        TickChosenTheme();
         if (_settings.UsesModernTheme) UseModernLayout();
 
         Loaded += async (_, _) =>
@@ -1092,6 +1094,57 @@ public partial class MainWindow : Window
     }
 
     private bool _closeConfirmed;
+
+    /// <summary>Set by Settings > Theme: the editor starts again once this window has closed.</summary>
+    private bool _restartWhenClosed;
+
+    /// <summary>The theme ticked under Settings > Theme. It starts when the editor restarts.</summary>
+    private string _chosenTheme = AppSettings.FlatTheme;
+
+    /// <summary>A click toggles a menu item's tick, so the ticks are set again after every click.</summary>
+    private void TickChosenTheme()
+    {
+        ThemeFlatItem.IsChecked = _chosenTheme == AppSettings.FlatTheme;
+        ThemeModernItem.IsChecked = _chosenTheme == AppSettings.ModernTheme;
+    }
+
+    /// <summary>Saves the chosen theme and offers to restart, because a theme only starts with the editor.</summary>
+    private async void Theme_Click(object sender, RoutedEventArgs e)
+    {
+        string theme = (string)((MenuItem)sender).Tag;
+        bool changed = theme != _chosenTheme;
+        _chosenTheme = theme;
+        TickChosenTheme();
+        if (!changed) return;
+        _settings.Theme = theme;
+        _settings.Save();
+
+        // Back to the theme that is running: nothing to restart for.
+        if (theme == AppSettings.ModernTheme == _vm.IsModernTheme) return;
+        if (ThemedMessageBox.Show(this, $"The {theme} theme starts when the editor restarts. Restart now?", "Theme",
+                MessageBoxButton.YesNo, MessageBoxImage.Question, ["Restart now", "Later"]) != MessageBoxResult.Yes)
+            return;
+        if (_vm.IsBusy || _autosaving)
+        {
+            _vm.Status = $"The {theme} theme starts the next time you open the editor.";
+            return;
+        }
+        if (!await ConfirmDiscardAsync()) return;
+        _closeConfirmed = true;
+        _restartWhenClosed = true;
+        Close();
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        if (!_restartWhenClosed || Environment.ProcessPath is not { } editor) return;
+        var start = new ProcessStartInfo(editor) { UseShellExecute = false };
+        // A test override must not hide the theme that was just chosen.
+        start.Environment.Remove("GNOSTIC_THEME");
+        if ((_projectPath ?? _sourcePath) is { } open) start.ArgumentList.Add(open);
+        Process.Start(start);
+    }
 
     /// <summary>Closes the window if it was asked to close while a save was running and nothing is running now.</summary>
     private void CloseIfWaiting()

@@ -500,6 +500,10 @@
                 <MenuItem Header="_Settings">
                     <MenuItem Header="_Game Folder..." Click="GameFolder_Click" />
                     <MenuItem Header="_Autosave Every 5 Minutes" IsCheckable="True" IsChecked="{Binding Autosave}" />
+                    <MenuItem Header="_Theme">
+                        <MenuItem x:Name="ThemeFlatItem" Header="_Flat" Tag="Flat" IsCheckable="True" Click="Theme_Click" />
+                        <MenuItem x:Name="ThemeModernItem" Header="_Modern" Tag="Modern" IsCheckable="True" Click="Theme_Click" />
+                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="_Help">
                     <MenuItem Header="_Keyboard Shortcuts" InputGestureText="F1" Click="Shortcuts_Click" />
@@ -1152,7 +1156,7 @@
                             </ListBox>
                         </DockPanel>
                     </TabItem>
-                    <TabItem Header="_World">
+                    <TabItem Header="Wo_rld">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
                             <StackPanel>
                                 <TextBlock Text="{Binding WorldSummary}" FontFamily="Cascadia Mono, Consolas" FontSize="11" TextWrapping="Wrap" />
@@ -2065,7 +2069,7 @@
                     <Button Content="New World..." Style="{DynamicResource AccentButtonStyle}" Command="{x:Static local:MainWindow.NewWorldCommand}"
                             MinWidth="130" Margin="0,0,8,0" />
                     <Button Content="_Open..." Command="{x:Static local:MainWindow.OpenCommand}" MinWidth="110" Margin="0,0,8,0" />
-                    <Button Content="Open World _Folder..." Command="{x:Static local:MainWindow.OpenWorldCommand}" MinWidth="150" />
+                    <Button Content="Open World Fol_der..." Command="{x:Static local:MainWindow.OpenWorldCommand}" MinWidth="150" />
                 </StackPanel>
             </StackPanel>
         </Grid>
