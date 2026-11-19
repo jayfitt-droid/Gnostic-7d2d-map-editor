@@ -833,6 +833,27 @@ public sealed partial class MainViewModel : ObservableObject
     // ---- validation ----------------------------------------------------------
 
     public System.Collections.ObjectModel.ObservableCollection<MapEditor.Core.Validate.ValidationIssue> Issues { get; } = [];
+
+    /// <summary>The errors in <see cref="Issues"/>, for the Modern theme's status bar.</summary>
+    public int ErrorCount => Issues.Count(i => i.Severity == MapEditor.Core.Validate.IssueSeverity.Error);
+
+    /// <summary>The warnings in <see cref="Issues"/>, for the Modern theme's status bar.</summary>
+    public int WarningCount => Issues.Count(i => i.Severity == MapEditor.Core.Validate.IssueSeverity.Warning);
+
+    /// <summary>Whether the Modern theme's Issues icon shows a count.</summary>
+    public bool HasIssueCount => ErrorCount + WarningCount > 0;
+
+    /// <summary>The count on the Modern theme's Issues icon.</summary>
+    public string IssueBadgeText => ErrorCount + WarningCount > 99 ? "99+" : (ErrorCount + WarningCount).ToString();
+
+    /// <summary>Tells the Modern theme's counters that <see cref="Issues"/> changed.</summary>
+    public void RefreshIssueCounts()
+    {
+        OnPropertyChanged(nameof(ErrorCount));
+        OnPropertyChanged(nameof(WarningCount));
+        OnPropertyChanged(nameof(HasIssueCount));
+        OnPropertyChanged(nameof(IssueBadgeText));
+    }
     [ObservableProperty] private string _issuesText = "Press Validate (F7) to check the world.";
 
     /// <summary>Whether a Fix button fixed an issue since the world was opened, so the teleport list has something to show (#59).</summary>
