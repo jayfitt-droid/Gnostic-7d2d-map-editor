@@ -51,7 +51,6 @@ public static class Icons
     public static Geometry ChevronDown { get; } = Make("M5,9 L12,16 L19,9");
     public static Geometry Size { get; } = Make("M4,20 L20,4 M4,14 L14,4 M10,20 L20,10");
     public static Geometry Generate { get; } = Make("M3,21 L15,9 M13,7 L17,11 M8,3 V7 M6,5 H10 M18,13 V17 M16,15 H20 M19,3 V6 M17.5,4.5 H20.5");
-    public static Geometry TileTypes { get; } = Make("M3,3 H21 V21 H3 Z M3,12 H21 M12,3 V21 M5,10 L7.5,6 L10,10 M14,10 L16,7.5 L19,10 M5,19 H10 M14,19 L16.5,14.5 L19,19");
     public static Geometry Strength { get; } = Make("M12,3 C12,3 6,10 6,14 A6,6 0 0,0 18,14 C18,10 12,3 12,3 Z M12,20 V12");
 
     private static Geometry Make(string data)

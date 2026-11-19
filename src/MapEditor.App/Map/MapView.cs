@@ -933,52 +933,13 @@ public sealed class MapView : FrameworkElement
         }
     }
 
-    private readonly OverlayRaster _tileOverlay = new();
-
-    /// <summary>Colours for plains, hills and mountains (index = TerrainType).</summary>
-    public static readonly Color[] TerrainTypeColours =
-    [
-        Colors.Transparent,
-        Color.FromRgb(120, 220, 120),
-        Color.FromRgb(240, 180, 70),
-        Color.FromRgb(230, 80, 70),
-    ];
-
     private static readonly Pen AreaPen = Frozen(new Pen(Brushes.White, 1.5) { DashStyle = DashStyles.Dash });
 
-    /// <summary>Painted tiles filled and outlined, the last plan as a faint tint, and the area as a dashed box.</summary>
+    /// <summary>The area to generate as a dashed box.</summary>
     private void DrawTerrainTiles(DrawingContext dc)
     {
         if (_terrainTiles is not { } t) return;
-        int tiles = t.WorldSize / Core.Generate.TerrainStage.TileSize;
         Rect Screen(Rect map) => new(MapToScreen(map.TopLeft), MapToScreen(map.BottomRight));
-        var visible = VisibleMapRect;
-        const double size = Core.Generate.TerrainStage.TileSize;
-
-        _tileOverlay.Begin(ActualWidth, ActualHeight, PixelsPerDip);
-        for (int z = 0; z < tiles; z++)
-            for (int x = 0; x < tiles; x++)
-            {
-                // Map y runs from the north edge; tile z from the south.
-                var map = new Rect(x * size, t.WorldSize - (z + 1) * size, size, size);
-                if (!map.IntersectsWith(visible)) continue;
-                int i = x + z * tiles;
-                var painted = t.Painted is { } p && i < p.Length ? p[i] : Core.Generate.TerrainType.None;
-                var planned = t.Plan is { } pl && i < pl.Length ? pl[i] : Core.Generate.TerrainType.None;
-                if (painted != Core.Generate.TerrainType.None)
-                {
-                    var c = TerrainTypeColours[(int)painted];
-                    _tileOverlay.Fill(Screen(map), OverlayRaster.Premultiply(Color.FromArgb(120, c.R, c.G, c.B)));
-                    _tileOverlay.Outline(Screen(map), OverlayRaster.Premultiply(Color.FromArgb(255, c.R, c.G, c.B)), HaloColour);
-                }
-                else if (planned != Core.Generate.TerrainType.None)
-                {
-                    var c = TerrainTypeColours[(int)planned];
-                    _tileOverlay.Fill(Screen(map), OverlayRaster.Premultiply(Color.FromArgb(55, c.R, c.G, c.B)));
-                }
-            }
-        _tileOverlay.End(dc, RenderSize);
-
         foreach (var box in new[] { t.Area, t.Drag })
         {
             if (box is not { } r) continue;

@@ -19,7 +19,6 @@ public sealed class GenerateToolController
     private readonly MainViewModel _vm;
     private Point? _dragStart;
     private Rect? _drag;
-    private bool _erase;
 
     public GenerateToolController(MapView map, MainViewModel vm)
     {
@@ -30,8 +29,6 @@ public sealed class GenerateToolController
 
     public World? World { get; set; }
 
-    /// <summary>Raised when painted tiles change, so the project can be marked as changed.</summary>
-    public event EventHandler? Painted;
 
     /// <summary>The Place features tool was clicked at this world position (metres east, north).</summary>
     public event EventHandler<(float X, float Z)>? FeatureClicked;
@@ -42,23 +39,8 @@ public sealed class GenerateToolController
 
     private void OnToolInput(object? sender, ToolInputEventArgs e)
     {
-        if (World is not { } world || _vm.SelectedTool is not (EditorTool.TerrainTypes or EditorTool.GenerateArea or EditorTool.Features)) return;
+        if (World is not { } world || _vm.SelectedTool is not (EditorTool.GenerateArea or EditorTool.Features)) return;
         if (G.IsRunning && e.Phase == ToolPhase.Down) return;
-
-        if (_vm.SelectedTool == EditorTool.TerrainTypes)
-        {
-            if (e.Phase == ToolPhase.Down) _erase = e.Modifiers.HasFlag(ModifierKeys.Shift);
-            if (e.Phase is ToolPhase.Down or ToolPhase.Move)
-            {
-                var (x, z) = Tile(world, e.MapPoint);
-                if (G.PaintTile(x, z, _erase ? TerrainType.None : G.PaintType))
-                {
-                    Refresh();
-                    Painted?.Invoke(this, EventArgs.Empty);
-                }
-            }
-            return;
-        }
 
         if (_vm.SelectedTool == EditorTool.Features)
         {
@@ -109,13 +91,12 @@ public sealed class GenerateToolController
             (tiles.X1 - tiles.X0) * TerrainStage.TileSize, (tiles.Z1 - tiles.Z0) * TerrainStage.TileSize);
 
     /// <summary>
-    /// Shows the tiles while the Generate panel is open or one of its tools is in use: painted types, the last plan
-    /// (if asked for), and the area when generating one.
+    /// Shows the area to generate while the Generate panel is open or one of its tools is in use.
     /// </summary>
     public void Refresh()
     {
         bool show = World is not null && (_vm.ShowSidePanel && _vm.SidePanelTab == MainViewModel.GenerateTab
-                                          || _vm.SelectedTool is EditorTool.TerrainTypes or EditorTool.GenerateArea or EditorTool.Features);
+                                          || _vm.SelectedTool is EditorTool.GenerateArea or EditorTool.Features);
         if (!show || World is not { } world)
         {
             _map.TerrainTiles = null;
@@ -123,7 +104,7 @@ public sealed class GenerateToolController
             return;
         }
         Rect? area = !G.WholeMap && G.Area is { } a ? MapRect(world, a) : null;
-        _map.TerrainTiles = new TerrainTileOverlay(world.Size, G.Settings.PaintedTerrain, G.ShowPlan ? G.LastPlan : null, area, _drag);
+        _map.TerrainTiles = new TerrainTileOverlay(area, _drag);
         var previews = G.Planned.Select(t => Preview(world, t)).ToList();
         // The picked feature (a whole long river) gets a box round each of its stamps.
         if (G.SelectedFeature is { } picked)

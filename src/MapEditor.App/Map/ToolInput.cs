@@ -113,9 +113,6 @@ public sealed record TownPreview(
 }
 
 /// <summary>
-/// The Generate panel's view of the 256 m tiles: the types painted by hand (strong), the types the last run gave
-/// (faint, when <see cref="Plan"/> is set), and the area to generate or the one being dragged, in map coordinates.
-/// Arrays are x + z * tiles with z from the south.
+/// The Generate panel's area to generate, or the one being dragged, in map coordinates.
 /// </summary>
-public sealed record TerrainTileOverlay(int WorldSize, MapEditor.Core.Generate.TerrainType[]? Painted,
-    MapEditor.Core.Generate.TerrainType[]? Plan, Rect? Area, Rect? Drag);
+public sealed record TerrainTileOverlay(Rect? Area, Rect? Drag);

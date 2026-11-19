@@ -137,9 +137,7 @@ public partial class MainWindow : Window
         };
         // Undo and redo can take a selected bridge away.
         _undo.Changed += (_, _) => _bridgeTools.Refresh();
-        // Painted tile types are generator settings, which the project saves.
-        _genTools.Painted += (_, _) => MarkSettingsChanged();
-        // So are the panel's seeds, weights, rows and pins (#14).
+        // The panel's seeds, weights, rows and pins are generator settings, which the project saves (#14).
         _vm.Generate.SettingsChanged += (_, _) => MarkSettingsChanged();
         _vm.Generate.PropertyChanged += (_, _) => _genTools.Refresh();
         // A stage's map tool (Place features, Edit on the map, ...) is put down when another stage card opens, so a
@@ -149,7 +147,7 @@ public partial class MainWindow : Window
             if (e.PropertyName != nameof(GenerateViewModel.OpenStage)) return;
             int? owner = _vm.SelectedTool switch
             {
-                EditorTool.TerrainTypes or EditorTool.GenerateArea => 1,
+                EditorTool.GenerateArea => 1,
                 EditorTool.Features => 3,
                 EditorTool.Spawn => 6,
                 _ => null,
@@ -2197,7 +2195,7 @@ public partial class MainWindow : Window
         return settings;
     }
 
-    /// <summary>Generator settings changed (painted tiles, a preset): the project has something new to save.</summary>
+    /// <summary>Generator settings changed (a preset, a seed): the project has something new to save.</summary>
     /// <summary>
     /// Saves the generator's Done marks, plans and status lines in a generator edit's undo step, so undo and redo
     /// bring them back with the ground (#15). Call it on the UI thread before the edit changes anything.
@@ -2313,20 +2311,6 @@ public partial class MainWindow : Window
         Map.Focus();
     }
 
-    private void GeneratePaintTiles_Click(object sender, RoutedEventArgs e)
-    {
-        _vm.SelectedTool = EditorTool.TerrainTypes;
-        Map.Focus();
-    }
-
-    private void GenerateClearPainted_Click(object sender, RoutedEventArgs e)
-    {
-        if (_vm.Generate.PaintedCount == 0) return;
-        _vm.Generate.ClearPainted();
-        _genTools.Refresh();
-        MarkSettingsChanged();
-    }
-
     private void GenerateCancel_Click(object sender, RoutedEventArgs e) => _generateCancel?.Cancel();
 
     private async void TerrainGenerate_Click(object sender, RoutedEventArgs e) => await GenerateTerrainAsync();
@@ -2430,7 +2414,6 @@ public partial class MainWindow : Window
         bool hasBuilt = world.Prefabs.Count > 0 || world.Roads?.Data.AsSpan().ContainsAnyExcept((byte)0) == true;
         var options = g.Settings.Terrain.Clone();
         if (drawing is not null) options.Shape.Drawing = drawing;
-        var painted = g.Settings.PaintedTerrain is { } p ? (TerrainType[])p.Clone() : null;
         var mask = g.LastMask;
         var mixer = _vm.Mixer;
         var replan = area is null && (g.ReplanBiomes || drawing is not null && !options.Shape.SameLand(g.Settings.Biomes?.PlannedFor))
@@ -2489,7 +2472,7 @@ public partial class MainWindow : Window
                 roadsOut = TakeDownHighways(world, gen, session);
                 if (hasFeatures) featuresOut = FeatureStage.TakeDown(world, gen!.PlacedFeatures, areaMetres, stamps, session);
                 if (builtSites.Count > 0) takenDown = TownSiteStage.TakeDown(world, library, builtSites, areaMetres, session);
-                result = TerrainStage.Run(world, options, stamps, mixer, painted, area, mask, session, progress, cancel.Token, replan);
+                result = TerrainStage.Run(world, options, stamps, mixer, painted: null, area, mask, session, progress, cancel.Token, replan);
                 RebuildBridges(world, bridges, library, session);
                 if (gen is not null && gen.Sites.Count > 0)
                 {
@@ -3253,7 +3236,7 @@ public partial class MainWindow : Window
         Map.BrushCursor = _vm.SelectedTool switch
         {
             EditorTool.Select or EditorTool.MultiSelect or EditorTool.Water or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town or EditorTool.Bridge
-                or EditorTool.TerrainTypes or EditorTool.GenerateArea or EditorTool.Features => null,
+                or EditorTool.GenerateArea or EditorTool.Features => null,
             EditorTool.Road => new BrushCursor(_vm.RoadWidth),
             EditorTool.Stamp => new BrushCursor(_vm.StampSize, Square: true, _vm.StampRotation,
                 _vm.SelectedStamp is { } stamp ? StampPicture.Get(_vm.Stamps, stamp, UpdateToolState) : null),

@@ -41,7 +41,7 @@ public sealed class TerrainToolController
         if (World is not { } world) return;
         // The selection, Prefabs, Trader, Spawn points, Town, Bridge and Generate tools have their own controllers.
         if (_vm.SelectedTool is EditorTool.Select or EditorTool.MultiSelect or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town
-            or EditorTool.TerrainTypes or EditorTool.GenerateArea or EditorTool.Features
+            or EditorTool.GenerateArea or EditorTool.Features
             or EditorTool.Bridge) return;
         // No edits while the world is being saved or replaced; a stroke already under way may finish.
         if (_vm.IsBusy && e.Phase == ToolPhase.Down) return;

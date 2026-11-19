@@ -21,8 +21,6 @@ public enum EditorTool
     Trader,
     Spawn,
     Town,
-    /// <summary>The Generate panel's tool: paints plains, hills or mountains onto 256 m tiles.</summary>
-    TerrainTypes,
     /// <summary>The Generate panel's tool: drags the area a stage regenerates.</summary>
     GenerateArea,
     /// <summary>The Generate panel's tool: places lakes, rivers, canyons and craters by hand and picks them.</summary>
