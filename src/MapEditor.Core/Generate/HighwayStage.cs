@@ -14,10 +14,10 @@ public sealed class HighwayOptions
     public int Seed { get; set; } = 1;
 
     /// <summary>How much the seed bends routes (0 for RWG's exact routes): route cost varies by up to this share across the map.</summary>
-    public float Wiggle { get; set; } = 0.3f;
+    public float Wiggle { get; set; } = 0.15f;
 
     /// <summary>The longest stretch of water, in metres, a highway may cross on a causeway; wider water is gone round.</summary>
-    public int CausewayMax { get; set; } = 60;
+    public int CausewayMax { get; set; } = 120;
 
     /// <summary>After RWG's rules, join any group of towns cut off from the rest to its nearest neighbours.</summary>
     public bool JoinUp { get; set; } = true;

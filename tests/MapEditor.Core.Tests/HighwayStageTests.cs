@@ -101,6 +101,24 @@ public sealed class HighwayStageTests
     }
 
     [Fact]
+    public void New_settings_wiggle_routes_15_percent_and_allow_120_m_causeways()
+    {
+        var options = new HighwayOptions();
+        Assert.Equal(0.15f, options.Wiggle);
+        Assert.Equal(120, options.CausewayMax);
+    }
+
+    [Fact]
+    public void A_saved_wiggle_and_causeway_load_as_they_were_saved()
+    {
+        var saved = new HighwayOptions { Wiggle = 0.3f, CausewayMax = 60 };
+        var json = System.Text.Json.JsonSerializer.Serialize(saved);
+        var loaded = System.Text.Json.JsonSerializer.Deserialize<HighwayOptions>(json)!;
+        Assert.Equal(0.3f, loaded.Wiggle);
+        Assert.Equal(60, loaded.CausewayMax);
+    }
+
+    [Fact]
     public void The_seed_bends_the_routes_and_the_same_seed_repeats()
     {
         List<float[]> Route(int seed)
