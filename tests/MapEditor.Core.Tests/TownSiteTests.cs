@@ -100,6 +100,16 @@ public sealed class TownSiteTests
     }
 
     [Fact]
+    public void A_town_type_with_no_room_is_named_by_its_friendly_name()
+    {
+        // A small map has room for far fewer than 200 roadside stops.
+        var result = TownSiteStage.Plan(Cells(Desert(1500)), Mixer, Options(towns: 0, roadside: 200), [], TestContext.Current.CancellationToken);
+        var shortfall = Assert.Single(result.Shortfalls);
+        Assert.StartsWith("Roadside stop: ", shortfall);
+        Assert.EndsWith(" of 200", shortfall);
+    }
+
+    [Fact]
     public void Water_mountains_mixed_biomes_and_existing_prefabs_make_cells_unusable()
     {
         var world = Desert(3000);
