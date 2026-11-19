@@ -159,6 +159,8 @@ If you opened a world folder, Ctrl+S saves the world back to that folder.
 
 The editor also saves a copy every 5 minutes. If the editor does not close normally, it offers to recover your work when you start it again.
 
+Projects and recovery copies keep the original biome and radiation images, even if the images are larger than the world.
+
 ### Undo
 
 Press **Ctrl+Z** to undo and **Ctrl+Y** to redo. Each stroke, each placed item and each stage run is one undo step.
