@@ -149,6 +149,10 @@ public static class Png
 
     private const int MaxSide = ProjectStore.MaxWorldSize;
 
+    /// <summary>Whether both sides of an image are within the PNG reader's limits.</summary>
+    internal static bool SupportsDimensions(int width, int height) =>
+        width > 0 && height > 0 && width <= MaxSide && height <= MaxSide;
+
     private static PngInfo ReadHeader(Stream stream)
     {
         Span<byte> sig = stackalloc byte[8];
@@ -159,7 +163,7 @@ public static class Png
         int width = BinaryPrimitives.ReadInt32BigEndian(data);
         int height = BinaryPrimitives.ReadInt32BigEndian(data.AsSpan(4));
         // Nothing this editor reads is bigger than the largest world, and bigger sizes would overflow the buffers.
-        if (width <= 0 || height <= 0 || width > MaxSide || height > MaxSide)
+        if (!SupportsDimensions(width, height))
             throw new InvalidDataException($"PNG is {width} x {height}; images up to {MaxSide} x {MaxSide} are supported.");
         if (data[12] != 0) throw new NotSupportedException("Interlaced PNGs are not supported.");
         return new PngInfo(width, height, data[8], data[9]);

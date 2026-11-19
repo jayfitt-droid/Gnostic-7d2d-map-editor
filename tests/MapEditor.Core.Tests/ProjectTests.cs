@@ -68,6 +68,32 @@ public sealed class ProjectTests : IDisposable
         Assert.False(ProjectStore.Load(path).PassthroughImages.ContainsKey(WorldFiles.Roads));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(255)]
+    [InlineData(257)]
+    public void A_declared_original_image_without_exactly_its_pixel_data_stops_the_load(int? bytes)
+    {
+        var world = MakeWorld();
+        world.Biomes = null;
+        world.PassthroughImages[WorldFiles.Biomes] = new RgbaImage(8, 8, new byte[8 * 8 * 4]);
+        string path = Path.Combine(_dir, "original" + ProjectStore.Extension);
+        ProjectStore.Save(world, path);
+
+        const string entry = "passthrough/" + WorldFiles.Biomes;
+        using (var zip = ZipFile.Open(path, ZipArchiveMode.Update))
+        {
+            zip.GetEntry(entry)!.Delete();
+            if (bytes is { } n)
+                using (var s = zip.CreateEntry(entry).Open())
+                    s.Write(new byte[n]);
+        }
+
+        var ex = Assert.Throws<InvalidDataException>(() => ProjectStore.Load(path));
+        Assert.Contains("original image", ex.Message);
+        Assert.Contains(WorldFiles.Biomes, ex.Message);
+    }
+
     [Fact]
     public void Clone_is_independent_and_keeps_edit_versions()
     {

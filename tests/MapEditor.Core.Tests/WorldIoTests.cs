@@ -92,6 +92,39 @@ public sealed class WorldIoTests : IDisposable
         Assert.Equal(100, loaded.PassthroughImages[WorldFiles.Biomes].Width);
     }
 
+    [Theory]
+    [InlineData(WorldFiles.Biomes, false)]
+    [InlineData(WorldFiles.Biomes, true)]
+    [InlineData(WorldFiles.Radiation, false)]
+    [InlineData(WorldFiles.Radiation, true)]
+    public void An_oversized_original_image_survives_project_save_and_export(string file, bool autosave)
+    {
+        const int worldSize = 4, imageSize = 8;
+        var source = new World { Name = "Small", Size = worldSize, Height = new Grid<ushort>(worldSize, worldSize) };
+        source.ExtraFiles[WorldFiles.Level] = [1, 2, 3];
+        string folder = Path.Combine(_dir, "source");
+        WorldWriter.Write(source, folder);
+        var pixels = Enumerable.Range(0, imageSize * imageSize * 4).Select(i => (byte)(i + 1)).ToArray();
+        Png.WriteRgba(Path.Combine(folder, file), imageSize, imageSize, pixels);
+        var world = WorldReader.Read(folder);
+        Assert.Contains(file, world.PassthroughImages.Keys);
+
+        string project = Path.Combine(_dir, "oversized" + ProjectStore.Extension);
+        if (autosave)
+        {
+            using var snapshot = WorldSnapshot.Take(world);
+            ProjectStore.Save(snapshot, project);
+        }
+        else ProjectStore.Save(world, project);
+        var loaded = ProjectStore.Load(project);
+
+        string export = Path.Combine(_dir, "export");
+        WorldWriter.Write(loaded, export);
+        var exported = Png.ReadRgba(Path.Combine(export, file), out int width, out int height);
+        Assert.Equal((imageSize, imageSize), (width, height));
+        Assert.Equal(pixels, exported);
+    }
+
     [Fact]
     public void A_project_saved_with_layers_that_dont_fit_keeps_them_as_images()
     {

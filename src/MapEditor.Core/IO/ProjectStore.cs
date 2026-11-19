@@ -238,11 +238,7 @@ public static class ProjectStore
         foreach (var s in (manifest.Spawns ?? []).Where(s => s is not null))
             world.Spawns.Add(new SpawnPoint { X = s.X, Y = s.Y, Z = s.Z, RotationY = s.RotationY });
         foreach (var p in (manifest.Passthrough ?? []).Where(p => p is not null))
-        {
-            long expected = (long)p.Width * p.Height * 4;
-            if (ReadBytes(zip, PassthroughDir + p.File, expected) is { } pixels && pixels.Length == expected)
-                world.PassthroughImages[p.File] = new RgbaImage(p.Width, p.Height, pixels);
-        }
+            world.PassthroughImages[p.File] = ReadOriginalImage(zip, p);
         long extraBytes = 0;
         foreach (var file in manifest.ExtraFiles ?? [])
         {
@@ -335,7 +331,9 @@ public static class ProjectStore
         {
             if (p.File is not (WorldFiles.Biomes or WorldFiles.Roads or WorldFiles.Water or WorldFiles.Radiation))
                 throw new InvalidDataException($"The project keeps an original image for '{p.File}', which isn't a layer image.");
-            Layer(p.File, new Size2(p.Width, p.Height));
+            if (!Png.SupportsDimensions(p.Width, p.Height))
+                throw new InvalidDataException(
+                    $"The project's original image '{p.File}' is {p.Width} x {p.Height}, which is outside the PNG size limits.");
         }
         foreach (var file in m.ExtraFiles ?? [])
             if (file is null || !WorldFiles.IsSafeExtraName(file))
@@ -388,6 +386,29 @@ public static class ProjectStore
         using var s = entry.Open();
         s.ReadExactly(bytes);
         return grid;
+    }
+
+    /// <summary>Reads the original image's raw RGBA pixels. Its dimensions have already been checked.</summary>
+    private static RgbaImage ReadOriginalImage(ZipArchive zip, PassthroughDto image)
+    {
+        var entry = zip.GetEntry(PassthroughDir + image.File)
+            ?? throw new InvalidDataException($"The project's original image '{image.File}' is missing. The file may be damaged.");
+        long expected = (long)image.Width * image.Height * 4;
+        if (entry.Length != expected)
+            throw new InvalidDataException(
+                $"The project's original image '{image.File}' has {entry.Length:N0} bytes of pixel data, but needs {expected:N0}. The file may be damaged.");
+
+        var pixels = new byte[expected];
+        try
+        {
+            using var s = entry.Open();
+            s.ReadExactly(pixels);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException)
+        {
+            throw new InvalidDataException($"The project's original image '{image.File}' could not be read. The file may be damaged.", ex);
+        }
+        return new RgbaImage(image.Width, image.Height, pixels);
     }
 
     /// <summary>Reads an entry of at most <paramref name="limit"/> bytes; a larger one is refused.</summary>
