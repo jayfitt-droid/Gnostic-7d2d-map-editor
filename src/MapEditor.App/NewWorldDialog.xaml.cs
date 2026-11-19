@@ -56,7 +56,7 @@ public partial class NewWorldDialog : Window
     {
         if (ShapePanel is null || EdgesGrid is null) return;
         bool shaped = ShapeKind != LandShapeKind.Edges;
-        ShapePanel.Visibility = shaped ? Visibility.Visible : Visibility.Collapsed;
+        ShapePanel.Visibility = shaped && ShapeKind != LandShapeKind.Drawn ? Visibility.Visible : Visibility.Collapsed;
         // A shape decides the edges itself.
         EdgesGrid.Visibility = EdgesLabel.Visibility = shaped ? Visibility.Collapsed : Visibility.Visible;
         IslandsRow.Visibility = ShapeKind == LandShapeKind.Archipelago ? Visibility.Visible : Visibility.Collapsed;
@@ -108,6 +108,7 @@ public partial class NewWorldDialog : Window
             Roughness = (int)RoughSlider.Value,
             Islands = (int)IslandsSlider.Value,
             PeninsulaEdge = (MapEdge)PeninsulaEdgeBox.SelectedItem!,
+            Drawing = ShapeKind == LandShapeKind.Drawn ? new LandDrawing() : null,
         };
 
         // Flat ground: the Generate panel's terrain stage raises it.

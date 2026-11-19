@@ -143,6 +143,17 @@ public sealed class MapView : FrameworkElement
 
     /// <summary>Left-button presses, drags and releases while <see cref="ToolActive"/> is set, in map coordinates.</summary>
     public event EventHandler<ToolInputEventArgs>? ToolInput;
+    public event EventHandler<ToolInputEventArgs>? LandToolInput;
+
+    private LandPreview? _landPreview;
+    public LandPreview? LandPreview
+    {
+        get => _landPreview;
+        set { _landPreview = value; InvalidateVisual(); }
+    }
+
+    private void SendToolInput(ToolInputEventArgs e) =>
+        (LandPreview is null ? ToolInput : LandToolInput)?.Invoke(this, e);
 
     private BrushCursor? _brushCursor;
 
@@ -515,7 +526,7 @@ public sealed class MapView : FrameworkElement
         {
             _toolDrag = true;
             CaptureMouse();
-            ToolInput?.Invoke(this, new ToolInputEventArgs(ToolPhase.Down, ScreenToMap(e.GetPosition(this)), Keyboard.Modifiers, e.ClickCount));
+            SendToolInput(new ToolInputEventArgs(ToolPhase.Down, ScreenToMap(e.GetPosition(this)), Keyboard.Modifiers, e.ClickCount));
             e.Handled = true;
             return;
         }
@@ -537,7 +548,7 @@ public sealed class MapView : FrameworkElement
         if (_toolDrag && e.ChangedButton == MouseButton.Left)
         {
             _toolDrag = false;
-            ToolInput?.Invoke(this, new ToolInputEventArgs(ToolPhase.Up, ScreenToMap(e.GetPosition(this)), Keyboard.Modifiers));
+            SendToolInput(new ToolInputEventArgs(ToolPhase.Up, ScreenToMap(e.GetPosition(this)), Keyboard.Modifiers));
             ReleaseMouseCapture();
             return;
         }
@@ -548,7 +559,7 @@ public sealed class MapView : FrameworkElement
         e.Handled = true;
         // A right click that hardly moved is a click, not a pan: ask for the map's menu at that point.
         var p = e.GetPosition(this);
-        if (e.ChangedButton == MouseButton.Right && _renderer is not null
+        if (e.ChangedButton == MouseButton.Right && _renderer is not null && LandPreview is null
             && Math.Abs(p.X - start.X) < SystemParameters.MinimumHorizontalDragDistance
             && Math.Abs(p.Y - start.Y) < SystemParameters.MinimumVerticalDragDistance)
             MenuRequested?.Invoke(this, ScreenToMap(p));
@@ -569,7 +580,7 @@ public sealed class MapView : FrameworkElement
             OnViewChanged();
         }
         var map = ScreenToMap(p);
-        if (_toolDrag) ToolInput?.Invoke(this, new ToolInputEventArgs(ToolPhase.Move, map, Keyboard.Modifiers));
+        if (_toolDrag) SendToolInput(new ToolInputEventArgs(ToolPhase.Move, map, Keyboard.Modifiers));
         _mouseMap = map;
         if (_brushCursor is not null || _roadPreview is not null || _roadSnapper is not null || _prefabGhost is not null || _bridgePreviews is not null) InvalidateVisual();
         CursorMoved?.Invoke(this, map);
@@ -581,7 +592,7 @@ public sealed class MapView : FrameworkElement
         if (_toolDrag)
         {
             _toolDrag = false;
-            ToolInput?.Invoke(this, new ToolInputEventArgs(ToolPhase.Up, _mouseMap ?? default, Keyboard.Modifiers) { CaptureLost = true });
+            SendToolInput(new ToolInputEventArgs(ToolPhase.Up, _mouseMap ?? default, Keyboard.Modifiers) { CaptureLost = true });
         }
         // And a pan, so the next press isn't taken for a second button mid-drag.
         if (_dragStart is not null)
@@ -623,6 +634,11 @@ public sealed class MapView : FrameworkElement
         var world = new Rect(MapToScreen(new Point(0, 0)), MapToScreen(new Point(_renderer.World.Size, _renderer.World.Size)));
         dc.DrawRectangle(null, EdgeShadowPen, new Rect(world.X + 2, world.Y + 2, world.Width, world.Height));
         dc.DrawRectangle(null, EdgePen, Rect.Inflate(world, 0.5, 0.5));
+        if (LandPreview is { } drawing)
+        {
+            DrawLand(dc, world, drawing);
+            return;
+        }
 
         double dpi = PixelsPerDip;
         double metresPerDevicePixel = 1 / (_scale * dpi);
@@ -678,6 +694,32 @@ public sealed class MapView : FrameworkElement
         DrawBridgePreviews(dc);
         DrawMultiSelection(dc, visible);
         DrawBrushCursor(dc);
+    }
+
+    private static readonly Brush LandSea = Frozen(new SolidColorBrush(Color.FromRgb(44, 89, 115)));
+    private static readonly Pen LandBoxPen = Frozen(new Pen(Brushes.PaleGreen, 1) { DashStyle = DashStyles.Dash });
+    private static readonly Pen WaterBoxPen = Frozen(new Pen(Brushes.LightSkyBlue, 1) { DashStyle = DashStyles.Dash });
+
+    private void DrawLand(DrawingContext dc, Rect world, LandPreview drawing)
+    {
+        if (drawing.Coast is { } coast) dc.DrawImage(coast, world);
+        else dc.DrawRectangle(LandSea, null, world);
+
+        Rect? selection = null;
+        for (int i = 0; i < drawing.Boxes.Count; i++)
+        {
+            var (bounds, cutsWater) = drawing.Boxes[i];
+            var rect = new Rect(MapToScreen(bounds.TopLeft), MapToScreen(bounds.BottomRight));
+            if (drawing.Selected == i) selection = rect;
+            else dc.DrawRectangle(null, cutsWater ? WaterBoxPen : LandBoxPen, rect);
+        }
+        // Draw the selection over all other boxes so their outlines cannot cover its handles.
+        if (selection is not { } box) return;
+        dc.DrawRectangle(null, CursorShadowPen, box);
+        dc.DrawRectangle(null, HoverPen, box);
+        if (box.Width > 0 && box.Height > 0)
+            foreach (var handle in LandPreview.ResizeHandles(box))
+                dc.DrawRectangle(Brushes.White, CursorShadowPen, new Rect(handle.X - 4, handle.Y - 4, 8, 8));
     }
 
     private void DrawRoadPreview(DrawingContext dc)

@@ -35,6 +35,12 @@ public sealed class SaveCompatibilityTests : IDisposable
         ["v2.0.0-beta.3"] = ["$.Format"],
         ["v2.0.0-beta.4"] = ["$.Format"],
         ["v2.0.0"] = ["$.Format"],
+        // Format 5 added the saved land drawing. Older projects only change their format number.
+        ["v2.1.0"] = ["$.Format"],
+        ["v2.2.0-rc.1"] = ["$.Format"],
+        ["v2.2.0-rc.2"] = ["$.Format"],
+        ["v2.2.0-rc.3"] = ["$.Format"],
+        ["v2.2.0"] = ["$.Format"],
     };
 
     private readonly string _dir = Directory.CreateTempSubdirectory("mapeditor-compat-").FullName;
@@ -94,6 +100,16 @@ public sealed class SaveCompatibilityTests : IDisposable
 
         if (release.StartsWith("v1.")) Assert.Null(settings.Generator);
         else Assert.NotNull(settings.Generator);
+    }
+
+    [Fact]
+    public void New_project_declares_format_five()
+    {
+        var world = ProjectStore.Load(SamplePath("v2.2.0" + ProjectStore.Extension), out var settings);
+        string path = Path.Combine(_dir, "current" + ProjectStore.Extension);
+        ProjectStore.Save(world, path, settings);
+        using var manifest = ReadManifest(path);
+        Assert.Equal(5, manifest.RootElement.GetProperty("Format").GetInt32());
     }
 
     [Theory]
@@ -184,7 +200,7 @@ public sealed class SaveCompatibilityTests : IDisposable
         [typeof(FeatureKind)] = "Lake=0 River=1 Canyon=2 Crater=3",
         [typeof(GeneratorStage)] = "Terrain=0 TownSites=1 Features=2 Highways=3 Wilderness=4 Spawns=5",
         [typeof(HighwayKind)] = "Highway=0 Ring=1 Country=2 JoinUp=3 Bridge=4",
-        [typeof(LandShapeKind)] = "Edges=0 Island=1 Archipelago=2 Peninsula=3",
+        [typeof(LandShapeKind)] = "Edges=0 Island=1 Archipelago=2 Peninsula=3 Drawn=4",
         [typeof(MapEdge)] = "North=0 East=1 South=2 West=3",
         [typeof(RoadType)] = "None=0 Gravel=1 Asphalt=2 Water=3",
         [typeof(RwgBiome)] = "Forest=0 BurntForest=1 Desert=2 Snow=3 Wasteland=4",

@@ -99,6 +99,10 @@ public partial class MainWindow : Window
         _edits = new EditRunner(_undo);
         _edits.Committed += (_, _) => OnWorldEdited();
         _edits.Failed += (_, e) => OnEditFailed(e);
+        _landTools = new LandToolController(Map, _vm);
+        LandTools.DataContext = LandPanel.DataContext = _landTools;
+        Map.LandToolInput += _landTools.OnToolInput;
+        _landTools.HistoryChanged += (_, _) => UpdateUndoText();
         _tools = new TerrainToolController(Map, _vm, _edits);
         _prefabTools = new PrefabToolController(Map, _vm, _edits);
         _townTools = new TownToolController(Map, _vm, _edits);
@@ -308,7 +312,7 @@ public partial class MainWindow : Window
 
     private bool _opening; // New, Open or Open World Folder is under way
 
-    private void CanOpen_CanExecute(object sender, CanExecuteRoutedEventArgs e) => e.CanExecute = !_opening && !_vm.IsBusy;
+    private void CanOpen_CanExecute(object sender, CanExecuteRoutedEventArgs e) => e.CanExecute = !_opening && !_vm.IsBusy && !_vm.IsLandMode;
 
     /// <summary>
     /// Runs New, Open or Open World Folder once at a time: each waits (for the game data, or the unsaved-changes prompt)
@@ -357,6 +361,7 @@ public partial class MainWindow : Window
             _vm.Status = template is null
                 ? "Created. Note: no main.ttw template was found; generate any world in the game once before saving."
                 : $"Created {options.Name} ({options.Size} m). Save it with Ctrl+S.";
+            if (options.Shape?.Kind == LandShapeKind.Drawn) EnterLandMode(newWorld: true);
         }
         finally
         {
@@ -524,7 +529,7 @@ public partial class MainWindow : Window
     // ---- save --------------------------------------------------------------
 
     private void HasWorld_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _world is not null && !_vm.IsBusy && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging;
+        e.CanExecute = _world is not null && !_vm.IsBusy && !_vm.IsLandMode && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging;
 
     /// <summary>
     /// True (and says so) while a save, export or load is running. Saves write the live world on another thread,
@@ -549,6 +554,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void Find_Executed(object sender, ExecutedRoutedEventArgs e)
     {
+        if (_vm.IsLandMode) return;
         bool placed = _vm.ShowSidePanel && _vm.SidePanelTab == MainViewModel.PlacedTab;
         _vm.ShowSidePanel = true;
         _vm.SidePanelTab = placed ? MainViewModel.PlacedTab : MainViewModel.PrefabsTab;
@@ -991,7 +997,7 @@ public partial class MainWindow : Window
     /// </summary>
     private async Task AutosaveAsync()
     {
-        if (!_vm.Autosave || _autosaving || !Dirty || _world is not { } world || _vm.IsBusy
+        if (!_vm.Autosave || _autosaving || !Dirty || _world is not { } world || _vm.IsBusy || _newLandWorld
             || _tools.IsStroking || _prefabTools.IsDragging || _multiSelect.IsDragging || _townTools.IsDragging)
             return;
         _autosaving = true;
@@ -1068,6 +1074,11 @@ public partial class MainWindow : Window
     private async Task CloseWorldAsync()
     {
         if (_world is null || _vm.IsBusy || !await ConfirmDiscardAsync()) return;
+        ClearWorld();
+    }
+
+    private void ClearWorld()
+    {
         _autosaves.Discard();
         _tools.CancelRoad();
         _world = null;
@@ -1178,6 +1189,11 @@ public partial class MainWindow : Window
                 _vm.Status = "Closing once the generator stops...";
             }
             else _vm.Status = "Closing once the save finishes...";
+            return;
+        }
+        if (_vm.IsLandMode && !ConfirmCloseLand())
+        {
+            e.Cancel = true;
             return;
         }
         if (_closeConfirmed || !Dirty)
@@ -2497,13 +2513,21 @@ public partial class MainWindow : Window
     /// Runs the terrain stage in the background as one edit: the whole map, or the area picked in the panel. Cancel
     /// rolls it back.
     /// </summary>
-    private async Task GenerateTerrainAsync()
+    private Task GenerateTerrainAsync() => GenerateTerrainAsync(null);
+
+    private async Task GenerateTerrainAsync(LandDrawing? drawing)
     {
         if (_world is not { } world || RefuseWhileBusy()) return;
         await _gameDataLoad;
         var g = _vm.Generate;
         var stamps = _vm.Stamps;
-        if (stamps.WithPrefix("plains").Count + stamps.WithPrefix("hills").Count + stamps.WithPrefix("mountains").Count == 0)
+        string action = drawing is null ? "Generate terrain" : "Build World";
+        if (drawing is null && !g.CanGenerateLandShape)
+        {
+            _vm.Status = "Click Edit land to draw the land first.";
+            return;
+        }
+        if (drawing is null && stamps.WithPrefix("plains").Count + stamps.WithPrefix("hills").Count + stamps.WithPrefix("mountains").Count == 0)
         {
             ThemedMessageBox.Show(this, "The terrain is made from the game's own stamps, and none were found. Set the game folder under Settings > Game Folder.",
                 "Generate terrain", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -2514,8 +2538,8 @@ public partial class MainWindow : Window
             _vm.Status = "This world has no biome map, which the terrain follows. Paint biomes first.";
             return;
         }
-        GridRect? area = g.WholeMap ? null : g.Area;
-        if (!g.WholeMap && area is null)
+        GridRect? area = drawing is not null || g.WholeMap ? null : g.Area;
+        if (drawing is null && !g.WholeMap && area is null)
         {
             _vm.Status = "Select an area first: press Select area in the Generate panel, then drag on the map.";
             return;
@@ -2523,10 +2547,12 @@ public partial class MainWindow : Window
 
         bool hasBuilt = world.Prefabs.Count > 0 || world.Roads?.Data.AsSpan().ContainsAnyExcept((byte)0) == true;
         var options = g.Settings.Terrain.Clone();
+        if (drawing is not null) options.Shape.Drawing = drawing;
         var painted = g.Settings.PaintedTerrain is { } p ? (TerrainType[])p.Clone() : null;
         var mask = g.LastMask;
         var mixer = _vm.Mixer;
-        var replan = area is null && g.ReplanBiomes ? g.Settings.Biomes?.Clone() : null;
+        var replan = area is null && (g.ReplanBiomes || drawing is not null && !options.Shape.SameLand(g.Settings.Biomes?.PlannedFor))
+            ? g.Settings.Biomes?.Clone() : null;
         var library = _vm.Prefabs;
         // New ground clears the later stages: built towns come down in the same edit and their sites wait to be built again.
         var gen = _projectSettings.Generator;
@@ -2554,8 +2580,8 @@ public partial class MainWindow : Window
             hasWild ? "every wilderness POI and gravel road will be taken out (pinned ones come back on the next Wilderness run)" : null,
         }.Where(t => t is not null));
         if (later.Length > 0 && ThemedMessageBox.Show(this,
-                $"New ground clears the later stages: {(area is null ? "" : "in or near the area, ")}{later}.\n\nGenerate the terrain?",
-                "Generate terrain", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+                $"New ground clears the later stages: {(area is null ? "" : "in or near the area, ")}{later}.\n\n{action}?",
+                action, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
         int takenDown = 0, featuresOut = 0, roadsOut = 0, sitesCleared = 0, sitesUnusable = 0;
         // Read on the UI thread; the run uses them in the background to check the town sites against the new ground.
@@ -2565,7 +2591,7 @@ public partial class MainWindow : Window
         _vm.IsBusy = true;
         g.IsRunning = true;
         g.Progress = 0;
-        _vm.Status = area is null ? "Generating the terrain..." : "Generating the terrain in the area...";
+        _vm.Status = drawing is not null ? "Building the world..." : area is null ? "Generating the terrain..." : "Generating the terrain in the area...";
         var progress = new Progress<double>(v => g.Progress = v);
         var sw = Stopwatch.StartNew();
         TerrainResult? result = null;
@@ -2573,7 +2599,7 @@ public partial class MainWindow : Window
         bool ok;
         try
         {
-            ok = await _edits.RunInBackgroundAsync(world, "Generate terrain", session =>
+            ok = await _edits.RunInBackgroundAsync(world, drawing is null ? "Generate terrain" : "build world", session =>
             {
                 ran = session;
                 // Later stages come out newest first, so each puts back the ground it found.
@@ -2598,7 +2624,14 @@ public partial class MainWindow : Window
                         gen.Sites.AddRange(kept);
                     }
                 }
-            }, NoteGeneratorState);
+            }, session =>
+            {
+                if (drawing is not null)
+                    session.TouchState(_landTools, () => g.Settings.Terrain.Shape.Drawing,
+                        previous => g.Settings.Terrain.Shape.Drawing = (LandDrawing?)previous, ReferenceEquals);
+                NoteGeneratorState(session);
+                if (drawing is not null) g.Settings.Terrain.Shape.Drawing = drawing;
+            });
         }
         finally
         {
@@ -2611,6 +2644,7 @@ public partial class MainWindow : Window
             // A cancelled or failed run rolled the towns back up.
             if (gen is not null) TownSiteStage.MarkBuilt(world, library, gen.Sites);
             g.RefreshFeatures();
+            CloseIfWaiting();
             return;
         }
         g.RefreshFeatures();
@@ -2627,6 +2661,7 @@ public partial class MainWindow : Window
         g.LastMask = result.Mask;
         g.Settings.TerrainPlan = result.Plan;
         g.Settings.Done.Add(GeneratorStage.Terrain);
+        if (drawing is not null) g.Settings.Done.RemoveWhere(stage => stage != GeneratorStage.Terrain);
         if (result.BiomesPlanned && g.Settings.Biomes is { } planned) planned.PlannedFor = options.Shape.Clone();
         g.ShapeChanged();
         _townCells = null;
@@ -2650,6 +2685,12 @@ public partial class MainWindow : Window
         string biomesNote = result.BiomesPlanned ? " The biomes were planned again for the land." : "";
         g.TerrainStatus = $"Generated {where} with seed {options.Seed}: {result.Stamps:N0} stamps in {sw.Elapsed.TotalSeconds:0.0} s.{biomesNote}";
         g.TerrainStatusShort = $"Generated {where}, {result.Stamps:N0} stamps";
+        if (drawing is not null)
+        {
+            g.RefreshDone();
+            g.Refresh();
+            ExitLandMode();
+        }
         Map.InvalidateRegion(ran.Bounds);
         Map.InvalidateVisual();
         _prefabTools.Refresh();
@@ -2754,18 +2795,22 @@ public partial class MainWindow : Window
     // ---- undo --------------------------------------------------------------
 
     private void Undo_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _undo.CanUndo && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
+        e.CanExecute = _vm.IsLandMode ? CanUndoLand(redo: false)
+            : _undo.CanUndo && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
 
     private void Redo_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _undo.CanRedo && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
+        e.CanExecute = _vm.IsLandMode ? CanUndoLand(redo: true)
+            : _undo.CanRedo && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
 
     private void Undo_Executed(object sender, ExecutedRoutedEventArgs e)
     {
+        if (_vm.IsLandMode) { UndoLand(redo: false); return; }
         if (_undo.Undo() is { } step) AfterUndoRedo(step, "Undid");
     }
 
     private void Redo_Executed(object sender, ExecutedRoutedEventArgs e)
     {
+        if (_vm.IsLandMode) { UndoLand(redo: true); return; }
         if (_undo.Redo() is { } step) AfterUndoRedo(step, "Redid");
     }
 
@@ -2791,8 +2836,9 @@ public partial class MainWindow : Window
 
     private void UpdateUndoText()
     {
-        _vm.UndoText = _undo.UndoName is { } u ? $"Undo {u}" : "Undo";
-        _vm.RedoText = _undo.RedoName is { } r ? $"Redo {r}" : "Redo";
+        _vm.UndoText = (_vm.IsLandMode ? _landTools.UndoName : _undo.UndoName) is { } u ? $"Undo {u}" : "Undo";
+        _vm.RedoText = (_vm.IsLandMode ? _landTools.RedoName : _undo.RedoName) is { } r ? $"Redo {r}" : "Redo";
+        CommandManager.InvalidateRequerySuggested();
     }
 
     private void OnWorldEdited()
@@ -2933,7 +2979,7 @@ public partial class MainWindow : Window
         };
         _vm.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(MainViewModel.SideBarOnRight) or nameof(MainViewModel.ShowSidePanel)) PlaceSideBar();
+            if (e.PropertyName is nameof(MainViewModel.SideBarOnRight) or nameof(MainViewModel.SidePanelVisible)) PlaceSideBar();
         };
         PlaceSideBar();
     }
@@ -3126,14 +3172,15 @@ public partial class MainWindow : Window
         }
         SideTabs.TabStripPlacement = side;
         SidePanelEdge.HorizontalAlignment = right ? HorizontalAlignment.Left : HorizontalAlignment.Right;
-        SidePanelEdge.Visibility = _vm.ShowSidePanel ? Visibility.Visible : Visibility.Collapsed;
-        double line = _vm.ShowSidePanel ? 1 : 0;
+        SidePanelEdge.Visibility = _vm.SidePanelVisible ? Visibility.Visible : Visibility.Collapsed;
+        double line = _vm.SidePanelVisible ? 1 : 0;
         SidePanel.BorderThickness = right ? new Thickness(line, 0, 0, 0) : new Thickness(0, 0, line, 0);
     }
 
     /// <summary>The Modern status bar's error and warning counts open the Issues view.</summary>
     private void IssueCounter_Click(object sender, RoutedEventArgs e)
     {
+        if (_vm.IsLandMode) return;
         _vm.SidePanelTab = MainViewModel.IssuesTab;
         _vm.ShowSidePanel = true;
     }
@@ -3306,7 +3353,7 @@ public partial class MainWindow : Window
     private void UpdateToolState()
     {
         _vm.SelectionSizeText = _vm.HasSize ? _vm.SizeText : "";
-        Map.ToolActive = _vm.SelectedTool != EditorTool.Select;
+        Map.ToolActive = _vm.IsLandMode || _vm.SelectedTool != EditorTool.Select;
         // With Select, a press on something that can be picked grabs it; anywhere else it pans.
         Map.GrabTest = _vm.IsSelectTool ? _prefabTools.CanGrab : null;
         Map.ShowLots = _vm.IsPrefabTool;
@@ -3326,6 +3373,7 @@ public partial class MainWindow : Window
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
+        if (_vm.IsLandMode && HandleLandKey(e)) return;
         if (AltTurnsOffSnapping(e)) return;
         // Leave typing in text boxes alone.
         if (e.Handled || Keyboard.FocusedElement is TextBox || Keyboard.Modifiers != ModifierKeys.None) return;
@@ -3422,6 +3470,11 @@ public partial class MainWindow : Window
     protected override void OnPreviewKeyUp(KeyEventArgs e)
     {
         base.OnPreviewKeyUp(e);
+        if (_vm.IsLandMode && e.SystemKey is Key.LeftAlt or Key.RightAlt)
+        {
+            e.Handled = true;
+            return;
+        }
         AltTurnsOffSnapping(e);
     }
 
@@ -3503,6 +3556,7 @@ public partial class MainWindow : Window
 
     private void Map_CursorMoved(object? sender, Point? map)
     {
+        if (_vm.IsLandMode) _landTools.UpdateCursor(map);
         if (map is not { } m || _world is not { } world)
         {
             _vm.CursorText = "";
@@ -3511,6 +3565,11 @@ public partial class MainWindow : Window
         }
         int x = (int)Math.Floor(m.X);
         int z = world.Size - 1 - (int)Math.Floor(m.Y);
+        if (_vm.IsLandMode)
+        {
+            _vm.CursorText = (uint)x < world.Size && (uint)z < world.Size ? $"X {x - world.Size / 2}, Z {z - world.Size / 2}" : "";
+            return;
+        }
         var info = WorldQuery.At(world, x, z, _vm.Biomes, _vm.Prefabs);
         _vm.CursorText = info is null ? "" : MainViewModel.FormatPoint(info);
         Map.HoverPrefab = _vm.ShowPrefabs && (_vm.SelectedTool == EditorTool.Select || _vm.IsPrefabTool && _vm.PlacingPrefab is null)

@@ -44,6 +44,7 @@ public sealed class PrefabToolController
         _map.ToolInput += OnToolInput;
         _map.CursorMoved += (_, m) =>
         {
+            if (_vm.IsLandMode) return;
             _hover = m is { } p && World is { } w ? new Point(p.X, w.Size - p.Y) : null;
             if (_dragging is null) UpdateGhost();
             UpdateSpawnGhost(m);
