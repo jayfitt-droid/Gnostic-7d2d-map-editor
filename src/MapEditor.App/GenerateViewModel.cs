@@ -48,9 +48,7 @@ public sealed partial class GenerateViewModel : ObservableObject
         Area = null;
         WholeMap = true;
         Planned = [];
-        SelectedSite = null;
         SelectedFeature = null;
-        SelectedPoi = null;
         RefreshTownRows();
         // Another world: the box starts from whether its biomes fit its land.
         ReplanBiomes = settings.BiomesOutOfDate;
@@ -399,9 +397,6 @@ public sealed partial class GenerateViewModel : ObservableObject
     /// <summary>One row per township in the settings, for the panel's table.</summary>
     public ObservableCollection<TownRowViewModel> TownRows { get; } = [];
 
-    /// <summary>The township names a town added or changed by hand can take.</summary>
-    public ObservableCollection<string> TownshipNames { get; } = [];
-
     /// <summary>Rebuilds the table after the rows were replaced (new world, preset, defaults).</summary>
     public void RefreshTownRows()
     {
@@ -414,9 +409,6 @@ public sealed partial class GenerateViewModel : ObservableObject
             TownRows.Add(vm);
         }
         OnPropertyChanged(nameof(TownTotalText));
-        TownshipNames.Clear();
-        foreach (var row in _settings.Towns.Rows) TownshipNames.Add(row.Township);
-        if (AddTownship is null || !TownshipNames.Contains(AddTownship)) AddTownship = TownshipNames.FirstOrDefault(n => n == "town") ?? TownshipNames.FirstOrDefault();
     }
 
     /// <summary>What the table adds up to: how many towns, and about how many street tiles.</summary>
@@ -444,78 +436,6 @@ public sealed partial class GenerateViewModel : ObservableObject
 
     /// <summary>What the town sites stage did last.</summary>
     [ObservableProperty] private string _townStatus = "Not run yet.";
-
-    /// <summary>The planned town picked on the map, which the panel can change.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelectedSite), nameof(SelectedSiteText), nameof(SelectedTownship), nameof(SelectedSize), nameof(SelectedPinned))]
-    private TownSite? _selectedSite;
-
-    public bool HasSelectedSite => SelectedSite is not null;
-
-    public string SelectedSiteText => SelectedSite is { } s
-        ? $"{GameNames.Township(s.Township)}, {s.Cells.Count} tile{(s.Cells.Count == 1 ? "" : "s")}{(s.Pinned ? ", pinned" : "")}"
-        : "";
-
-    /// <summary>Changing these asks the window to re-plan the selected town (it owns the world and cells).</summary>
-    public event EventHandler? SelectedSiteEdited;
-
-    public string? SelectedTownship
-    {
-        get => SelectedSite?.Township;
-        set
-        {
-            if (SelectedSite is not { } s || value is null || value == s.Township) return;
-            s.Township = value;
-            SelectedSiteEdited?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    /// <summary>The tile count asked for the selected town; it may get fewer if the land won't take them.</summary>
-    public int SelectedSize
-    {
-        get => _requestedSize ?? SelectedSite?.Cells.Count ?? 0;
-        set
-        {
-            if (SelectedSite is null || value < 1 || value == SelectedSize) return;
-            _requestedSize = Math.Min(value, 400);
-            SelectedSiteEdited?.Invoke(this, EventArgs.Empty);
-        }
-    }
-
-    private int? _requestedSize;
-
-    /// <summary>The size asked for, once, for a re-plan of the selected town.</summary>
-    public int? TakeRequestedSize()
-    {
-        int? size = _requestedSize;
-        _requestedSize = null;
-        return size;
-    }
-
-    public bool SelectedPinned
-    {
-        get => SelectedSite?.Pinned ?? false;
-        set
-        {
-            if (SelectedSite is not { } s) return;
-            s.Pinned = value;
-            Changed();
-            OnPropertyChanged(nameof(SelectedSiteText));
-        }
-    }
-
-    /// <summary>The township a town dragged out by hand becomes.</summary>
-    [ObservableProperty] private string? _addTownship;
-
-    /// <summary>Tell the panel the selected town changed (re-planned, moved).</summary>
-    public void RefreshSelection()
-    {
-        OnPropertyChanged(nameof(SelectedSiteText));
-        OnPropertyChanged(nameof(SelectedTownship));
-        OnPropertyChanged(nameof(SelectedSize));
-        OnPropertyChanged(nameof(SelectedPinned));
-        OnPropertyChanged(nameof(PlanText));
-    }
 
     // ---- features ------------------------------------------------------------
 
@@ -830,54 +750,10 @@ public sealed partial class GenerateViewModel : ObservableObject
 
     public bool HasWilderness => _settings.PlacedWilderness.Count > 0;
 
-    /// <summary>The prefabs the Place tool offers: the best scoring one for the spot, or a wilderness prefab by name.</summary>
-    public ObservableCollection<string> PoiChoices { get; } = [];
-
-    public const string BestPoi = "Best for the spot";
-
-    [ObservableProperty] private string _placePoi = BestPoi;
-
-    public void RefreshPoiChoices(Core.GameData.PrefabLibrary library)
-    {
-        PoiChoices.Clear();
-        PoiChoices.Add(BestPoi);
-        foreach (var name in library.All.Where(p => p.HasTag("wilderness") && !p.IsPart && !p.IsStreetTile && !p.IsInternal && !p.IsTrader)
-                     .Select(p => p.Name).Order(StringComparer.OrdinalIgnoreCase))
-            PoiChoices.Add(name);
-        if (!PoiChoices.Contains(PlacePoi)) PlacePoi = BestPoi;
-    }
-
-    /// <summary>The POI picked on the map.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelectedPoi), nameof(SelectedPoiText), nameof(SelectedPoiPinned))]
-    private WildernessPoi? _selectedPoi;
-
-    public bool HasSelectedPoi => SelectedPoi is not null;
-
-    public string SelectedPoiText => SelectedPoi is { } p
-        ? $"{p.Name}{(p.Prefabs.Count > 1 ? $" (+{p.Prefabs.Count - 1} on its markers)" : "")}, "
-          + (p.Road is { } r ? $"gravel road {r.Length:0} m" : "no road") + (p.Pinned ? ", pinned" : "")
-        : "";
-
-    public bool SelectedPoiPinned
-    {
-        get => SelectedPoi?.Pinned ?? false;
-        set
-        {
-            if (SelectedPoi is not { } p) return;
-            p.Pinned = value;
-            Changed();
-            OnPropertyChanged(nameof(SelectedPoiText));
-        }
-    }
-
     public void RefreshWilderness()
     {
-        if (SelectedPoi is { } p && !_settings.PlacedWilderness.Contains(p)) SelectedPoi = null;
         OnPropertyChanged(nameof(HasWilderness));
         OnPropertyChanged(nameof(SpawnsWithoutRoads));
-        OnPropertyChanged(nameof(SelectedPoiText));
-        OnPropertyChanged(nameof(SelectedPoiPinned));
         OnPropertyChanged(nameof(WildernessCountsText));
     }
 

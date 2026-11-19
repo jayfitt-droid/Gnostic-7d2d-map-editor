@@ -123,12 +123,8 @@ public sealed partial class MainViewModel : ObservableObject
             "Drag to paint the type picked in the Generate panel onto 256 m tiles; Shift+drag clears. Generating fills only the tiles left clear."),
         new(EditorTool.GenerateArea, "Generate area", "", Icons.Selection,
             "Drag a rectangle over the tiles to generate; the panel's Generate then remakes only those, blended into the land around them."),
-        new(EditorTool.TownSites, "Review towns", "", Icons.Town,
-            "Click a planned town to pick it, drag it to move it. Drag on empty ground to add a town there; towns you add stay when the stage is re-rolled."),
         new(EditorTool.Features, "Place features", "", Icons.Water,
             "Click empty ground to press in the feature picked in the Generate panel, pinned. Click a feature to pick it."),
-        new(EditorTool.Wilderness, "Place wilderness POIs", "", Icons.Prefab,
-            "Click empty ground to place the POI picked in the Generate panel, pinned, with its gravel road. Click a POI the stage placed to pick it."),
     ];
 
     /// <summary>Every tool, for shortcuts.</summary>
@@ -139,7 +135,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool IsTerrainTypesTool => SelectedTool == EditorTool.TerrainTypes;
     public bool IsGenerateAreaTool => SelectedTool == EditorTool.GenerateArea;
-    public bool IsTownSitesTool => SelectedTool == EditorTool.TownSites;
+    public bool IsFeaturesTool => SelectedTool == EditorTool.Features;
 
     public ToolItem CurrentTool => Tools.First(t => t.Tool == SelectedTool);
 
@@ -147,7 +143,7 @@ public sealed partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsBrushTool), nameof(IsStampTool), nameof(IsFlattenTool), nameof(IsNoiseTool),
         nameof(HasRadius), nameof(IsBiomeTool), nameof(IsRadiationTool), nameof(IsWaterTool), nameof(IsRoadTool), nameof(IsBridgeTool),
         nameof(IsPrefabTool), nameof(IsTraderTool), nameof(IsPrefabsTool), nameof(PlacingPrefab), nameof(IsSpawnTool), nameof(IsSelectTool), nameof(IsMultiSelectTool), nameof(ShowSelectionText), nameof(IsTownTool), nameof(ReservesInfoLines), nameof(CurrentTool),
-        nameof(IsTerrainTypesTool), nameof(IsGenerateAreaTool), nameof(IsTownSitesTool),
+        nameof(IsTerrainTypesTool), nameof(IsGenerateAreaTool), nameof(IsFeaturesTool),
         nameof(HasSize), nameof(SizeValue), nameof(SizeMin), nameof(SizeMax), nameof(SizeText),
         nameof(HasStrength), nameof(StrengthValue), nameof(StrengthMin), nameof(StrengthText), nameof(CurrentSwatch))]
     private EditorTool _selectedTool = EditorTool.Select;
@@ -833,7 +829,10 @@ public sealed partial class MainViewModel : ObservableObject
     };
 
     /// <summary>The side panel's width (DIPs); drag its left edge to change it.</summary>
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarOuterWidth))] private double _sidePanelWidth = DefaultSidePanelWidth;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarOuterWidth), nameof(CompactTownTable))] private double _sidePanelWidth = DefaultSidePanelWidth;
+
+    /// <summary>Show the size under the town name when a separate estimate column would crowd the table.</summary>
+    public bool CompactTownTable => SidePanelWidth < 440;
 
     public const double DefaultSidePanelWidth = 400, MinSidePanelWidth = 320, MaxSidePanelWidth = 900;
 

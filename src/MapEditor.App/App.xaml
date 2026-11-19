@@ -259,7 +259,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <ToggleButton x:Name="HeaderToggle" Cursor="Hand" Focusable="True" FocusVisualStyle="{DynamicResource DefaultControlFocusVisualStyle}"
+                                <ToggleButton x:Name="HeaderToggle" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand" Focusable="True" FocusVisualStyle="{DynamicResource DefaultControlFocusVisualStyle}"
                                               IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                               AutomationProperties.Name="Open or close this stage">
                                     <ToggleButton.Template>

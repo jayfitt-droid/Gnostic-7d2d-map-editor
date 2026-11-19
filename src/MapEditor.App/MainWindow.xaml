@@ -1290,13 +1290,53 @@
                             <StackPanel IsEnabled="{Binding Generate.HasWorld}">
                                 <StackPanel.Resources>
                                     <Style x:Key="GenLabel" TargetType="TextBlock">
-                                        <Setter Property="VerticalAlignment" Value="Center" />
-                                        <Setter Property="Margin" Value="0,0,8,0" />
-                                    </Style>
-                                    <Style x:Key="WeightBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-                                        <Setter Property="MinWidth" Value="0" />
+                                        <Setter Property="Width" Value="78" />
+                                        <Setter Property="TextWrapping" Value="Wrap" />
                                         <Setter Property="Margin" Value="0,0,6,0" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    </Style>
+                                    <!-- A label in front of a short number box: wide enough for "Longest causeway" on one line. -->
+                                    <Style x:Key="GenRowLabel" TargetType="TextBlock" BasedOn="{StaticResource GenLabel}">
+                                        <Setter Property="Width" Value="120" />
+                                    </Style>
+                                    <!-- Use the Fluent base template to keep the full field available while typing. -->
+                                    <Style x:Key="GenNumberBox" TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxBaseStyle}">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
+                                        <Setter Property="Validation.ErrorTemplate" Value="{DynamicResource DefaultTextBoxInvalidationStyle}" />
+                                        <Setter Property="MinWidth" Value="0" />
+                                        <Setter Property="Padding" Value="3,4" />
                                         <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                    <Style x:Key="GenTableBox" TargetType="TextBox" BasedOn="{StaticResource GenNumberBox}">
+                                        <Setter Property="Margin" Value="6,0,0,0" />
+                                    </Style>
+                                    <Style x:Key="GenSettingBox" TargetType="TextBox" BasedOn="{StaticResource GenNumberBox}">
+                                        <Setter Property="Width" Value="56" />
+                                        <Setter Property="Margin" Value="6,0,0,0" />
+                                    </Style>
+                                    <Style x:Key="GenNumberColumn" TargetType="ColumnDefinition">
+                                        <Setter Property="Width" Value="*" />
+                                        <Setter Property="MaxWidth" Value="66" />
+                                    </Style>
+                                    <Style x:Key="GenTownNumberColumn" TargetType="ColumnDefinition" BasedOn="{StaticResource GenNumberColumn}">
+                                        <Setter Property="MinWidth" Value="54" />
+                                    </Style>
+                                    <Style x:Key="GenColumnHeading" TargetType="TextBlock" BasedOn="{StaticResource HintText}">
+                                        <Setter Property="Margin" Value="6,0,0,0" />
+                                        <Setter Property="TextAlignment" Value="Center" />
+                                        <Setter Property="VerticalAlignment" Value="Bottom" />
+                                    </Style>
+                                    <Style x:Key="TownSizeColumnText" TargetType="TextBlock" BasedOn="{StaticResource HintText}">
+                                        <Setter Property="Width" Value="80" />
+                                        <Setter Property="TextAlignment" Value="Center" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DataContext.CompactTownTable, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
                                     </Style>
                                 </StackPanel.Resources>
 
@@ -1306,16 +1346,16 @@
                                 <!-- World seed: every stage's seed comes from it. -->
                                 <TextBlock Text="World seed" FontWeight="SemiBold" Margin="0,12,0,4" />
                                 <DockPanel IsEnabled="{Binding Generate.CanEdit}">
-                                    <Button DockPanel.Dock="Right" Content="New" Margin="6,0,0,0" Click="GenerateNewWorldSeed_Click"
+                                    <Button DockPanel.Dock="Right" MinWidth="60" Content="New" Margin="6,0,0,0" Click="GenerateNewWorldSeed_Click"
                                             ToolTip="Pick a new world seed; every stage's seed follows it" />
-                                    <TextBox Text="{Binding Generate.WorldSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="World seed"
+                                    <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.WorldSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="World seed"
                                              ToolTip="Gives each stage its seed, so the same seeds always make the same world" />
                                 </DockPanel>
 
                                 <!-- Presets: every stage's settings by name. -->
                                 <TextBlock Text="Preset" FontWeight="SemiBold" Margin="0,12,0,4" />
                                 <DockPanel IsEnabled="{Binding Generate.CanEdit}">
-                                    <Button DockPanel.Dock="Right" Content="Delete" Margin="6,0,0,0" Click="PresetDelete_Click"
+                                    <Button DockPanel.Dock="Right" MinWidth="60" Content="Delete" Margin="6,0,0,0" Click="PresetDelete_Click"
                                             ToolTip="Delete the chosen preset" />
                                     <Button DockPanel.Dock="Right" Content="Use" Margin="6,0,0,0" Click="PresetUse_Click"
                                             ToolTip="Take the chosen preset's settings. The seeds, edges and painted tiles stay this world's." />
@@ -1324,7 +1364,7 @@
                                 </DockPanel>
                                 <TextBlock Text="{Binding SelectedItem.Summary, ElementName=PresetBox}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 <DockPanel Margin="0,6,0,0" IsEnabled="{Binding Generate.CanEdit}">
-                                    <Button DockPanel.Dock="Right" Content="Save" Margin="6,0,0,0" Click="PresetSave_Click"
+                                    <Button DockPanel.Dock="Right" MinWidth="60" Content="Save" Margin="6,0,0,0" Click="PresetSave_Click"
                                             ToolTip="Save the settings below under this name" />
                                     <TextBox Text="{Binding Generate.PresetName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Preset name"
                                              ToolTip="A name to save the settings under" />
@@ -1335,13 +1375,13 @@
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=1}">
                                     <Expander.Header>
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="1  Terrain" FontWeight="SemiBold" FontSize="15" />
+                                            <WrapPanel>
+                                                <TextBlock Text="1  Terrain" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="15" />
                                                 <Border Style="{StaticResource DoneBadge}"
                                                            Visibility="{Binding Generate.TerrainDone, Converter={StaticResource BoolToVisibility}}">
                                                            <TextBlock Text="Done" />
                                                            </Border>
-                                            </StackPanel>
+                                            </WrapPanel>
                                             <TextBlock Text="{Binding Generate.TerrainStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.TerrainStatus}" />
                                         </StackPanel>
@@ -1349,65 +1389,30 @@
                                     <StackPanel>
 
                                         <StackPanel IsEnabled="{Binding Generate.CanEdit}">
-                                            <DockPanel Margin="0,10,0,0">
-                                                <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
-                                                <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="TerrainReroll_Click"
-                                                        ToolTip="Generate again with a new seed" />
-                                                <TextBox Text="{Binding Generate.TerrainSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Terrain seed" />
-                                            </DockPanel>
-
-                                            <TextBlock Text="How much of each biome gets plains, hills and mountains. The numbers are compared with each other; the game uses 4, 4, 2."
-                                                       Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,10,0,4" />
-                                            <Grid>
+                                            <Grid Margin="0,10,0,0">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="6" />
                                                     <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="6" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                                <StackPanel Grid.Column="0">
                                                     <TextBlock Text="Plains" Style="{StaticResource HintText}" />
-                                                    <TextBox Text="{Binding Generate.Plains, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Plains weight" />
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="1" Margin="0,0,6,0">
-                                                    <TextBlock Text="Hills" Style="{StaticResource HintText}" />
-                                                    <TextBox Text="{Binding Generate.Hills, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Hills weight" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" Text="{Binding Generate.Plains, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Plains weight" />
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Hills" Style="{StaticResource HintText}" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" Text="{Binding Generate.Hills, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Hills weight" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="4">
                                                     <TextBlock Text="Mountains" Style="{StaticResource HintText}" />
-                                                    <TextBox Text="{Binding Generate.Mountains, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Mountains weight" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" Text="{Binding Generate.Mountains, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Mountains weight" />
                                                 </StackPanel>
                                             </Grid>
 
-                                            <Expander Style="{StaticResource LinkExpander}" Header="Per biome" Margin="0,8,0,0" HorizontalAlignment="Stretch">
-                                                <StackPanel>
-                                                    <TextBlock Text="Tick a biome to give it its own plains, hills and mountains. Unticked wasteland gets no mountains, as in the game."
-                                                               Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,6" />
-                                                    <ItemsControl ItemsSource="{Binding Generate.BiomeRows}" Focusable="False">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <Grid Margin="0,2">
-                                                                    <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="*" />
-                                                                        <ColumnDefinition Width="44" />
-                                                                        <ColumnDefinition Width="44" />
-                                                                        <ColumnDefinition Width="44" />
-                                                                    </Grid.ColumnDefinitions>
-                                                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding Own}" MinWidth="0" VerticalAlignment="Center" />
-                                                                    <TextBox Grid.Column="1" Text="{Binding Plains, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding Own}"
-                                                                             Style="{StaticResource WeightBox}" ToolTip="Plains" />
-                                                                    <TextBox Grid.Column="2" Text="{Binding Hills, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding Own}"
-                                                                             Style="{StaticResource WeightBox}" ToolTip="Hills" />
-                                                                    <TextBox Grid.Column="3" Text="{Binding Mountains, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding Own}"
-                                                                             Style="{StaticResource WeightBox}" ToolTip="Mountains" Margin="0" />
-                                                                </Grid>
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                </StackPanel>
-                                            </Expander>
-
-                                            <TextBlock Text="Land shape, redrawn when the whole map is generated" Style="{StaticResource HintText}" Margin="0,10,0,4" />
-                                            <ComboBox ItemsSource="{Binding Generate.ShapeKinds}" DisplayMemberPath="Label" SelectedValuePath="Kind"
+                                            <TextBlock Text="Land shape" ToolTip="Land shape, redrawn when the whole map is generated" Style="{StaticResource HintText}" Margin="0,16,0,6" />
+                                            <ComboBox MinWidth="0" ItemsSource="{Binding Generate.ShapeKinds}" DisplayMemberPath="Label" SelectedValuePath="Kind"
                                                       SelectedValue="{Binding Generate.ShapeKind}" HorizontalAlignment="Stretch" AutomationProperties.Name="Land shape"
                                                       ToolTip="Use a preset land shape or draw your own" />
                                             <Button Content="Edit land" Click="EditLand_Click" Margin="0,6,0,0" HorizontalAlignment="Left"
@@ -1417,64 +1422,47 @@
                                                     <TextBlock DockPanel.Dock="Left" Text="Coast seed" Style="{StaticResource GenLabel}" />
                                                     <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="CoastReroll_Click"
                                                             ToolTip="Generate again with a new coastline; the terrain seed stays" />
-                                                    <TextBox Text="{Binding Generate.CoastSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Coast seed" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.CoastSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Coast seed" />
                                                 </DockPanel>
                                                 <DockPanel Margin="0,6,0,0">
-                                                    <TextBlock DockPanel.Dock="Left" Text="Land" Style="{StaticResource GenLabel}" Width="70" />
+                                                    <TextBlock DockPanel.Dock="Left" Text="Land" Style="{StaticResource GenLabel}" />
                                                     <TextBlock DockPanel.Dock="Right" Text="{Binding Generate.LandPercent, StringFormat={}{0}%}" Width="36" TextAlignment="Right"
                                                                VerticalAlignment="Center" />
                                                     <Slider Minimum="10" Maximum="80" Value="{Binding Generate.LandPercent}" IsSnapToTickEnabled="True" TickFrequency="1"
                                                             VerticalAlignment="Center" AutomationProperties.Name="Land share" ToolTip="Share of the map that is land" />
                                                 </DockPanel>
-                                                <DockPanel Margin="0,4,0,0">
-                                                    <TextBlock DockPanel.Dock="Left" Text="Rough coast" Style="{StaticResource GenLabel}" Width="70" />
+                                                <DockPanel Margin="0,6,0,0">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Rough coast" Style="{StaticResource GenLabel}" />
                                                     <TextBlock DockPanel.Dock="Right" Text="{Binding Generate.Roughness, StringFormat={}{0}%}" Width="36" TextAlignment="Right"
                                                                VerticalAlignment="Center" />
                                                     <Slider Minimum="0" Maximum="100" Value="{Binding Generate.Roughness}" IsSnapToTickEnabled="True" TickFrequency="5"
                                                             VerticalAlignment="Center" AutomationProperties.Name="Coastline roughness"
                                                             ToolTip="How ragged the coastline is: smooth at 0, bays and headlands at 100" />
                                                 </DockPanel>
-                                                <DockPanel Margin="0,4,0,0" Visibility="{Binding Generate.IsArchipelago, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock DockPanel.Dock="Left" Text="Islands" Style="{StaticResource GenLabel}" Width="70" />
+                                                <DockPanel Margin="0,6,0,0" Visibility="{Binding Generate.IsArchipelago, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Islands" Style="{StaticResource GenLabel}" />
                                                     <TextBlock DockPanel.Dock="Right" Text="{Binding Generate.Islands}" Width="36" TextAlignment="Right" VerticalAlignment="Center" />
                                                     <Slider Minimum="2" Maximum="12" Value="{Binding Generate.Islands}" IsSnapToTickEnabled="True" TickFrequency="1"
                                                             VerticalAlignment="Center" AutomationProperties.Name="Islands"
                                                             ToolTip="How many islands to start with; small ones may be dropped" />
                                                 </DockPanel>
-                                                <DockPanel Margin="0,4,0,0" Visibility="{Binding Generate.IsPeninsula, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock DockPanel.Dock="Left" Text="Joined to" Style="{StaticResource GenLabel}" Width="70" />
-                                                    <ComboBox ItemsSource="{Binding Generate.MapEdges}" SelectedItem="{Binding Generate.PeninsulaEdge}" HorizontalAlignment="Stretch"
+                                                <DockPanel Margin="0,6,0,0" Visibility="{Binding Generate.IsPeninsula, Converter={StaticResource BoolToVisibility}}">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Joined to" Style="{StaticResource GenLabel}" />
+                                                    <ComboBox MinWidth="0" ItemsSource="{Binding Generate.MapEdges}" SelectedItem="{Binding Generate.PeninsulaEdge}" HorizontalAlignment="Stretch"
                                                               AutomationProperties.Name="Peninsula edge" ToolTip="The edge the peninsula is joined to" />
                                                 </DockPanel>
                                             </StackPanel>
-                                            <StackPanel Visibility="{Binding Generate.CanReplanBiomes, Converter={StaticResource BoolToVisibility}}"
-                                                        IsEnabled="{Binding Generate.WholeMap}">
-                                                <CheckBox Content="Plan the biomes again for this land" IsChecked="{Binding Generate.ReplanBiomes}" Margin="0,6,0,0"
-                                                          ToolTip="Lays New World's biome layout out again to fit the land (whole-map runs only). Replaces biomes painted by hand; undo puts them back." />
-                                                <DockPanel Margin="0,6,0,0" Visibility="{Binding Generate.ReplanBiomes, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock DockPanel.Dock="Left" Text="Biome seed" Style="{StaticResource GenLabel}" />
-                                                    <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="BiomeReroll_Click"
-                                                            ToolTip="Plan new biomes on the ground as it is; the terrain is not generated again" />
-                                                    <TextBox Text="{Binding Generate.BiomeSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Biome seed" />
-                                                </DockPanel>
-                                                <DockPanel Margin="0,6,0,0" Visibility="{Binding Generate.ReplanBiomes, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock DockPanel.Dock="Left" Text="Layout" Style="{StaticResource GenLabel}" />
-                                                    <ComboBox ItemsSource="{Binding Generate.BiomeLayouts}" SelectedItem="{Binding Generate.BiomeLayout}"
-                                                              DisplayMemberPath="Label" HorizontalAlignment="Stretch" AutomationProperties.Name="Biome layout"
-                                                              ToolTip="Where each biome goes. On an archipelago, One biome per island gives each island one biome: forest first, harder ones farther out, each close to its share of the land." />
-                                                </DockPanel>
-                                            </StackPanel>
 
-                                            <TextBlock Text="Edges, redrawn when the whole map is generated" Style="{StaticResource HintText}" Margin="0,10,0,4"
+                                            <TextBlock Text="Edges" ToolTip="Edges, redrawn when the whole map is generated" Style="{StaticResource HintText}" Margin="0,16,0,6"
                                                        Visibility="{Binding Generate.IsEdges, Converter={StaticResource BoolToVisibility}}" />
                                             <UniformGrid Columns="2" Visibility="{Binding Generate.IsEdges, Converter={StaticResource BoolToVisibility}}">
-                                                <ComboBox ItemsSource="{Binding Generate.EdgeStyles}" SelectedItem="{Binding Generate.EdgeNorth}" Margin="0,0,4,4"
+                                                <ComboBox MinWidth="0" ItemsSource="{Binding Generate.EdgeStyles}" SelectedItem="{Binding Generate.EdgeNorth}" Margin="0,0,3,6"
                                                           ToolTip="North edge" AutomationProperties.Name="North edge" HorizontalAlignment="Stretch" />
-                                                <ComboBox ItemsSource="{Binding Generate.EdgeStyles}" SelectedItem="{Binding Generate.EdgeEast}" Margin="0,0,0,4"
+                                                <ComboBox MinWidth="0" ItemsSource="{Binding Generate.EdgeStyles}" SelectedItem="{Binding Generate.EdgeEast}" Margin="3,0,0,6"
                                                           ToolTip="East edge" AutomationProperties.Name="East edge" HorizontalAlignment="Stretch" />
-                                                <ComboBox ItemsSource="{Binding Generate.EdgeStyles}" SelectedItem="{Binding Generate.EdgeSouth}" Margin="0,0,4,0"
+                                                <ComboBox MinWidth="0" ItemsSource="{Binding Generate.EdgeStyles}" SelectedItem="{Binding Generate.EdgeSouth}" Margin="0,0,3,0"
                                                           ToolTip="South edge" AutomationProperties.Name="South edge" HorizontalAlignment="Stretch" />
-                                                <ComboBox ItemsSource="{Binding Generate.EdgeStyles}" SelectedItem="{Binding Generate.EdgeWest}"
+                                                <ComboBox MinWidth="0" ItemsSource="{Binding Generate.EdgeStyles}" SelectedItem="{Binding Generate.EdgeWest}" Margin="3,0,0,0"
                                                           ToolTip="West edge" AutomationProperties.Name="West edge" HorizontalAlignment="Stretch" />
                                             </UniformGrid>
 
@@ -1489,7 +1477,7 @@
                                             </DockPanel>
 
                                             <TextBlock Text="Tile types painted by hand; generating fills the rest" Style="{StaticResource HintText}"
-                                                       TextWrapping="Wrap" Margin="0,10,0,4" />
+                                                       TextWrapping="Wrap" Margin="0,16,0,6" />
                                             <DockPanel>
                                                 <Button DockPanel.Dock="Left" Click="GeneratePaintTiles_Click" Margin="0,0,6,0"
                                                         ToolTip="Paint the chosen type onto 256 m tiles; Shift+drag clears">
@@ -1500,7 +1488,7 @@
                                                 </Button>
                                                 <Button DockPanel.Dock="Right" Content="Clear" Margin="6,0,0,0" Click="GenerateClearPainted_Click"
                                                         ToolTip="Clear every painted tile" />
-                                                <ComboBox ItemsSource="{Binding Generate.PaintTypes}" SelectedItem="{Binding Generate.PaintType}"
+                                                <ComboBox MinWidth="0" ItemsSource="{Binding Generate.PaintTypes}" SelectedItem="{Binding Generate.PaintType}"
                                                           HorizontalAlignment="Stretch" AutomationProperties.Name="Tile type to paint">
                                                     <ComboBox.ItemTemplate>
                                                         <DataTemplate>
@@ -1514,18 +1502,91 @@
                                                 </ComboBox>
                                             </DockPanel>
                                             <TextBlock Text="{Binding Generate.PaintedText}" Style="{StaticResource HintText}" Margin="0,4,0,0" />
-                                            <CheckBox Content="Show the last run's tile types" IsChecked="{Binding Generate.ShowPlan}" Margin="0,2,0,0"
-                                                      ToolTip="Tint every tile by the type the last Generate gave it" />
                                         </StackPanel>
 
-                                        <DockPanel Margin="0,12,0,0">
+                                        <DockPanel Margin="0,18,0,0">
                                             <Button DockPanel.Dock="Left" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100"
                                                     IsEnabled="{Binding Generate.CanGenerate}" Click="TerrainGenerate_Click" />
+                                            <Button DockPanel.Dock="Left" Content="Re-roll" Margin="6,0,0,0" IsEnabled="{Binding Generate.CanEdit}" Click="TerrainReroll_Click"
+                                                    ToolTip="Generate again with a new seed" />
                                             <Button DockPanel.Dock="Left" Content="Cancel" Margin="6,0,0,0" Click="GenerateCancel_Click"
                                                     Visibility="{Binding Generate.IsRunning, Converter={StaticResource BoolToVisibility}}" />
                                             <ProgressBar Maximum="1" Value="{Binding Generate.Progress}" Margin="10,0,0,0" VerticalAlignment="Center"
                                                          Visibility="{Binding Generate.IsRunning, Converter={StaticResource BoolToVisibility}}" />
                                         </DockPanel>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="More settings" Margin="0,14,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel IsEnabled="{Binding Generate.CanEdit}">
+                                                <DockPanel Margin="0">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.TerrainSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Terrain seed" />
+                                                </DockPanel>
+                                                <StackPanel Margin="0,12,0,0">
+                                                    <TextBlock Text="Per biome" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                                    <TextBlock Text="Tick a biome to give it its own plains, hills and mountains. Unticked wasteland gets no mountains, as in the game."
+                                                               Style="{StaticResource HintText}" Margin="0,0,0,6" />
+                                                    <Grid Margin="0,0,0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="2.6*" />
+                                                            <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                            <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                            <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="1" Text="Plains" Style="{StaticResource GenColumnHeading}" />
+                                                        <TextBlock Grid.Column="2" Text="Hills" Style="{StaticResource GenColumnHeading}" />
+                                                        <TextBlock Grid.Column="3" Text="Mountains" Style="{StaticResource GenColumnHeading}" />
+                                                    </Grid>
+                                                    <ItemsControl ItemsSource="{Binding Generate.BiomeRows}" Focusable="False">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Grid Margin="0,3">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="2.6*" />
+                                                                        <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                                        <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                                        <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <CheckBox Content="{Binding Name}" IsChecked="{Binding Own}" Margin="0" MinWidth="0" VerticalAlignment="Center" />
+                                                                    <TextBox Grid.Column="1" Text="{Binding Plains, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding Own}"
+                                                                             Style="{StaticResource GenTableBox}" ToolTip="Plains" />
+                                                                    <TextBox Grid.Column="2" Text="{Binding Hills, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding Own}"
+                                                                             Style="{StaticResource GenTableBox}" ToolTip="Hills" />
+                                                                    <TextBox Grid.Column="3" Text="{Binding Mountains, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding Own}"
+                                                                             Style="{StaticResource GenTableBox}" ToolTip="Mountains" />
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                                <StackPanel Visibility="{Binding Generate.CanReplanBiomes, Converter={StaticResource BoolToVisibility}}"
+                                                            IsEnabled="{Binding Generate.WholeMap}">
+                                                    <CheckBox IsChecked="{Binding Generate.ReplanBiomes}" Margin="0,12,0,0"
+                                                              ToolTip="Lays New World's biome layout out again to fit the land (whole-map runs only). Replaces biomes painted by hand; undo puts them back.">
+                                                        <TextBlock Text="Plan the biomes again for this land" TextWrapping="Wrap" />
+                                                    </CheckBox>
+                                                    <DockPanel Margin="0,6,0,0" Visibility="{Binding Generate.ReplanBiomes, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock DockPanel.Dock="Left" Text="Biome seed" Style="{StaticResource GenLabel}" />
+                                                        <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="BiomeReroll_Click"
+                                                                ToolTip="Plan new biomes on the ground as it is; the terrain is not generated again" />
+                                                        <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.BiomeSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Biome seed" />
+                                                    </DockPanel>
+                                                    <DockPanel Margin="0,6,0,0" Visibility="{Binding Generate.ReplanBiomes, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock DockPanel.Dock="Left" Text="Layout" Style="{StaticResource GenLabel}" />
+                                                        <ComboBox MinWidth="0" ItemsSource="{Binding Generate.BiomeLayouts}" SelectedItem="{Binding Generate.BiomeLayout}"
+                                                                  DisplayMemberPath="Label" HorizontalAlignment="Stretch" AutomationProperties.Name="Biome layout"
+                                                                  ToolTip="Where each biome goes. On an archipelago, One biome per island gives each island one biome: forest first, harder ones farther out, each close to its share of the land." />
+                                                    </DockPanel>
+                                                </StackPanel>
+                                                <CheckBox IsChecked="{Binding Generate.ShowPlan}" Margin="0,8,0,0"
+                                                          ToolTip="Tint every tile by the type the last Generate gave it">
+                                                    <TextBlock Text="Show the last run's tile types" TextWrapping="Wrap" />
+                                                </CheckBox>
+                                            </StackPanel>
+                                        </Expander>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="Help" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel>
+                                                <TextBlock Text="How much of each biome gets plains, hills and mountains. The numbers are compared with each other; the game uses 4, 4, 2." Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Expander>
                                     </StackPanel>
                                 </Expander>
 
@@ -1534,13 +1595,13 @@
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=2}">
                                     <Expander.Header>
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="2  Town sites" FontWeight="SemiBold" FontSize="15" />
+                                            <WrapPanel>
+                                                <TextBlock Text="2  Town sites" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="15" />
                                                 <Border Style="{StaticResource DoneBadge}"
                                                            Visibility="{Binding Generate.TownDone, Converter={StaticResource BoolToVisibility}}">
                                                            <TextBlock Text="Done" />
                                                            </Border>
-                                            </StackPanel>
+                                            </WrapPanel>
                                             <TextBlock Text="{Binding Generate.TownStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.TownStatus}" />
                                         </StackPanel>
@@ -1548,48 +1609,40 @@
                                     <StackPanel>
 
                                         <StackPanel IsEnabled="{Binding Generate.CanEdit}">
-                                            <DockPanel Margin="0,10,0,0">
-                                                <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
-                                                <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="TownsReroll_Click"
-                                                        ToolTip="Plan again with a new seed. Towns you added or pinned stay." />
-                                                <TextBox Text="{Binding Generate.TownSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Town seed" />
-                                            </DockPanel>
-
-                                            <TextBlock Text="How many towns of each type, and how big each can grow. Size is counted in street tiles (one tile is 150 m); the last column shows roughly how wide that is. Starts at the game's numbers for this world size."
-                                                       Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,10,0,4" />
-                                            <Grid Margin="0,0,0,2">
+                                            <Grid Margin="0,10,0,2">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="52" />
-                                                    <ColumnDefinition Width="64" />
-                                                    <ColumnDefinition Width="64" />
-                                                    <ColumnDefinition Width="84" />
+                                                    <ColumnDefinition Width="2.4*" />
+                                                    <ColumnDefinition Style="{StaticResource GenTownNumberColumn}" />
+                                                    <ColumnDefinition Style="{StaticResource GenTownNumberColumn}" />
+                                                    <ColumnDefinition Style="{StaticResource GenTownNumberColumn}" />
+                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="Town type" Style="{StaticResource HintText}" />
-                                                <TextBlock Grid.Column="1" Text="How many" Style="{StaticResource HintText}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" ToolTip="How many towns of this type, in all" />
-                                                <TextBlock Grid.Column="2" Text="Smallest" Style="{StaticResource HintText}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" ToolTip="Fewest street tiles (150 m each) in one town" />
-                                                <TextBlock Grid.Column="3" Text="Biggest" Style="{StaticResource HintText}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" ToolTip="Most street tiles (150 m each) in one town" />
-                                                <TextBlock Grid.Column="4" Text="About" Style="{StaticResource HintText}" HorizontalAlignment="Center" ToolTip="Roughly how wide a town is at that size" />
+                                                <TextBlock Text="Town type" Style="{StaticResource HintText}" VerticalAlignment="Bottom" />
+                                                <TextBlock Grid.Column="1" Text="How many" Style="{StaticResource GenColumnHeading}" ToolTip="How many towns of this type, in all" />
+                                                <TextBlock Grid.Column="2" Text="Smallest" Style="{StaticResource GenColumnHeading}" ToolTip="Fewest street tiles (150 m each) in one town" />
+                                                <TextBlock Grid.Column="3" Text="Biggest" Style="{StaticResource GenColumnHeading}" ToolTip="Most street tiles (150 m each) in one town" />
+                                                <TextBlock Grid.Column="4" Text="About" Style="{StaticResource TownSizeColumnText}" VerticalAlignment="Bottom" HorizontalAlignment="Center" ToolTip="Roughly how wide a town is at that size" />
                                             </Grid>
                                             <ItemsControl ItemsSource="{Binding Generate.TownRows}" Focusable="False">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Grid Margin="0,2">
+                                                        <Grid Margin="0,3">
                                                             <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="52" />
-                                                                <ColumnDefinition Width="64" />
-                                                                <ColumnDefinition Width="64" />
-                                                                <ColumnDefinition Width="84" />
+                                                                <ColumnDefinition Width="2.4*" />
+                                                                <ColumnDefinition Style="{StaticResource GenTownNumberColumn}" />
+                                                                <ColumnDefinition Style="{StaticResource GenTownNumberColumn}" />
+                                                                <ColumnDefinition Style="{StaticResource GenTownNumberColumn}" />
+                                                                <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
                                                             <StackPanel VerticalAlignment="Center" ToolTip="{Binding Description}">
-                                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock Text="{Binding Description}" Style="{StaticResource HintText}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding SizeText}" Style="{StaticResource HintText}"
+                                                                           Visibility="{Binding DataContext.CompactTownTable, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
                                                             </StackPanel>
-                                                            <TextBox Grid.Column="1" Text="{Binding Count, UpdateSourceTrigger=LostFocus}" Style="{StaticResource WeightBox}" ToolTip="How many towns of this type, in all" />
-                                                            <TextBox Grid.Column="2" Text="{Binding MinTiles, UpdateSourceTrigger=LostFocus}" Style="{StaticResource WeightBox}" ToolTip="Fewest street tiles (150 m each) in one town" />
-                                                            <TextBox Grid.Column="3" Text="{Binding MaxTiles, UpdateSourceTrigger=LostFocus}" Style="{StaticResource WeightBox}" ToolTip="Most street tiles (150 m each) in one town" />
-                                                            <TextBlock Grid.Column="4" Text="{Binding SizeText}" Style="{StaticResource HintText}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                            <TextBox Grid.Column="1" Text="{Binding Count, UpdateSourceTrigger=LostFocus}" Style="{StaticResource GenTableBox}" ToolTip="How many towns of this type, in all" />
+                                                            <TextBox Grid.Column="2" Text="{Binding MinTiles, UpdateSourceTrigger=LostFocus}" Style="{StaticResource GenTableBox}" ToolTip="Fewest street tiles (150 m each) in one town" />
+                                                            <TextBox Grid.Column="3" Text="{Binding MaxTiles, UpdateSourceTrigger=LostFocus}" Style="{StaticResource GenTableBox}" ToolTip="Most street tiles (150 m each) in one town" />
+                                                            <TextBlock Grid.Column="4" Text="{Binding SizeText}" Style="{StaticResource TownSizeColumnText}" VerticalAlignment="Center" HorizontalAlignment="Center"
                                                                        ToolTip="Roughly how wide a town is at its smallest and biggest" />
                                                         </Grid>
                                                     </DataTemplate>
@@ -1601,95 +1654,74 @@
 
                                             <CheckBox Content="One trader per town" Margin="0,8,0,0" IsChecked="{Binding Generate.OneTraderPerTown}"
                                                       ToolTip="Off: the game's way, each biome's own trader, 2 to 4 of each in that biome's biggest towns. On: every town gets one trader." />
-                                            <CheckBox Content="Let towns cross biome borders" Margin="0,4,0,0" IsChecked="{Binding Generate.TownsCrossBorders}"
-                                                      ToolTip="Off: the game's way, every street tile in one biome, so towns stop short of borders. On: a town can straddle a border; each lot still gets POIs and traders for the biome under it." />
-                                            <Expander Style="{StaticResource LinkExpander}" Header="Spacing and biomes" Margin="0,8,0,0" HorizontalAlignment="Stretch">
-                                                <StackPanel>
-                                                    <DockPanel Margin="0,0,0,6">
-                                                        <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.EdgeMarginPercent, UpdateSourceTrigger=LostFocus}"
-                                                                 AutomationProperties.Name="Edge margin" />
-                                                        <TextBlock Text="Keep towns off the edge (% of the map; the game's is 10)" Style="{StaticResource HintText}"
-                                                                   TextWrapping="Wrap" VerticalAlignment="Center" />
-                                                    </DockPanel>
-                                                    <TextBlock Text="Apart: the fewest street tiles to another town. Biomes: where a town may start (forest, burntforest, desert, snow, wasteland); empty for the game's list."
-                                                               Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                        </StackPanel>
+
+                                        <WrapPanel Margin="0,12,0,0">
+                                            <Button Content="Plan towns" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="TownsPlan_Click"
+                                                    ToolTip="Pick the sites and plan every town. Nothing changes in the world until Build." />
+                                            <Button Content="Build" Margin="0,6,6,0" IsEnabled="{Binding Generate.HasPlan}" Click="TownsBuild_Click"
+                                                    ToolTip="Build every planned town as one undo step" />
+                                            <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="TownsReroll_Click"
+                                                    ToolTip="Plan again with a new seed. Towns you added or pinned stay." />
+                                            <Button Content="Clear" Margin="0,6,6,0" IsEnabled="{Binding Generate.HasPlan}" Click="TownsClear_Click"
+                                                    ToolTip="Drop every planned town, pinned ones too" />
+                                        </WrapPanel>
+                                        <TextBlock Text="{Binding Generate.PlanText}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0" />
+
+                                        <Expander Style="{StaticResource LinkExpander}" Header="More settings" Margin="0,14,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel IsEnabled="{Binding Generate.CanEdit}">
+                                                <DockPanel Margin="0">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.TownSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Town seed" />
+                                                </DockPanel>
+                                                <CheckBox Margin="0,8,0,0" IsChecked="{Binding Generate.TownsCrossBorders}"
+                                                          ToolTip="Off: the game's way, every street tile in one biome, so towns stop short of borders. On: a town can straddle a border; each lot still gets POIs and traders for the biome under it.">
+                                                    <TextBlock Text="Let towns cross biome borders" TextWrapping="Wrap" />
+                                                </CheckBox>
+                                                <StackPanel Margin="0,14,0,0">
+                                                    <TextBlock Text="Spacing and biomes" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12"
+                                                                ToolTip="Keep towns off the edge (% of the map; the game's is 10)">
+                                                        <TextBlock Text="Edge margin" Style="{StaticResource GenRowLabel}" />
+                                                        <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.EdgeMarginPercent, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Edge margin" />
+                                                        <TextBlock Text="%" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                    </StackPanel>
+
+                                                    <Grid Margin="0,0,0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="1.6*" />
+                                                            <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                            <ColumnDefinition Width="2.4*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="1" Text="Apart" Style="{StaticResource GenColumnHeading}" />
+                                                        <TextBlock Grid.Column="2" Text="Biomes" Style="{StaticResource HintText}" Margin="6,0,0,0" />
+                                                    </Grid>
                                                     <ItemsControl ItemsSource="{Binding Generate.TownRows}" Focusable="False">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <Grid Margin="0,2">
+                                                                <Grid Margin="0,3">
                                                                     <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="*" />
-                                                                        <ColumnDefinition Width="40" />
-                                                                        <ColumnDefinition Width="110" />
+                                                                        <ColumnDefinition Width="1.6*" />
+                                                                        <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                                        <ColumnDefinition Width="2.4*" />
                                                                     </Grid.ColumnDefinitions>
                                                                     <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-                                                                    <TextBox Grid.Column="1" Text="{Binding Distance, UpdateSourceTrigger=LostFocus}" Style="{StaticResource WeightBox}" ToolTip="Apart" />
-                                                                    <TextBox Grid.Column="2" Text="{Binding Biomes, UpdateSourceTrigger=LostFocus}" Style="{StaticResource WeightBox}" Margin="0"
+                                                                    <TextBox Grid.Column="1" Text="{Binding Distance, UpdateSourceTrigger=LostFocus}" Style="{StaticResource GenTableBox}" ToolTip="Apart" />
+                                                                    <TextBox Grid.Column="2" Text="{Binding Biomes, UpdateSourceTrigger=LostFocus}" MinWidth="0" Margin="6,0,0,0"
                                                                              HorizontalContentAlignment="Left" ToolTip="Biomes it may start in" />
                                                                 </Grid>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
                                                 </StackPanel>
-                                            </Expander>
-                                        </StackPanel>
-
-                                        <DockPanel Margin="0,12,0,0">
-                                            <Button DockPanel.Dock="Left" Content="Plan towns" Style="{DynamicResource AccentButtonStyle}" MinWidth="100"
-                                                    IsEnabled="{Binding Generate.CanEdit}" Click="TownsPlan_Click"
-                                                    ToolTip="Pick the sites and plan every town. Nothing changes in the world until Build." />
-                                            <Button DockPanel.Dock="Left" Content="Build" Margin="6,0,0,0" IsEnabled="{Binding Generate.HasPlan}" Click="TownsBuild_Click"
-                                                    ToolTip="Build every planned town as one undo step" />
-                                            <Button DockPanel.Dock="Left" Content="Clear" Margin="6,0,0,0" IsEnabled="{Binding Generate.HasPlan}" Click="TownsClear_Click"
-                                                    ToolTip="Drop every planned town, pinned ones too" />
-                                            <Border />
-                                        </DockPanel>
-                                        <TextBlock Text="{Binding Generate.PlanText}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0" />
-
-                                        <!-- Review: the town picked on the map. -->
-                                        <Button Margin="0,8,0,0" HorizontalAlignment="Left" Click="TownsReview_Click"
-                                                ToolTip="Pick, move and add towns on the map">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path Data="{x:Static local:Icons.Town}" Style="{StaticResource IconPath}" Width="14" Height="14" Margin="0,0,6,0" />
-                                                <TextBlock Text="Review on the map" />
                                             </StackPanel>
-                                        </Button>
-                                        <DockPanel Margin="0,6,0,0" IsEnabled="{Binding Generate.CanEdit}">
-                                            <TextBlock DockPanel.Dock="Left" Text="Add as" Style="{StaticResource GenLabel}" />
-                                            <ComboBox ItemsSource="{Binding Generate.TownshipNames}" SelectedItem="{Binding Generate.AddTownship}"
-                                                      HorizontalAlignment="Stretch" AutomationProperties.Name="Township for towns added by hand"
-                                                      ToolTip="The township a town dragged out on the map becomes">
-                                                <ComboBox.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <TextBlock Text="{Binding Converter={x:Static local:FriendlyNameConverter.Township}}" />
-                                                    </DataTemplate>
-                                                </ComboBox.ItemTemplate>
-                                            </ComboBox>
-                                        </DockPanel>
-                                        <Border Margin="0,8,0,0" Padding="8" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                                                Visibility="{Binding Generate.HasSelectedSite, Converter={StaticResource BoolToVisibility}}">
-                                            <StackPanel IsEnabled="{Binding Generate.CanEdit}">
-                                                <TextBlock Text="{Binding Generate.SelectedSiteText}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                <DockPanel Margin="0,6,0,0">
-                                                    <TextBox DockPanel.Dock="Right" Width="50" Margin="6,0,0,0" Text="{Binding Generate.SelectedSize, UpdateSourceTrigger=LostFocus}"
-                                                             AutomationProperties.Name="Street tiles" ToolTip="Street tiles" />
-                                                    <ComboBox ItemsSource="{Binding Generate.TownshipNames}" SelectedItem="{Binding Generate.SelectedTownship}"
-                                                              HorizontalAlignment="Stretch" AutomationProperties.Name="Township">
-                                                        <ComboBox.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <TextBlock Text="{Binding Converter={x:Static local:FriendlyNameConverter.Township}}" />
-                                                            </DataTemplate>
-                                                        </ComboBox.ItemTemplate>
-                                                    </ComboBox>
-                                                </DockPanel>
-                                                <DockPanel Margin="0,6,0,0">
-                                                    <Button DockPanel.Dock="Left" Content="Re-roll" Click="SiteReroll_Click" ToolTip="Plan this town again with a new seed" />
-                                                    <Button DockPanel.Dock="Left" Content="Drop" Margin="6,0,0,0" Click="SiteDrop_Click" ToolTip="Remove this town from the plan" />
-                                                    <CheckBox Content="Pinned" IsChecked="{Binding Generate.SelectedPinned}" Margin="10,0,0,0" MinWidth="0"
-                                                              ToolTip="Keep this town when the stage is re-rolled" />
-                                                </DockPanel>
+                                        </Expander>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="Help" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel>
+                                                <TextBlock Text="How many towns of each type, and how big each can grow. Size is counted in street tiles (one tile is 150 m); the estimate shows roughly how wide that is. Starts at the game's numbers for this world size." Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                                <TextBlock Text="Apart and Biomes are under More settings. Apart: the fewest street tiles to another town. Biomes: where a town may start (forest, burntforest, desert, snow, wasteland); empty for the game's list." Style="{StaticResource HintText}" TextWrapping="Wrap" />
                                             </StackPanel>
-                                        </Border>
+                                        </Expander>
                                     </StackPanel>
                                 </Expander>
 
@@ -1698,13 +1730,13 @@
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=3}">
                                     <Expander.Header>
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="3  Lakes, rivers, canyons, craters" FontWeight="SemiBold" FontSize="15" />
+                                            <WrapPanel>
+                                                <TextBlock Text="3  Lakes, rivers, canyons, craters" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="15" />
                                                 <Border Style="{StaticResource DoneBadge}"
                                                            Visibility="{Binding Generate.FeatureDone, Converter={StaticResource BoolToVisibility}}">
                                                            <TextBlock Text="Done" />
                                                            </Border>
-                                            </StackPanel>
+                                            </WrapPanel>
                                             <TextBlock Text="{Binding Generate.FeatureStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.FeatureStatus}" />
                                         </StackPanel>
@@ -1712,70 +1744,51 @@
                                     <StackPanel>
 
                                         <StackPanel IsEnabled="{Binding Generate.CanEdit}">
-                                            <DockPanel Margin="0,10,0,0">
-                                                <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
-                                                <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="FeaturesReroll_Click"
-                                                        ToolTip="Generate again with a new seed. Features you placed or pinned stay." />
-                                                <TextBox Text="{Binding Generate.FeatureSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Feature seed" />
-                                            </DockPanel>
-
-                                            <TextBlock Text="How many of each, and their size (the game's scale; 1 is a stamp of about 700 m). Starts at the game's numbers for this world size; what doesn't fit is left out."
-                                                       Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,10,0,4" />
-                                            <Grid Margin="0,0,0,2">
+                                            <Grid Margin="0,10,0,2">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="44" />
-                                                    <ColumnDefinition Width="48" />
-                                                    <ColumnDefinition Width="48" />
+                                                    <ColumnDefinition Width="2.6*" />
+                                                    <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                    <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                    <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="Feature" Style="{StaticResource HintText}" />
-                                                <TextBlock Grid.Column="1" Text="Count" Style="{StaticResource HintText}" HorizontalAlignment="Center" />
-                                                <TextBlock Grid.Column="2" Text="Size min" Style="{StaticResource HintText}" HorizontalAlignment="Center" />
-                                                <TextBlock Grid.Column="3" Text="Size max" Style="{StaticResource HintText}" HorizontalAlignment="Center" />
+                                                <TextBlock Text="Feature" Style="{StaticResource HintText}" VerticalAlignment="Bottom" />
+                                                <TextBlock Grid.Column="1" Text="Count" Style="{StaticResource GenColumnHeading}" />
+                                                <TextBlock Grid.Column="2" Text="Size min" Style="{StaticResource GenColumnHeading}" />
+                                                <TextBlock Grid.Column="3" Text="Size max" Style="{StaticResource GenColumnHeading}" />
                                             </Grid>
                                             <ItemsControl ItemsSource="{Binding Generate.FeatureRows}" Focusable="False">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Grid Margin="0,2">
+                                                        <Grid Margin="0,3">
                                                             <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="44" />
-                                                                <ColumnDefinition Width="48" />
-                                                                <ColumnDefinition Width="48" />
+                                                                <ColumnDefinition Width="2.6*" />
+                                                                <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                                <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
+                                                                <ColumnDefinition Style="{StaticResource GenNumberColumn}" />
                                                             </Grid.ColumnDefinitions>
                                                             <StackPanel VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding Name}" />
                                                                 <TextBlock Text="{Binding GameNote}" Style="{StaticResource HintText}" />
                                                             </StackPanel>
-                                                            <TextBox Grid.Column="1" Text="{Binding Count, UpdateSourceTrigger=LostFocus}" Style="{StaticResource WeightBox}" ToolTip="How many" />
-                                                            <TextBox Grid.Column="2" Text="{Binding ScaleMin, UpdateSourceTrigger=LostFocus}" Style="{StaticResource WeightBox}" ToolTip="Smallest scale" />
-                                                            <TextBox Grid.Column="3" Text="{Binding ScaleMax, UpdateSourceTrigger=LostFocus}" Style="{StaticResource WeightBox}" ToolTip="Largest scale" Margin="0" />
+                                                            <TextBox Grid.Column="1" Text="{Binding Count, UpdateSourceTrigger=LostFocus}" Style="{StaticResource GenTableBox}" ToolTip="How many" />
+                                                            <TextBox Grid.Column="2" Text="{Binding ScaleMin, UpdateSourceTrigger=LostFocus}" Style="{StaticResource GenTableBox}" ToolTip="Smallest scale" />
+                                                            <TextBox Grid.Column="3" Text="{Binding ScaleMax, UpdateSourceTrigger=LostFocus}" Style="{StaticResource GenTableBox}" ToolTip="Largest scale" />
                                                         </Grid>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
                                             <Button Content="Game numbers" HorizontalAlignment="Left" Margin="0,4,0,0" Click="FeaturesDefaults_Click"
                                                     ToolTip="Put back the game's counts and sizes for this world size" />
-
-                                            <CheckBox Content="Mountain lakes" IsChecked="{Binding Generate.MountainLakes}" Margin="0,10,0,0"
-                                                      ToolTip="Lakes fill at their own ground level instead of the game's fixed 30 m, so they hold water on high ground and may sit in the mountains" />
-                                            <CheckBox Content="Long rivers" IsChecked="{Binding Generate.LongRivers}" Margin="0,4,0,0"
-                                                      ToolTip="Each river runs downhill, stamp after stamp, until it reaches water or the edge; one that runs dry ends in a lake" />
-                                            <DockPanel Margin="24,4,0,0" IsEnabled="{Binding Generate.LongRivers}">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.RiverSegments, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="River stamps" />
-                                                <TextBlock Text="Most stamps in one river" Style="{StaticResource HintText}" VerticalAlignment="Center" />
-                                            </DockPanel>
                                         </StackPanel>
 
-                                        <DockPanel Margin="0,12,0,0">
-                                            <Button DockPanel.Dock="Left" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100"
-                                                    IsEnabled="{Binding Generate.CanEdit}" Click="FeaturesGenerate_Click"
+                                        <WrapPanel Margin="0,12,0,0">
+                                            <Button Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="FeaturesGenerate_Click"
                                                     ToolTip="Take out the last run's features and press in new ones, as one undo step. Placed and pinned ones stay." />
-                                            <Button DockPanel.Dock="Left" Content="Remove all" Margin="6,0,0,0" IsEnabled="{Binding Generate.CanEdit}" Click="FeaturesRemove_Click"
+                                            <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="FeaturesReroll_Click"
+                                                    ToolTip="Generate again with a new seed. Features you placed or pinned stay." />
+                                            <Button Content="Remove all" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="FeaturesRemove_Click"
                                                     ToolTip="Take every feature out of the world, pinned ones too, as one undo step" />
-                                            <Border />
-                                        </DockPanel>
+                                        </WrapPanel>
 
                                         <Button Margin="0,8,0,0" HorizontalAlignment="Left" Click="FeaturesPlace_Click"
                                                 ToolTip="Click empty ground to place a feature there, pinned; click a feature to pick it">
@@ -1784,22 +1797,46 @@
                                                 <TextBlock Text="Place on the map" />
                                             </StackPanel>
                                         </Button>
-                                        <DockPanel Margin="0,6,0,0" IsEnabled="{Binding Generate.CanEdit}">
-                                            <TextBlock DockPanel.Dock="Left" Text="Place" Style="{StaticResource GenLabel}" />
-                                            <ComboBox ItemsSource="{Binding Generate.FeatureKinds}" SelectedItem="{Binding Generate.PlaceKind}"
-                                                      HorizontalAlignment="Stretch" AutomationProperties.Name="Feature to place by hand" />
-                                        </DockPanel>
-                                        <Border Margin="0,8,0,0" Padding="8" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                                                Visibility="{Binding Generate.HasSelectedFeature, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel Visibility="{Binding IsFeaturesTool, Converter={StaticResource BoolToVisibility}}">
+                                            <DockPanel Margin="0,6,0,0" IsEnabled="{Binding Generate.CanEdit}">
+                                                <TextBlock DockPanel.Dock="Left" Text="Place" Style="{StaticResource GenLabel}" />
+                                                <ComboBox MinWidth="0" ItemsSource="{Binding Generate.FeatureKinds}" SelectedItem="{Binding Generate.PlaceKind}"
+                                                          HorizontalAlignment="Stretch" AutomationProperties.Name="Feature to place by hand" />
+                                            </DockPanel>
+                                            <Border Margin="0,8,0,0" Padding="8" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                                    Visibility="{Binding Generate.HasSelectedFeature, Converter={StaticResource BoolToVisibility}}">
+                                                <StackPanel IsEnabled="{Binding Generate.CanEdit}">
+                                                    <TextBlock Text="{Binding Generate.SelectedFeatureText}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                    <DockPanel Margin="0,6,0,0">
+                                                        <Button DockPanel.Dock="Left" Content="Drop" Click="FeatureDrop_Click" ToolTip="Take this feature out of the world (a long river goes whole)" />
+                                                        <CheckBox Content="Pinned" IsChecked="{Binding Generate.SelectedFeaturePinned}" Margin="10,0,0,0" MinWidth="0"
+                                                                  ToolTip="Keep this feature when the stage is generated again" />
+                                                    </DockPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="More settings" Margin="0,14,0,0" HorizontalAlignment="Stretch">
                                             <StackPanel IsEnabled="{Binding Generate.CanEdit}">
-                                                <TextBlock Text="{Binding Generate.SelectedFeatureText}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                <DockPanel Margin="0,6,0,0">
-                                                    <Button DockPanel.Dock="Left" Content="Drop" Click="FeatureDrop_Click" ToolTip="Take this feature out of the world (a long river goes whole)" />
-                                                    <CheckBox Content="Pinned" IsChecked="{Binding Generate.SelectedFeaturePinned}" Margin="10,0,0,0" MinWidth="0"
-                                                              ToolTip="Keep this feature when the stage is generated again" />
+                                                <DockPanel Margin="0">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.FeatureSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Feature seed" />
                                                 </DockPanel>
+                                                <CheckBox Content="Mountain lakes" IsChecked="{Binding Generate.MountainLakes}" Margin="0,8,0,0"
+                                                          ToolTip="Lakes fill at their own ground level instead of the game's fixed 30 m, so they hold water on high ground and may sit in the mountains" />
+                                                <CheckBox Content="Long rivers" IsChecked="{Binding Generate.LongRivers}" Margin="0,4,0,0"
+                                                          ToolTip="Each river runs downhill, stamp after stamp, until it reaches water or the edge; one that runs dry ends in a lake" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0" IsEnabled="{Binding Generate.LongRivers}"
+                                                            ToolTip="Most stamps in one river">
+                                                    <TextBlock Text="River stamps" Style="{StaticResource GenRowLabel}" />
+                                                    <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.RiverSegments, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="River stamps" />
+                                                </StackPanel>
                                             </StackPanel>
-                                        </Border>
+                                        </Expander>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="Help" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel>
+                                                <TextBlock Text="How many of each, and their size (the game's scale; 1 is a stamp of about 700 m). Starts at the game's numbers for this world size; what doesn't fit is left out." Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Expander>
                                     </StackPanel>
                                 </Expander>
 
@@ -1808,13 +1845,13 @@
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=4}">
                                     <Expander.Header>
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="4  Highways" FontWeight="SemiBold" FontSize="15" />
+                                            <WrapPanel>
+                                                <TextBlock Text="4  Highways" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="15" />
                                                 <Border Style="{StaticResource DoneBadge}"
                                                            Visibility="{Binding Generate.HighwayDone, Converter={StaticResource BoolToVisibility}}">
                                                            <TextBlock Text="Done" />
                                                            </Border>
-                                            </StackPanel>
+                                            </WrapPanel>
                                             <TextBlock Text="{Binding Generate.HighwayStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.HighwayStatus}" />
                                         </StackPanel>
@@ -1822,57 +1859,61 @@
                                     <StackPanel>
 
                                         <StackPanel IsEnabled="{Binding Generate.CanEdit}">
-                                            <DockPanel Margin="0,10,0,0">
-                                                <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
-                                                <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="HighwaysReroll_Click"
-                                                        ToolTip="Generate again with a new seed, which bends the routes another way" />
-                                                <TextBox Text="{Binding Generate.HighwaySeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Highway seed" />
-                                            </DockPanel>
-                                            <Expander Style="{StaticResource LinkExpander}" Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
-                                                <TextBlock Text="Joins the towns the game's way: each gateway to the cheapest of its three nearest towns, rings round big cities, gravel roads from towns without gateways."
-                                                           Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
-                                            </Expander>
-                                            <DockPanel Margin="0,4,0,0">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.WigglePercent, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="Route wiggle" />
-                                                <TextBlock Text="Route wiggle from the seed (%; 0 for the game's exact routes)" Style="{StaticResource HintText}"
-                                                           TextWrapping="Wrap" VerticalAlignment="Center" />
-                                            </DockPanel>
-                                            <DockPanel Margin="0,4,0,0">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.CausewayMax, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="Longest causeway" />
-                                                <TextBlock Text="Longest causeway over water (m); wider water is gone round" Style="{StaticResource HintText}"
-                                                           TextWrapping="Wrap" VerticalAlignment="Center" />
-                                            </DockPanel>
-                                            <CheckBox Content="Join every town" IsChecked="{Binding Generate.JoinUp}" Margin="0,6,0,0"
+                                            <CheckBox Content="Join every town" IsChecked="{Binding Generate.JoinUp}" Margin="0,10,0,0"
                                                       ToolTip="After the game's rules, join any group of towns cut off from the rest to its nearest neighbours" />
                                             <CheckBox Content="Bridge islands" IsChecked="{Binding Generate.Bridges}" Margin="26,6,0,0" IsEnabled="{Binding Generate.JoinUp}"
                                                       ToolTip="Join towns on separate islands with the game's bridge sections, straight north-south or east-west, with open water under them for boats" />
-                                            <DockPanel Margin="26,4,0,0" IsEnabled="{Binding Generate.JoinUp}"
-                                                       Visibility="{Binding Generate.Bridges, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.BridgeMax, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="Longest bridge" />
-                                                <TextBlock Text="Longest bridge over water (m)" Style="{StaticResource HintText}"
-                                                           TextWrapping="Wrap" VerticalAlignment="Center" />
-                                            </DockPanel>
-                                            <CheckBox Content="Shortcut bridges" IsChecked="{Binding Generate.BridgeShortcuts}" Margin="26,6,0,0" IsEnabled="{Binding Generate.JoinUp}"
-                                                      Visibility="{Binding Generate.Bridges, Converter={StaticResource BoolToVisibility}}"
-                                                      ToolTip="Once every island is joined, also bridge two islands straight across where the way round takes 3 or more bridges" />
-                                            <CheckBox Content="Car wrecks on bridges" IsChecked="{Binding Generate.DeckWrecks}" Margin="26,6,0,0" IsEnabled="{Binding Generate.JoinUp}"
-                                                      Visibility="{Binding Generate.Bridges, Converter={StaticResource BoolToVisibility}}"
-                                                      ToolTip="Stand a car wreck on each bridge deck about every 100 to 150 m, picked from the seed, so the same seed gives the same wrecks" />
-                                            <CheckBox Content="Allow a second road between two towns" IsChecked="{Binding Generate.SecondRoad}" Margin="0,6,0,0"
-                                                      ToolTip="The game can join two towns with two highways that run side by side. Off: one highway per pair of towns" />
+                                            <StackPanel Margin="52,0,0,0" IsEnabled="{Binding Generate.JoinUp}"
+                                                        Visibility="{Binding Generate.Bridges, Converter={StaticResource BoolToVisibility}}">
+                                                <CheckBox Content="Shortcut bridges" IsChecked="{Binding Generate.BridgeShortcuts}" Margin="0,6,0,0"
+                                                          ToolTip="Once every island is joined, also bridge two islands straight across where the way round takes 3 or more bridges" />
+                                                <CheckBox Content="Car wrecks on bridges" IsChecked="{Binding Generate.DeckWrecks}" Margin="0,6,0,0"
+                                                          ToolTip="Stand a car wreck on each bridge deck about every 100 to 150 m, picked from the seed, so the same seed gives the same wrecks" />
+                                            </StackPanel>
                                         </StackPanel>
 
-                                        <DockPanel Margin="0,12,0,0">
-                                            <Button DockPanel.Dock="Left" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100"
-                                                    IsEnabled="{Binding Generate.CanEdit}" Click="HighwaysGenerate_Click"
+                                        <WrapPanel Margin="0,12,0,0">
+                                            <Button Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="HighwaysGenerate_Click"
                                                     ToolTip="Take out the last run's roads and lay new ones between the built towns, as one undo step" />
-                                            <Button DockPanel.Dock="Left" Content="Remove all" Margin="6,0,0,0" IsEnabled="{Binding Generate.HasHighways}" Click="HighwaysRemove_Click"
+                                            <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="HighwaysReroll_Click"
+                                                    ToolTip="Generate again with a new seed, which bends the routes another way" />
+                                            <Button Content="Remove all" Margin="0,6,6,0" IsEnabled="{Binding Generate.HasHighways}" Click="HighwaysRemove_Click"
                                                     ToolTip="Take out every road this stage laid, putting back the ground under it, as one undo step" />
-                                            <Border />
-                                        </DockPanel>
+                                        </WrapPanel>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="More settings" Margin="0,14,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel IsEnabled="{Binding Generate.CanEdit}">
+                                                <DockPanel Margin="0">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.HighwaySeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Highway seed" />
+                                                </DockPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                                            ToolTip="Route wiggle from the seed (%; 0 for the game's exact routes)">
+                                                    <TextBlock Text="Route wiggle" Style="{StaticResource GenRowLabel}" />
+                                                    <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.WigglePercent, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Route wiggle" />
+                                                    <TextBlock Text="%" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                                            ToolTip="Longest causeway over water (m); wider water is gone round">
+                                                    <TextBlock Text="Longest causeway" Style="{StaticResource GenRowLabel}" />
+                                                    <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.CausewayMax, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Longest causeway" />
+                                                    <TextBlock Text="m" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0" IsEnabled="{Binding Generate.JoinUp}"
+                                                            Visibility="{Binding Generate.Bridges, Converter={StaticResource BoolToVisibility}}"
+                                                            ToolTip="Longest bridge over water (m)">
+                                                    <TextBlock Text="Longest bridge" Style="{StaticResource GenRowLabel}" />
+                                                    <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.BridgeMax, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Longest bridge" />
+                                                    <TextBlock Text="m" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                </StackPanel>
+                                                <CheckBox Content="Allow a second road" IsChecked="{Binding Generate.SecondRoad}" Margin="0,6,0,0"
+                                                          ToolTip="Allow a second road between two towns. The game can join two towns with two highways that run side by side. Off: one highway per pair of towns" />
+                                            </StackPanel>
+                                        </Expander>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="Help" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel>
+                                                <TextBlock Text="Joins the towns the game's way: each gateway to the cheapest of its three nearest towns, rings round big cities, gravel roads from towns without gateways." Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Expander>
                                     </StackPanel>
                                 </Expander>
 
@@ -1881,13 +1922,13 @@
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=5}">
                                     <Expander.Header>
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="5  Wilderness POIs and gravel roads" FontWeight="SemiBold" FontSize="15" />
+                                            <WrapPanel>
+                                                <TextBlock Text="5  Wilderness POIs and gravel roads" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="15" />
                                                 <Border Style="{StaticResource DoneBadge}"
                                                            Visibility="{Binding Generate.WildernessDone, Converter={StaticResource BoolToVisibility}}">
                                                            <TextBlock Text="Done" />
                                                            </Border>
-                                            </StackPanel>
+                                            </WrapPanel>
                                             <TextBlock Text="{Binding Generate.WildernessStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.WildernessStatus}" />
                                         </StackPanel>
@@ -1896,21 +1937,11 @@
 
                                         <StackPanel IsEnabled="{Binding Generate.CanEdit}">
                                             <DockPanel Margin="0,10,0,0">
-                                                <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
-                                                <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="WildernessReroll_Click"
-                                                        ToolTip="Generate again with a new seed. POIs you placed or pinned stay." />
-                                                <TextBox Text="{Binding Generate.WildernessSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Wilderness seed" />
-                                            </DockPanel>
-                                            <Expander Style="{StaticResource LinkExpander}" Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
-                                                <TextBlock Text="The game's way: in each biome, free 150 m cells far from towns go first, each getting the best scoring wilderness POI that fits on dry, flat-enough ground of one biome."
-                                                           Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
-                                            </Expander>
-                                            <DockPanel Margin="0,4,0,0">
                                                 <TextBlock DockPanel.Dock="Left" Text="Game count" Style="{StaticResource GenLabel}" />
-                                                <TextBox DockPanel.Dock="Right" Width="50" Margin="6,0,0,0" Text="{Binding Generate.WildernessPercent, UpdateSourceTrigger=LostFocus}"
+                                                <TextBox DockPanel.Dock="Right" Style="{StaticResource GenSettingBox}" Text="{Binding Generate.WildernessPercent, UpdateSourceTrigger=LostFocus}"
                                                          AutomationProperties.Name="Wilderness count percent" ToolTip="The game's count times this, in percent" />
                                                 <TextBlock DockPanel.Dock="Right" Text="×%" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="6,0,0,0" />
-                                                <ComboBox ItemsSource="{Binding Generate.WildernessAmounts}" SelectedIndex="{Binding Generate.WildernessAmount}"
+                                                <ComboBox MinWidth="0" ItemsSource="{Binding Generate.WildernessAmounts}" SelectedIndex="{Binding Generate.WildernessAmount}"
                                                           HorizontalAlignment="Stretch" AutomationProperties.Name="Wilderness count" />
                                             </DockPanel>
                                             <TextBlock Text="{Binding Generate.WildernessCountsText}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,4,0,0" />
@@ -1922,55 +1953,46 @@
                                                         Value="{Binding Generate.WildernessTier}" AutomationProperties.Name="Tier mix"
                                                         ToolTip="Left for easier POIs, right for harder ones; the middle is the game's mix" />
                                             </DockPanel>
-                                            <DockPanel Margin="0,6,0,0">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.WildernessGap, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="Gap from towns and roads" />
-                                                <TextBlock Text="Gap from towns and roads (m)" Style="{StaticResource HintText}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                            </DockPanel>
                                             <CheckBox Content="Gravel roads" IsChecked="{Binding Generate.WildernessRoads}" Margin="0,8,0,0"
                                                       ToolTip="A gravel road from each POI's road exit to the nearest road, as the game lays them" />
-                                            <DockPanel Margin="24,4,0,0" IsEnabled="{Binding Generate.WildernessRoads}">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.WildernessMaxRoad, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="Longest gravel road" />
-                                                <TextBlock Text="Longest road (m); POIs farther from a road get none" Style="{StaticResource HintText}"
-                                                           TextWrapping="Wrap" VerticalAlignment="Center" />
-                                            </DockPanel>
-                                            <Button Content="Game settings" HorizontalAlignment="Left" Margin="0,8,0,0" Click="WildernessDefaults_Click"
-                                                    ToolTip="Put back the game's count, mix and roads (keeps the seed)" />
                                         </StackPanel>
 
-                                        <DockPanel Margin="0,12,0,0">
-                                            <Button DockPanel.Dock="Left" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100"
-                                                    IsEnabled="{Binding Generate.CanEdit}" Click="WildernessGenerate_Click"
+                                        <WrapPanel Margin="0,12,0,0">
+                                            <Button Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="WildernessGenerate_Click"
                                                     ToolTip="Take out the last run's POIs and roads and place new ones, as one undo step. Placed and pinned ones stay." />
-                                            <Button DockPanel.Dock="Left" Content="Remove all" Margin="6,0,0,0" IsEnabled="{Binding Generate.HasWilderness}" Click="WildernessRemove_Click"
+                                            <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="WildernessReroll_Click"
+                                                    ToolTip="Generate again with a new seed. POIs you placed or pinned stay." />
+                                            <Button Content="Remove all" Margin="0,6,6,0" IsEnabled="{Binding Generate.HasWilderness}" Click="WildernessRemove_Click"
                                                     ToolTip="Take out every POI and gravel road this stage placed, pinned ones too, putting back the ground, as one undo step" />
-                                            <Border />
-                                        </DockPanel>
+                                        </WrapPanel>
 
-                                        <Button Margin="0,8,0,0" HorizontalAlignment="Left" Click="WildernessPlace_Click"
-                                                ToolTip="Click empty ground to place a POI there, pinned; click a POI this stage placed to pick it">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Path Data="{x:Static local:Icons.Prefab}" Style="{StaticResource IconPath}" Width="14" Height="14" Margin="0,0,6,0" />
-                                                <TextBlock Text="Place on the map" />
-                                            </StackPanel>
-                                        </Button>
-                                        <DockPanel Margin="0,6,0,0" IsEnabled="{Binding Generate.CanEdit}">
-                                            <TextBlock DockPanel.Dock="Left" Text="Place" Style="{StaticResource GenLabel}" />
-                                            <ComboBox ItemsSource="{Binding Generate.PoiChoices}" SelectedItem="{Binding Generate.PlacePoi}" IsTextSearchEnabled="True"
-                                                      HorizontalAlignment="Stretch" AutomationProperties.Name="POI to place by hand" />
-                                        </DockPanel>
-                                        <Border Margin="0,8,0,0" Padding="8" CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                                                Visibility="{Binding Generate.HasSelectedPoi, Converter={StaticResource BoolToVisibility}}">
+                                        <Expander Style="{StaticResource LinkExpander}" Header="More settings" Margin="0,14,0,0" HorizontalAlignment="Stretch">
                                             <StackPanel IsEnabled="{Binding Generate.CanEdit}">
-                                                <TextBlock Text="{Binding Generate.SelectedPoiText}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                <DockPanel Margin="0,6,0,0">
-                                                    <Button DockPanel.Dock="Left" Content="Drop" Click="PoiDrop_Click" ToolTip="Take this POI and its gravel road out of the world" />
-                                                    <CheckBox Content="Pinned" IsChecked="{Binding Generate.SelectedPoiPinned}" Margin="10,0,0,0" MinWidth="0"
-                                                              ToolTip="Keep this POI when the stage is generated again" />
+                                                <DockPanel Margin="0">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.WildernessSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Wilderness seed" />
                                                 </DockPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                                            ToolTip="Gap from towns and roads (m)">
+                                                    <TextBlock Text="Gap" Style="{StaticResource GenRowLabel}" />
+                                                    <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.WildernessGap, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Gap from towns and roads" />
+                                                    <TextBlock Text="m" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0" IsEnabled="{Binding Generate.WildernessRoads}"
+                                                            ToolTip="Longest road (m); POIs farther from a road get none">
+                                                    <TextBlock Text="Longest road" Style="{StaticResource GenRowLabel}" />
+                                                    <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.WildernessMaxRoad, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Longest gravel road" />
+                                                    <TextBlock Text="m" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                </StackPanel>
+                                                <Button Content="Game settings" HorizontalAlignment="Left" Margin="0,8,0,0" Click="WildernessDefaults_Click"
+                                                        ToolTip="Put back the game's count, mix and roads (keeps the seed)" />
                                             </StackPanel>
-                                        </Border>
+                                        </Expander>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="Help" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel>
+                                                <TextBlock Text="The game's way: in each biome, free 150 m cells far from towns go first, each getting the best scoring wilderness POI that fits on dry, flat-enough ground of one biome." Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Expander>
                                     </StackPanel>
                                 </Expander>
 
@@ -1979,13 +2001,13 @@
                                           IsExpanded="{Binding Generate.OpenStage, Converter={StaticResource StageOpen}, ConverterParameter=6}">
                                     <Expander.Header>
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="6  Spawn points" FontWeight="SemiBold" FontSize="15" />
+                                            <WrapPanel>
+                                                <TextBlock Text="6  Spawn points" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="15" />
                                                 <Border Style="{StaticResource DoneBadge}"
                                                            Visibility="{Binding Generate.SpawnDone, Converter={StaticResource BoolToVisibility}}">
                                                            <TextBlock Text="Done" />
                                                            </Border>
-                                            </StackPanel>
+                                            </WrapPanel>
                                             <TextBlock Text="{Binding Generate.SpawnStatusLine}" Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,2,0,0"
                                                        ToolTip="{Binding Generate.SpawnStatus}" />
                                         </StackPanel>
@@ -1993,63 +2015,33 @@
                                     <StackPanel>
 
                                         <StackPanel IsEnabled="{Binding Generate.CanEdit}">
-                                            <DockPanel Margin="0,10,0,0">
-                                                <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
-                                                <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="SpawnsReroll_Click"
-                                                        ToolTip="Generate again with a new seed. Spawns you placed or moved stay." />
-                                                <TextBox Text="{Binding Generate.SpawnSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Spawn seed" />
-                                            </DockPanel>
-                                            <Expander Style="{StaticResource LinkExpander}" Header="How the game does it" Margin="0,10,0,4" HorizontalAlignment="Stretch">
-                                                <TextBlock Text="The game's way: along stage 5's gravel roads, next to tier 0 and 1 POIs, near a trader of the same biome, 60 m apart; then the free cells nearest a trader until there are enough. Traders come from Build in stage 2."
-                                                           Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
-                                            </Expander>
-                                            <TextBlock Text="Biomes (the game uses the forest)" Style="{StaticResource HintText}" Margin="0,4,0,2" />
-                                            <WrapPanel>
-                                                <CheckBox Content="Forest" IsChecked="{Binding Generate.SpawnForest}" MinWidth="0" Margin="0,0,12,0" />
-                                                <CheckBox Content="Burnt forest" IsChecked="{Binding Generate.SpawnBurntForest}" MinWidth="0" Margin="0,0,12,0" />
-                                                <CheckBox Content="Desert" IsChecked="{Binding Generate.SpawnDesert}" MinWidth="0" Margin="0,0,12,0" />
-                                                <CheckBox Content="Snow" IsChecked="{Binding Generate.SpawnSnow}" MinWidth="0" Margin="0,0,12,0" />
-                                                <CheckBox Content="Wasteland" IsChecked="{Binding Generate.SpawnWasteland}" MinWidth="0" Margin="0,0,12,0" />
-                                            </WrapPanel>
+                                            <TextBlock Text="Biomes (the game uses the forest)" Style="{StaticResource HintText}" Margin="0,10,0,2" />
+                                            <UniformGrid Columns="2">
+                                                <CheckBox Content="Forest" IsChecked="{Binding Generate.SpawnForest}" MinWidth="0" Margin="0,0,6,0" />
+                                                <CheckBox Content="Burnt forest" IsChecked="{Binding Generate.SpawnBurntForest}" MinWidth="0" Margin="0,0,6,0" />
+                                                <CheckBox Content="Desert" IsChecked="{Binding Generate.SpawnDesert}" MinWidth="0" Margin="0,0,6,0" />
+                                                <CheckBox Content="Snow" IsChecked="{Binding Generate.SpawnSnow}" MinWidth="0" Margin="0,0,6,0" />
+                                                <CheckBox Content="Wasteland" IsChecked="{Binding Generate.SpawnWasteland}" MinWidth="0" Margin="0,0,6,0" />
+                                            </UniformGrid>
                                             <TextBlock Text="None ticked: any biome, any trader." Style="{StaticResource HintText}" Margin="0,2,0,0" />
-                                            <DockPanel Margin="0,8,0,0">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.SpawnMin, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="Fewest spawns" />
-                                                <TextBlock Text="At least (the game's is 12; spawns already in the world count)" Style="{StaticResource HintText}"
-                                                           TextWrapping="Wrap" VerticalAlignment="Center" />
-                                            </DockPanel>
-                                            <DockPanel Margin="0,6,0,0">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.SpawnMax, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="Most spawns" />
-                                                <TextBlock Text="At most (0 for no limit, as the game)" Style="{StaticResource HintText}"
-                                                           TextWrapping="Wrap" VerticalAlignment="Center" />
-                                            </DockPanel>
-                                            <TextBlock Text="The gravel roads from stage 5 get spawns first, often many more than the least number. Set At most to limit them."
-                                                       Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                        ToolTip="At least (the game's is 12; spawns already in the world count)">
+                                                <TextBlock Text="At least" Style="{StaticResource GenRowLabel}" />
+                                                <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.SpawnMin, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Fewest spawns" />
+                                            </StackPanel>
                                             <TextBlock Text="Stage 5 has no gravel roads yet, so only the least number go in. After stage 5 runs, Generate again for the road spawns."
                                                        Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,4,0,0"
                                                        Visibility="{Binding Generate.SpawnsWithoutRoads, Converter={StaticResource BoolToVisibility}}" />
-                                            <DockPanel Margin="0,6,0,0">
-                                                <TextBox DockPanel.Dock="Right" Width="50" Text="{Binding Generate.SpawnTraderDistance, UpdateSourceTrigger=LostFocus}"
-                                                         AutomationProperties.Name="Trader distance" />
-                                                <TextBlock Text="Trader distance (m): a spawn by a gravel road must be this close to a trader. The game uses 900." Style="{StaticResource HintText}"
-                                                           TextWrapping="Wrap" VerticalAlignment="Center"
-                                                           ToolTip="Only spawns along stage 5's gravel roads are checked. The top-up spawns go in the free cells nearest a trader." />
-                                            </DockPanel>
-                                            <CheckBox Content="Near the opening quest's trader" IsChecked="{Binding Generate.SpawnNearStarterTrader}" Margin="0,8,0,0"
-                                                      ToolTip="The game's first quest sends every new player to one pine-forest trader: the one with the most tier-1 POIs within 500 m, however far away. With this ticked, spawns go within the trader distance of that trader (750 m at most, where Validate starts to warn), and the top-up nearest it. Not ticked: by any trader of their biome, as the game does." />
-                                            <Button Content="Game settings" HorizontalAlignment="Left" Margin="0,8,0,0" Click="SpawnsDefaults_Click"
-                                                    ToolTip="Put back the game's biome, count and trader distance (keeps the seed)" />
                                         </StackPanel>
 
-                                        <DockPanel Margin="0,12,0,0">
-                                            <Button DockPanel.Dock="Left" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100"
-                                                    IsEnabled="{Binding Generate.CanEdit}" Click="SpawnsGenerate_Click"
+                                        <WrapPanel Margin="0,12,0,0">
+                                            <Button Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="SpawnsGenerate_Click"
                                                     ToolTip="Take out the last run's spawns and place new ones, as one undo step. Spawns you placed or moved stay." />
-                                            <Button DockPanel.Dock="Left" Content="Remove all" Margin="6,0,0,0" IsEnabled="{Binding Generate.HasSpawns}" Click="SpawnsRemove_Click"
+                                            <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="SpawnsReroll_Click"
+                                                    ToolTip="Generate again with a new seed. Spawns you placed or moved stay." />
+                                            <Button Content="Remove all" Margin="0,6,6,0" IsEnabled="{Binding Generate.HasSpawns}" Click="SpawnsRemove_Click"
                                                     ToolTip="Take out every spawn this stage placed, as one undo step" />
-                                            <Border />
-                                        </DockPanel>
+                                        </WrapPanel>
                                         <Button Margin="0,8,0,0" HorizontalAlignment="Left" Click="SpawnsEdit_Click"
                                                 ToolTip="Add, move, turn and delete spawns by hand. A spawn you add or move is yours and stays when the stage runs again.">
                                             <StackPanel Orientation="Horizontal">
@@ -2057,6 +2049,37 @@
                                                 <TextBlock Text="Edit on the map" />
                                             </StackPanel>
                                         </Button>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="More settings" Margin="0,14,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel IsEnabled="{Binding Generate.CanEdit}">
+                                                <DockPanel Margin="0">
+                                                    <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
+                                                    <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.SpawnSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Spawn seed" />
+                                                </DockPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                                            ToolTip="At most (0 for no limit, as the game)">
+                                                    <TextBlock Text="At most" Style="{StaticResource GenRowLabel}" />
+                                                    <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.SpawnMax, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Most spawns" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                                            ToolTip="Trader distance (m): a spawn by a gravel road must be this close to a trader. The game uses 900. Only spawns along stage 5's gravel roads are checked. The top-up spawns go in the free cells nearest a trader.">
+                                                    <TextBlock Text="Trader distance" Style="{StaticResource GenRowLabel}" />
+                                                    <TextBox Style="{StaticResource GenSettingBox}" Margin="0" Text="{Binding Generate.SpawnTraderDistance, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Trader distance" />
+                                                    <TextBlock Text="m" Style="{StaticResource HintText}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                                </StackPanel>
+                                                <CheckBox IsChecked="{Binding Generate.SpawnNearStarterTrader}" Margin="0,8,0,0"
+                                                          ToolTip="The game's first quest sends every new player to one pine-forest trader: the one with the most tier-1 POIs within 500 m, however far away. With this ticked, spawns go within the trader distance of that trader (750 m at most, where Validate starts to warn), and the top-up nearest it. Not ticked: by any trader of their biome, as the game does.">
+                                                    <TextBlock Text="Near the opening quest's trader" TextWrapping="Wrap" />
+                                                </CheckBox>
+                                                <Button Content="Game settings" HorizontalAlignment="Left" Margin="0,8,0,0" Click="SpawnsDefaults_Click"
+                                                        ToolTip="Put back the game's biome, count and trader distance (keeps the seed)" />
+                                            </StackPanel>
+                                        </Expander>
+                                        <Expander Style="{StaticResource LinkExpander}" Header="Help" Margin="0,6,0,0" HorizontalAlignment="Stretch">
+                                            <StackPanel>
+                                                <TextBlock Text="The game's way: along stage 5's gravel roads, next to tier 0 and 1 POIs, near a trader of the same biome, 60 m apart; then the free cells nearest a trader until there are enough. Traders come from Build in stage 2." Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                                                <TextBlock Text="The gravel roads from stage 5 get spawns first, often many more than the least number. Set At most, under More settings, to limit them." Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Expander>
                                     </StackPanel>
                                 </Expander>
                             </StackPanel>
