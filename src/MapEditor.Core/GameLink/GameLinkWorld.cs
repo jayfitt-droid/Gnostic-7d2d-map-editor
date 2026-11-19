@@ -6,7 +6,10 @@ namespace MapEditor.Core.GameLink;
 /// <summary>A placed POI and the centre of its rotated footprint in world coordinates.</summary>
 public readonly record struct GameLinkWaypoint(string Name, int X, int Z);
 
-/// <summary>Looks up the editor's export and waypoint targets for Game Link.</summary>
+/// <summary>The player in north-up map coordinates, with a clockwise heading from north.</summary>
+public readonly record struct GameLinkPlayerMarker(double MapX, double MapY, float Yaw);
+
+/// <summary>Relates Game Link's world and positions to the editor's map.</summary>
 public static class GameLinkWorld
 {
     /// <summary>The world folder name the game reports, without the parent path.</summary>
@@ -20,6 +23,20 @@ public static class GameLinkWorld
     /// <summary>Checks the game world against the folder this world was written to.</summary>
     public static bool Matches(string? exportFolder, string gameWorld) =>
         ExportName(exportFolder) is { } name && string.Equals(name, gameWorld, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The local player on this map, when the game has its exported world open.</summary>
+    public static GameLinkPlayerMarker? PlayerMarker(string? exportFolder, int size, GameLinkStatus status)
+    {
+        if (status is not { State: GameLinkState.Ready, Hosting: true, Player: { } player } ||
+            !Matches(exportFolder, status.World)) return null;
+
+        int half = size / 2;
+        double x = half + (double)player.X;
+        double y = size - (half + (double)player.Z);
+        return x >= 0 && x <= size && y >= 0 && y <= size && float.IsFinite(player.Yaw)
+            ? new(x, y, player.Yaw)
+            : null;
+    }
 
     /// <summary>The POI at the clicked world coordinates, using the same footprint as the map.</summary>
     public static GameLinkWaypoint? WaypointAt(World world, int x, int z, PrefabLibrary prefabs)

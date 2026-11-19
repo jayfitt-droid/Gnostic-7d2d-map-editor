@@ -95,6 +95,9 @@ public sealed class MapView : FrameworkElement
 
     public event EventHandler? ViewChanged;
 
+    /// <summary>The user moved the map with a drag or the mini map.</summary>
+    public event EventHandler? Panned;
+
     /// <summary>What shows around the world (the theme's canvas backdrop).</summary>
     public Brush Backdrop
     {
@@ -472,6 +475,13 @@ public sealed class MapView : FrameworkElement
         OnViewChanged();
     }
 
+    /// <summary>Centres the view in response to user navigation from the mini map.</summary>
+    public void PanTo(Point map)
+    {
+        Panned?.Invoke(this, EventArgs.Empty);
+        CenterOn(map);
+    }
+
     /// <summary>Zooms about the middle of the view to <paramref name="scale"/> DIPs per metre (the zoom slider).</summary>
     public void ZoomTo(double scale) => ZoomAt(new Point(ActualWidth / 2, ActualHeight / 2), scale / _scale);
 
@@ -559,9 +569,7 @@ public sealed class MapView : FrameworkElement
         e.Handled = true;
         // A right click that hardly moved is a click, not a pan: ask for the map's menu at that point.
         var p = e.GetPosition(this);
-        if (e.ChangedButton == MouseButton.Right && _renderer is not null && LandPreview is null
-            && Math.Abs(p.X - start.X) < SystemParameters.MinimumHorizontalDragDistance
-            && Math.Abs(p.Y - start.Y) < SystemParameters.MinimumVerticalDragDistance)
+        if (e.ChangedButton == MouseButton.Right && _renderer is not null && LandPreview is null && !IsPanDrag(start, p))
             MenuRequested?.Invoke(this, ScreenToMap(p));
     }
 
@@ -575,6 +583,7 @@ public sealed class MapView : FrameworkElement
         var p = e.GetPosition(this);
         if (_dragStart is { } start)
         {
+            if (IsPanDrag(start, p)) Panned?.Invoke(this, EventArgs.Empty);
             _origin = new Point(_dragOrigin.X - (p.X - start.X) / _scale, _dragOrigin.Y - (p.Y - start.Y) / _scale);
             _fitted = false;
             OnViewChanged();
@@ -585,6 +594,10 @@ public sealed class MapView : FrameworkElement
         if (_brushCursor is not null || _roadPreview is not null || _roadSnapper is not null || _prefabGhost is not null || _bridgePreviews is not null) InvalidateVisual();
         CursorMoved?.Invoke(this, map);
     }
+
+    private static bool IsPanDrag(Point start, Point end) =>
+        Math.Abs(end.X - start.X) >= SystemParameters.MinimumHorizontalDragDistance ||
+        Math.Abs(end.Y - start.Y) >= SystemParameters.MinimumVerticalDragDistance;
 
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
