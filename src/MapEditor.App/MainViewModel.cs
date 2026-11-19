@@ -743,17 +743,39 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private bool _showToolOptions = true;
     [ObservableProperty] private bool _showMiniMap = true;
-    [ObservableProperty] private bool _showSidePanel;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarOuterWidth))] private bool _showSidePanel;
+
+    /// <summary>Whether this run uses the Modern theme.</summary>
+    [ObservableProperty] private bool _isModernTheme;
+
+    /// <summary>In the Modern theme, whether the side bar is on the right of the map.</summary>
+    [ObservableProperty] private bool _sideBarOnRight;
+
+    /// <summary>The Modern theme's activity bar width (DIPs). It stays on screen when the side bar is closed.</summary>
+    public const double ActivityBarWidth = 48;
+
+    /// <summary>The Modern theme's activity bar plus, when open, the side bar.</summary>
+    public double SideBarOuterWidth => ActivityBarWidth + (ShowSidePanel ? SidePanelWidth : 0);
+
+    /// <summary>The open view's name, as the Modern theme's side bar shows it.</summary>
+    public string SideBarTitle => SidePanelTab switch
+    {
+        PlacedTab => "PLACED",
+        IssuesTab => "ISSUES",
+        WorldTab => "WORLD",
+        GenerateTab => "GENERATE",
+        _ => "PREFABS",
+    };
 
     /// <summary>The side panel's width (DIPs); drag its left edge to change it.</summary>
-    [ObservableProperty] private double _sidePanelWidth = DefaultSidePanelWidth;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarOuterWidth))] private double _sidePanelWidth = DefaultSidePanelWidth;
 
     public const double DefaultSidePanelWidth = 400, MinSidePanelWidth = 320, MaxSidePanelWidth = 900;
 
     public const int PrefabsTab = 0, PlacedTab = 1, IssuesTab = 2, WorldTab = 3, GenerateTab = 4;
 
     /// <summary>The side panel's tab: <see cref="PrefabsTab"/>, <see cref="PlacedTab"/>, <see cref="IssuesTab"/>, <see cref="WorldTab"/> or <see cref="GenerateTab"/>.</summary>
-    [ObservableProperty] private int _sidePanelTab;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarTitle))] private int _sidePanelTab;
 
     [ObservableProperty] private string _worldSizeText = "";
     [ObservableProperty] private string _selectionSizeText = "";

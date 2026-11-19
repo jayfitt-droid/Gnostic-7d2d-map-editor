@@ -27,6 +27,89 @@
             <Setter Property="Margin" Value="0,6" />
             <Setter Property="AutoToolTipPlacement" Value="BottomRight" />
         </Style>
+        <!-- Modern theme (#63): the side bar's resize edge, a dotted grip that shows a blue line while hovered or dragged. -->
+        <ControlTemplate x:Key="ModernSash" TargetType="Thumb">
+            <Grid Background="Transparent">
+                <Border x:Name="Line" Width="2" HorizontalAlignment="Center" Visibility="Collapsed"
+                        Background="{DynamicResource AccentFillColorDefaultBrush}" />
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse Width="3" Height="3" Margin="0,1.5" Fill="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <Ellipse Width="3" Height="3" Margin="0,1.5" Fill="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <Ellipse Width="3" Height="3" Margin="0,1.5" Fill="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Line" Property="Visibility" Value="Visible" />
+                </Trigger>
+                <Trigger Property="IsDragging" Value="True">
+                    <Setter TargetName="Line" Property="Visibility" Value="Visible" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+        <!-- Modern theme (#63): one icon in the activity bar. The hidden header keeps the tab's Alt key working. -->
+        <Style x:Key="ModernActivityItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="ActivityItem_PreviewMouseDown" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid Width="48" Height="48" Background="Transparent">
+                            <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" Width="1" Height="1" Opacity="0"
+                                              HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False" />
+                            <Path Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Style="{StaticResource IconPath}" Width="24" Height="24" />
+                            <Border x:Name="ActiveBar" Width="2" HorizontalAlignment="Left" Visibility="Collapsed"
+                                    Background="{DynamicResource AccentFillColorDefaultBrush}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="TabStripPlacement" Value="Right">
+                                <Setter TargetName="ActiveBar" Property="HorizontalAlignment" Value="Right" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <Setter TargetName="ActiveBar" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <!-- Listed last so it wins: with the side bar closed, no view is showing. -->
+                            <DataTrigger Binding="{Binding ShowSidePanel}" Value="False">
+                                <Setter TargetName="ActiveBar" Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Modern theme (#63): the side panel's tabs as an activity bar, with the open view beside it. -->
+        <Style x:Key="ModernSideTabs" TargetType="TabControl">
+            <Setter Property="ItemContainerStyle" Value="{StaticResource ModernActivityItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <DockPanel>
+                            <Border x:Name="ActivityBar" DockPanel.Dock="Left" Width="48" BorderThickness="0,0,1,0"
+                                    BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+                                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                            </Border>
+                            <DockPanel Visibility="{Binding ShowSidePanel, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock DockPanel.Dock="Top" Text="{Binding SideBarTitle}" Margin="20,12,12,8" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <ContentPresenter ContentSource="SelectedContent" Margin="12,0,12,8" />
+                            </DockPanel>
+                        </DockPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="TabStripPlacement" Value="Right">
+                                <Setter TargetName="ActivityBar" Property="DockPanel.Dock" Value="Right" />
+                                <Setter TargetName="ActivityBar" Property="BorderThickness" Value="1,0,0,0" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Window.InputBindings>
         <KeyBinding Key="N" Modifiers="Control" Command="{x:Static local:MainWindow.NewWorldCommand}" />
@@ -57,7 +140,7 @@
         <CommandBinding Command="{x:Static local:MainWindow.RedoCommand}" Executed="Redo_Executed" CanExecute="Redo_CanExecute" />
     </Window.CommandBindings>
 
-    <DockPanel>
+    <DockPanel x:Name="RootDock">
         <!-- Menus and the quick-access icons, as on Paint's top row. -->
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,2,4,0">
             <Menu Background="Transparent" VerticalAlignment="Center">
@@ -98,6 +181,8 @@
                     <MenuItem Header="_Tool Options" IsCheckable="True" IsChecked="{Binding ShowToolOptions}" />
                     <MenuItem Header="_Mini Map" IsCheckable="True" IsChecked="{Binding ShowMiniMap}" />
                     <MenuItem Header="_Side Panel" IsCheckable="True" IsChecked="{Binding ShowSidePanel}" />
+                    <MenuItem Header="Side Bar on the Ri_ght" IsCheckable="True" IsChecked="{Binding SideBarOnRight}"
+                              Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}" />
                     <MenuItem Header="_World Info" Click="WorldInfo_Click" />
                 </MenuItem>
                 <MenuItem Header="_World">
@@ -513,7 +598,7 @@
         </Border>
 
         <!-- Left rail: brush size and strength, like Paint's size and opacity sliders. -->
-        <Border DockPanel.Dock="Left" Width="56" Padding="0,10" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
+        <Border x:Name="LeftRail" DockPanel.Dock="Left" Width="56" Padding="0,10" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
@@ -539,13 +624,13 @@
         </Border>
 
         <!-- Side panel: the prefab browser, validation issues and world info. -->
-        <Border DockPanel.Dock="Right" Width="{Binding SidePanelWidth}" BorderThickness="1,0,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+        <Border x:Name="SidePanel" DockPanel.Dock="Right" Width="{Binding SidePanelWidth}" BorderThickness="1,0,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                 Visibility="{Binding ShowSidePanel, Converter={StaticResource BoolToVisibility}}">
             <Grid>
             <DockPanel>
-                <Button DockPanel.Dock="Top" HorizontalAlignment="Right" Style="{StaticResource FlatButton}" Content="✕" Padding="8,2" Margin="0,4,4,0"
+                <Button x:Name="SidePanelClose" DockPanel.Dock="Top" HorizontalAlignment="Right" Style="{StaticResource FlatButton}" Content="✕" Padding="8,2" Margin="0,4,4,0"
                         ToolTip="Close the side panel" AutomationProperties.Name="Close side panel" Click="CloseSidePanel_Click" />
-                <TabControl SelectedIndex="{Binding SidePanelTab}" Margin="8,0,8,8" Background="Transparent" BorderThickness="0">
+                <TabControl x:Name="SideTabs" SelectedIndex="{Binding SidePanelTab}" Margin="8,0,8,8" Background="Transparent" BorderThickness="0">
                     <TabItem Header="_Prefabs">
                         <DockPanel Margin="0,8,0,0">
                             <StackPanel DockPanel.Dock="Top">
@@ -1467,7 +1552,7 @@
                 </TabControl>
             </DockPanel>
             <!-- Drag the left edge to widen or narrow the panel. -->
-            <Thumb HorizontalAlignment="Left" Width="6" Cursor="SizeWE" DragDelta="SidePanelEdge_DragDelta"
+            <Thumb x:Name="SidePanelEdge" HorizontalAlignment="Left" Width="6" Cursor="SizeWE" DragDelta="SidePanelEdge_DragDelta"
                    ToolTip="Drag to resize the side panel" AutomationProperties.Name="Resize side panel">
                 <Thumb.Template>
                     <ControlTemplate TargetType="Thumb">
