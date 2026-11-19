@@ -194,6 +194,28 @@ public sealed class MapImageTests
     }
 
     [Fact]
+    public void Cancelled_export_preserves_the_existing_png()
+    {
+        string dir = Directory.CreateTempSubdirectory("mapeditor-mapimage-").FullName;
+        string path = Path.Combine(dir, "map.png");
+        try
+        {
+            Png.WriteRgba(path, 1, 1, [1, 2, 3, 255]);
+            byte[] original = File.ReadAllBytes(path);
+            var image = Image(FlatWorld(512), 256);
+
+            Assert.Throws<OperationCanceledException>(() => image.WritePng(path, cancel: new CancellationToken(true)));
+
+            Assert.Equal(original, File.ReadAllBytes(path));
+            Assert.Equal(path, Assert.Single(Directory.EnumerateFileSystemEntries(dir)));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Written_png_has_the_picture_size_and_is_opaque()
     {
         var world = FlatWorld(512);
