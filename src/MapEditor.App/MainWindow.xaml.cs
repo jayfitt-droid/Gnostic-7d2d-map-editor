@@ -74,6 +74,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        if (_settings.UsesModernTheme) ModernTheme.Start();
         InitializeComponent();
         DataContext = _vm;
         Overview.Target = Map;
