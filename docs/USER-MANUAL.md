@@ -180,6 +180,7 @@ Click a tool on the ribbon, or press its key.
 | Tool | Key | What it does |
 |---|---|---|
 | **Select** | V | Selects a POI, trader, street tile or spawn point. See [Select and move items](#select-and-move-items). |
+| **Multi-select** | M | Selects and edits a group of items on the map. See [Multi-select](#multi-select). |
 
 ### Terrain
 
@@ -231,6 +232,17 @@ With the **Select** tool:
 To replace a selected prefab, select a different prefab in the **Prefabs** tab. The info card shows it as the replacement. Click **Replace**, or click **Back** (Esc) to cancel.
 
 Click **☆** next to a prefab to make it a favourite. **Favourites** in the category list shows your favourites.
+
+#### Multi-select
+
+Click **Multi-select** next to **Select**, or press **M**.
+
+- Drag a box around items on the map. The box must contain the whole item.
+- Hold **Shift** and drag to add items to the selection. Hold **Shift** and click an item to add or remove it. Click empty ground to clear the selection.
+- Drag a selected item to move the group. Street tiles stay level, and the POIs on them move with them. Other POIs and spawn points sit on the ground at the new location.
+- Press **Q** or **E** to turn the group around its centre. Press **PgUp** or **PgDn** to move the selected prefabs one block higher or lower. Press **Del** to remove the group.
+- A drop replaces covered prefabs. A drop that partly overlaps a street tile or a bridge is blocked. Bridges made with the Bridge tool or Highways stay in place.
+- Each group edit takes one undo step. The selection is shown on the map.
 
 ### Roads
 
@@ -628,7 +640,7 @@ Press **F1** in the editor to see this list.
 
 | Key | Action |
 |---|---|
-| V, R, L, F, S, N, T | Select, Raise, Lower, Flatten, Smooth, Roughen, Stamp |
+| V, M, R, L, F, S, N, T | Select, Multi-select, Raise, Lower, Flatten, Smooth, Roughen, Stamp |
 | B, D, W | Paint biome, Paint radiation, Water fill |
 | O, U, I, A, G, H | Road, Bridge, Prefabs, Trader, Town, Spawn points |
 | [ and ] | Smaller or larger brush |
