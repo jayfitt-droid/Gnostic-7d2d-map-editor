@@ -596,7 +596,7 @@ The world then shows under **New Game** in the game.
 
 ### Export a picture of the map
 
-Click **File > Export Map Image**. The editor saves the whole map as a PNG, north at the top, with no windows or tools on it. Select the size (1024, 2048, 4096, or 1 pixel for each metre) and the layers and POIs to show.
+Click **File > Export Map Image**. The editor saves the whole map as a PNG, north at the top, with no windows or tools on it. Select the size (1024, 2048, 4096, or 1 pixel for each metre) and the layers, POIs and world grid to show.
 
 ### Package maps as a mod
 
