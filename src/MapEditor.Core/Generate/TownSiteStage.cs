@@ -369,7 +369,7 @@ public static class TownSiteStage
                 made++;
                 biome = Next(biome!, allowed);
             }
-            if (made < row.Count) shortfalls.Add($"{row.Township}: {made} of {row.Count}");
+            if (made < row.Count) shortfalls.Add($"{GameNames.Township(row.Township)}: {made} of {row.Count}");
         }
         return new TownSiteResult(sites, shortfalls);
     }
