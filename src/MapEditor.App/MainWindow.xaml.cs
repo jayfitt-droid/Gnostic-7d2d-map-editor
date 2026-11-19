@@ -494,6 +494,7 @@ public partial class MainWindow : Window
         _projectPath = null;
         _projectSettings = new ProjectStore.ProjectSettings();
         _vm.Issues.Clear();
+        ResetIssueSteps();
         _fixedIssues.Clear();
         _vm.HasFixedIssues = false;
         _vm.IssuesText = "Press Validate (F7) to check the world.";
@@ -890,6 +891,7 @@ public partial class MainWindow : Window
         _vm.IsBusy = true;
         _vm.Status = "Checking the world...";
         List<ValidationIssue> issues;
+        IReadOnlyList<TeleportSpot> issueStops;
         try
         {
             // Edits can carry on while the checks run, so they get their own copy of the lists (the layers are only read).
@@ -908,15 +910,18 @@ public partial class MainWindow : Window
             var spawnOf = new Dictionary<SpawnPoint, SpawnPoint>(ReferenceEqualityComparer.Instance);
             for (int i = 0; i < view.Spawns.Count; i++) spawnOf[view.Spawns[i]] = world.Spawns[i];
             var biomes = _vm.Biomes;
-            issues = await Task.Run(() => WorldValidator.Validate(view, library, template, biomes));
-            issues = [.. issues.Select(i => i.Fix is not { } fix ? i : i with
+            (issues, issueStops) = await Task.Run(() =>
             {
-                Fix = fix with
+                var validated = WorldValidator.Validate(view, library, template, biomes).Select(i => i.Fix is not { } fix ? i : i with
                 {
-                    Prefab = fix.Prefab is { } p ? prefabOf.GetValueOrDefault(p) : null,
-                    Spawn = fix.Spawn is { } s ? spawnOf.GetValueOrDefault(s) : null,
-                },
-            })];
+                    Fix = fix with
+                    {
+                        Prefab = fix.Prefab is { } p ? prefabOf.GetValueOrDefault(p) : null,
+                        Spawn = fix.Spawn is { } s ? spawnOf.GetValueOrDefault(s) : null,
+                    },
+                }).ToList();
+                return (validated, TeleportList.Build(view, validated, library));
+            });
         }
         finally
         {
@@ -924,6 +929,7 @@ public partial class MainWindow : Window
         }
         _vm.Issues.Clear();
         foreach (var issue in issues) _vm.Issues.Add(issue);
+        RebuildIssueSteps(issueStops);
         int errors = issues.Count(i => i.Severity == IssueSeverity.Error);
         int warnings = issues.Count(i => i.Severity == IssueSeverity.Warning);
         static string Count(int n, string word) => n == 1 ? $"1 {word}" : $"{n} {word}s";
@@ -1109,6 +1115,7 @@ public partial class MainWindow : Window
         _vm.Generate.HasWorld = false;
         _genTools.Refresh();
         _vm.Issues.Clear();
+        ResetIssueSteps();
         _fixedIssues.Clear();
         _vm.HasFixedIssues = false;
         _vm.IssuesText = "Press Validate (F7) to check the world.";
@@ -1168,6 +1175,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        StopIssueHotkeys();
         base.OnClosed(e);
         if (!_restartWhenClosed || Environment.ProcessPath is not { } editor) return;
         var start = new ProcessStartInfo(editor) { UseShellExecute = false };
@@ -3310,6 +3318,7 @@ public partial class MainWindow : Window
             case nameof(MainViewModel.IsBusy):
                 // Commands that check IsBusy are not re-queried by WPF on their own.
                 CommandManager.InvalidateRequerySuggested();
+                UpdateIssueStepControls();
                 CloseIfWaiting();
                 break;
             case nameof(MainViewModel.Layers) when Map.Renderer is { } renderer:

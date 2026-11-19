@@ -41,6 +41,11 @@ public partial class ShortcutsWindow : Window
                 new(["Right drag"], "Pan with any tool"),
                 new(["Right-click"], "Map menu: copy a teleport command"),
             ]),
+            new("Game Link (enable shortcuts in Issues)",
+            [
+                new(["Ctrl+Alt+Left"], "Teleport to the previous issue"),
+                new(["Ctrl+Alt+Right"], "Teleport to the next issue"),
+            ]),
             new("File",
             [
                 new(["Ctrl+N"], "New world"),

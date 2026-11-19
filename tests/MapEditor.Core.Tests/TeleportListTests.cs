@@ -18,6 +18,7 @@ public sealed class TeleportListTests
         var spot = Assert.Single(TeleportList.Build(NewWorld(), [Warn("A", 600, 400)], PrefabLibrary.Empty));
         // Grid (600, 400) is game (88, -112); 15 m south is z -127.
         Assert.Equal("teleport 88 -127 n", spot.Command);
+        Assert.Equal((600, 385, (Facing?)Facing.N), spot.StandingCell);
     }
 
     [Fact]
@@ -29,6 +30,7 @@ public sealed class TeleportListTests
 
         var spot = Assert.Single(TeleportList.Build(world, [Warn("A", 600, 400)], PrefabLibrary.Empty));
         Assert.Equal("teleport 73 -112 e", spot.Command);
+        Assert.Equal((585, 400, (Facing?)Facing.E), spot.StandingCell);
     }
 
     [Fact]
@@ -60,6 +62,7 @@ public sealed class TeleportListTests
 
         var spot = Assert.Single(TeleportList.Build(world, [Warn("A", 600, 400)], PrefabLibrary.Empty));
         Assert.Equal("teleport 88 -112", spot.Command);
+        Assert.Equal((600, 400, (Facing?)null), spot.StandingCell);
     }
 
     [Fact]
@@ -78,6 +81,7 @@ public sealed class TeleportListTests
         Assert.Equal(["A", "B"], spots[0].Issues.Select(i => i.Message));
         Assert.Equal(["C"], spots[1].Issues.Select(i => i.Message));
         Assert.Null(spots[2].Command);
+        Assert.Null(spots[2].StandingCell);
         Assert.Equal("No trader", Assert.Single(spots[2].Issues).Message);
     }
 

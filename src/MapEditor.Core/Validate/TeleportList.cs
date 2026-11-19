@@ -11,6 +11,9 @@ namespace MapEditor.Core.Validate;
 /// </summary>
 public sealed record TeleportSpot(int? X, int? Z, string? Command, IReadOnlyList<ValidationIssue> Issues)
 {
+    /// <summary>The standing grid cell and facing used by <see cref="Command"/>, if there is one.</summary>
+    public (int X, int Z, Facing? Facing)? StandingCell { get; init; }
+
     /// <summary>Issues fixed with a Fix button at this spot, to check in the game.</summary>
     public IReadOnlyList<FixedIssue> Fixed { get; init; } = [];
 }
@@ -62,22 +65,26 @@ public static class TeleportList
             else placed.Add((x, z, [], [done]));
         }
 
-        var spots = placed
-            .Select(s => new TeleportSpot(s.X, s.Z, CommandFor(world, s.X, s.Z, prefabs), s.Issues) { Fixed = s.Fixed })
-            .ToList();
+        var spots = new List<TeleportSpot>();
+        foreach (var spot in placed)
+        {
+            var standing = StandingCellFor(world, spot.X, spot.Z, prefabs);
+            string? command = TeleportCommand.ForCell(world, standing.X, standing.Z, standing.Facing);
+            spots.Add(new TeleportSpot(spot.X, spot.Z, command, spot.Issues) { StandingCell = standing, Fixed = spot.Fixed });
+        }
         if (unplaced.Count > 0) spots.Add(new TeleportSpot(null, null, null, unplaced));
         return spots;
     }
 
-    /// <summary>The command for grid cell (x, z): from the first clear side, facing it, or on the cell itself if no side is clear.</summary>
-    private static string CommandFor(World world, int x, int z, PrefabLibrary prefabs)
+    /// <summary>The first clear cell to stand on, facing the issue, or the issue cell itself if no side is clear.</summary>
+    private static (int X, int Z, Facing? Facing) StandingCellFor(World world, int x, int z, PrefabLibrary prefabs)
     {
         foreach (var (dx, dz, look) in Sides)
         {
             int sx = x + dx, sz = z + dz;
-            if (IsClear(world, sx, sz, prefabs)) return TeleportCommand.ForCell(world, sx, sz, look)!;
+            if (IsClear(world, sx, sz, prefabs)) return (sx, sz, look);
         }
-        return TeleportCommand.ForCell(world, Math.Clamp(x, 0, world.Size - 1), Math.Clamp(z, 0, world.Size - 1), null)!;
+        return (Math.Clamp(x, 0, world.Size - 1), Math.Clamp(z, 0, world.Size - 1), null);
     }
 
     private static bool IsClear(World world, int x, int z, PrefabLibrary prefabs)
