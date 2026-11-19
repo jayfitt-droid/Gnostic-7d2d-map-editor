@@ -8,6 +8,40 @@ public sealed class PngTests : IDisposable
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
+    [Fact]
+    public void Row_source_failure_preserves_the_existing_png()
+    {
+        string path = Path.Combine(_dir, "map.png");
+        Png.WriteRgba(path, 1, 1, [1, 2, 3, 255]);
+        byte[] original = File.ReadAllBytes(path);
+        var failure = new InvalidOperationException("Row source failed.");
+
+        var thrown = Assert.Throws<InvalidOperationException>(() => Png.WriteRows(path, 1, 3, PngPixelFormat.Rgba8, (y, row) =>
+        {
+            if (y == 1) throw failure;
+            row.Fill(255);
+        }));
+
+        Assert.Same(failure, thrown);
+        Assert.Equal(original, File.ReadAllBytes(path));
+        Assert.Equal(path, Assert.Single(Directory.EnumerateFileSystemEntries(_dir)));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Successful_write_saves_the_png_without_a_temporary_file(bool overwrite)
+    {
+        string path = Path.Combine(_dir, "map.png");
+        if (overwrite) Png.WriteRgba(path, 1, 1, [1, 2, 3, 255]);
+        byte[] pixel = [4, 5, 6, 255];
+
+        Png.WriteRows(path, 1, 1, PngPixelFormat.Rgba8, (_, row) => pixel.CopyTo(row));
+
+        Assert.Equal(pixel, Png.ReadRgba(path, out _, out _));
+        Assert.Equal(path, Assert.Single(Directory.EnumerateFileSystemEntries(_dir)));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData(0)]

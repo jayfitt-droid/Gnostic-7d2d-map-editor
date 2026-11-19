@@ -102,8 +102,7 @@ public static class Png
     public static void WriteRows(string path, int width, int height, PngPixelFormat format, RowSource source,
         CompressionLevel level = CompressionLevel.Fastest, int? forceFilter = null)
     {
-        using var file = new BufferedStream(File.Create(path), 1 << 20);
-        WriteRows(file, width, height, format, source, level, forceFilter);
+        SafeFile.Write(path, file => WriteRows(file, width, height, format, source, level, forceFilter), bufferSize: 1 << 20);
     }
 
     public static void WriteRows(Stream output, int width, int height, PngPixelFormat format, RowSource source,
