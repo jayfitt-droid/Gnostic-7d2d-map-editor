@@ -1578,6 +1578,22 @@
                                     <StackPanel>
 
                                         <StackPanel IsEnabled="{Binding Generate.CanEdit}">
+                                            <TextBlock Text="Preset" Style="{StaticResource GenLabel}" Width="Auto" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                            <DockPanel>
+                                                <Button DockPanel.Dock="Right" MinWidth="60" Content="Delete" Margin="6,0,0,0" Click="TownPresetDelete_Click"
+                                                        ToolTip="Delete the chosen town preset" />
+                                                <Button DockPanel.Dock="Right" Content="Use" Margin="6,0,0,0" Click="TownPresetUse_Click"
+                                                        ToolTip="Take the chosen preset's town settings. The town seed stays the same." />
+                                                <ComboBox x:Name="TownPresetBox" ItemsSource="{Binding Generate.TownPresets}" DisplayMemberPath="Name" MinWidth="0"
+                                                          HorizontalAlignment="Stretch" AutomationProperties.Name="Town preset" />
+                                            </DockPanel>
+                                            <DockPanel Margin="0,6,0,0">
+                                                <Button DockPanel.Dock="Right" MinWidth="60" Content="Save" Margin="6,0,0,0" Click="TownPresetSave_Click"
+                                                        ToolTip="Save the town settings under this name" />
+                                                <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left"
+                                                         Text="{Binding Generate.TownPresetName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Town preset name"
+                                                         ToolTip="A name to save the town settings under" />
+                                            </DockPanel>
                                             <Grid Margin="0,10,0,2">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="2.4*" />

@@ -173,6 +173,7 @@ public partial class MainWindow : Window
                 _vm.SidePanelWidth = Math.Clamp(_settings.SidePanelWidth, MainViewModel.MinSidePanelWidth, MainViewModel.MaxSidePanelWidth);
             _vm.Favourites = new HashSet<string>(_settings.FavouritePrefabs, StringComparer.OrdinalIgnoreCase);
             LoadPresets();
+            LoadTownPresets();
             // Gnostic.exe "<world folder or .7dmap>" opens it straight away.
             var args = Environment.GetCommandLineArgs();
             if (args.Length > 1 && Directory.Exists(args[1])) await OpenWorldAsync(args[1]);
@@ -1530,6 +1531,53 @@ public partial class MainWindow : Window
         gen.Towns.Rows = TownSiteStage.DefaultRows(_vm.Mixer);
         _vm.Generate.RefreshTownRows();
         MarkSettingsChanged();
+    }
+
+    private void LoadTownPresets()
+    {
+        var presets = _vm.Generate.TownPresets;
+        presets.Clear();
+        foreach (var preset in _settings.TownPresets) presets.Add(preset);
+        TownPresetBox.SelectedIndex = presets.Count > 0 ? 0 : -1;
+    }
+
+    private void TownPresetUse_Click(object sender, RoutedEventArgs e)
+    {
+        if (TownPresetBox.SelectedItem is not TownPreset preset || _projectSettings.Generator is not { } gen) return;
+        preset.ApplyTo(gen.Towns, _vm.Mixer);
+        _vm.Generate.RefreshTownSettings();
+        MarkSettingsChanged();
+        _vm.Status = $"Using the {preset.Name} town settings. Click Plan towns to plan with them.";
+    }
+
+    private void TownPresetSave_Click(object sender, RoutedEventArgs e)
+    {
+        if (_projectSettings.Generator is not { } gen) return;
+        string name = _vm.Generate.TownPresetName.Trim();
+        if (name.Length == 0)
+        {
+            _vm.Status = "Type a name for the town preset first.";
+            return;
+        }
+        var preset = TownPreset.From(gen.Towns, name);
+        _settings.TownPresets.RemoveAll(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        _settings.TownPresets.Add(preset);
+        bool saved = _settings.Save();
+        LoadTownPresets();
+        TownPresetBox.SelectedItem = preset;
+        _vm.Generate.TownPresetName = "";
+        _vm.Status = saved ? $"Saved the town preset {name}."
+            : $"Added the town preset {name}, but couldn't save the editor's settings, so it will be lost when the editor closes. Details are in crash.log.";
+    }
+
+    private void TownPresetDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (TownPresetBox.SelectedItem is not TownPreset preset) return;
+        _settings.TownPresets.Remove(preset);
+        bool saved = _settings.Save();
+        LoadTownPresets();
+        _vm.Status = saved ? $"Deleted the town preset {preset.Name}."
+            : $"Removed the town preset {preset.Name}, but couldn't save the editor's settings. Details are in crash.log.";
     }
 
     private void TownsClear_Click(object sender, RoutedEventArgs e)
