@@ -94,9 +94,9 @@ public sealed partial class MainViewModel : ObservableObject
     [
         new(EditorTool.Road, "Road", "O", Icons.Road, "Click to add points; double-click or Enter finishes, Backspace undoes a point, Esc cancels. Shift+drag erases."),
         new(EditorTool.Bridge, "Bridge", "U", Icons.Bridge, "Click the start, click the end; Enter builds it with ramps, Esc cancels. Click a bridge to select it: drag to move it, drag an end to lengthen or shorten it, Del removes it."),
+        new(EditorTool.Town, "Town", "G", Icons.Town, "Drag a rectangle to plan a town on whole 150 m cells, then Build (Enter) or Cancel (Esc)."),
         new(EditorTool.Prefab, "Prefabs (POIs)", "I", Icons.Prefab, "Pick a prefab on the right, click to place; Q/E turn it. With none picked, click to select, drag to move, Del removes."),
         new(EditorTool.Trader, "Trader", "A", Icons.Trader, "Click to place the trader picked in the options (Random picks another); Q/E turn it."),
-        new(EditorTool.Town, "Town", "G", Icons.Town, "Drag a rectangle to plan a town on whole 150 m cells, then Build (Enter) or Cancel (Esc)."),
         new(EditorTool.Spawn, "Spawn points", "H", Icons.Spawn, "Click to add a spawn point, drag to move, Q/E turn, Del removes. RWG makes 12."),
     ];
 
@@ -721,7 +721,7 @@ public sealed partial class MainViewModel : ObservableObject
     public double RibbonRowHeight => IsCompactRibbon ? 36 : 72;
     public int TerrainColumns => IsCompactRibbon ? TerrainTools.Count : 3;
     public int PaintColumns => IsCompactRibbon ? PaintTools.Count : 2;
-    public int BuildColumns => IsCompactRibbon ? BuildTools.Count : 2;
+    public int BuildColumns => IsCompactRibbon ? BuildTools.Count : 3;
     public double CurrentSwatchSize => IsCompactRibbon ? 30 : 40;
 
     /// <summary>The biome and road swatches: two rows, or one in the compact ribbon.</summary>
