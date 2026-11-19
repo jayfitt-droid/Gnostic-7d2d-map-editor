@@ -69,6 +69,8 @@ public partial class MainWindow : Window
     private bool Dirty => _world is not null && (_dirty || !_undo.AtSavePoint);
     /// <summary>The window was asked to close while a save was running; it closes once the save is done.</summary>
     private bool _closeWhenIdle;
+    private readonly AutosaveStore _autosaves = new(Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7D2DMapEditor", "autosave"));
     private readonly System.Windows.Threading.DispatcherTimer _autosaveTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private bool _autosaving;
 
@@ -386,7 +388,7 @@ public partial class MainWindow : Window
             ProjectStore.ProjectSettings settings = new();
             var world = await Task.Run(() => ProjectStore.Load(path, out settings));
             await _gameDataLoad;
-            SetWorld(world, sourcePath: null, dirty: recovered);
+            SetWorld(world, sourcePath: null, dirty: recovered, recoveryPath: recovered ? path : null);
             _projectPath = recovered ? null : path;
             _projectSettings = settings;
             _bridgeTools.Refresh();
@@ -467,10 +469,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SetWorld(World world, string? sourcePath, bool dirty)
+    private void SetWorld(World world, string? sourcePath, bool dirty, string? recoveryPath = null)
     {
         // Prefabs saved at ground level by the game's editor get box Y, which everything here works in.
         GroundLevel.Resolve(world, _vm.Prefabs);
+        if (_world is not null || recoveryPath is not null) _autosaves.Discard(recoveryPath);
         _world = world;
         _sourcePath = sourcePath;
         _savePath = sourcePath;
@@ -624,7 +627,7 @@ public partial class MainWindow : Window
             _projectPath = path;
             _dirty = _revision != revision;
             _undo.MarkSaved(position);
-            if (!Dirty) DeleteAutosave();
+            _autosaves.Discard();
             _settings.LastWorldFolder = path;
             _settings.AddRecent(path);
             _settings.Save();
@@ -754,7 +757,7 @@ public partial class MainWindow : Window
                 _sourcePath ??= folder;
                 _dirty = _revision != revision;
                 _undo.MarkSaved(position);
-                if (!Dirty) DeleteAutosave();
+                _autosaves.Discard();
             }
             _settings.LastWorldFolder = folder;
             _settings.Save();
@@ -975,15 +978,10 @@ public partial class MainWindow : Window
 
     // ---- autosave ----------------------------------------------------------
 
-    private static readonly string AutosaveDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7D2DMapEditor", "autosave");
-
-    private static string AutosavePath => Path.Combine(AutosaveDir, "autosave" + ProjectStore.Extension);
-
     /// <summary>
     /// Every few minutes, writes unsaved work to an autosave project. A copy-on-write snapshot is taken on the UI
     /// thread, so editing carries on while it is written without copying the whole world first. The autosave is
-    /// deleted after a normal save or exit.
+    /// discarded after a save, a world change or a normal exit.
     /// </summary>
     private async Task AutosaveAsync()
     {
@@ -995,8 +993,8 @@ public partial class MainWindow : Window
         {
             using var snapshot = WorldSnapshot.Take(world);
             var settings = CopyProjectSettings();
-            await Task.Run(() => ProjectStore.Save(snapshot, AutosavePath, settings));
-            _vm.Status = $"Autosaved at {DateTime.Now:t}.";
+            if (await _autosaves.SaveAsync(snapshot, settings))
+                _vm.Status = $"Autosaved at {DateTime.Now:t}.";
         }
         catch (Exception ex)
         {
@@ -1011,30 +1009,18 @@ public partial class MainWindow : Window
         }
     }
 
-    private static void DeleteAutosave()
-    {
-        try
-        {
-            if (File.Exists(AutosavePath)) File.Delete(AutosavePath);
-        }
-        catch (IOException)
-        {
-            // Best effort; it is offered again at the next start.
-        }
-    }
-
     /// <summary>An autosave left at start-up means the editor did not close normally; offer to bring the work back.</summary>
     private async Task OfferRecoveryAsync()
     {
-        if (!File.Exists(AutosavePath)) return;
+        if (_autosaves.FindRecovery() is not { } recovery) return;
         // Let the window draw first, so the question doesn't sit on a blank window.
         await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.ContextIdle);
-        var when = File.GetLastWriteTime(AutosavePath);
+        var when = recovery.LastWriteTime;
         var answer = ThemedMessageBox.Show(this,
             $"The editor did not close normally last time. Recover the work autosaved at {when:g}?",
             "Recover unsaved work", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (answer == MessageBoxResult.Yes) await OpenProjectAsync(AutosavePath, recovered: true);
-        else DeleteAutosave();
+        if (answer == MessageBoxResult.Yes) await OpenProjectAsync(recovery.FullName, recovered: true);
+        else _autosaves.Discard();
     }
 
     private readonly HashSet<string> _warnedAboutGames = new(StringComparer.OrdinalIgnoreCase);
@@ -1076,7 +1062,7 @@ public partial class MainWindow : Window
     private async Task CloseWorldAsync()
     {
         if (_world is null || _vm.IsBusy || !await ConfirmDiscardAsync()) return;
-        DeleteAutosave();
+        _autosaves.Discard();
         _tools.CancelRoad();
         _world = null;
         _sourcePath = _savePath = _projectPath = null;
@@ -1189,7 +1175,7 @@ public partial class MainWindow : Window
         }
         if (_closeConfirmed || !Dirty)
         {
-            DeleteAutosave();
+            _autosaves.Discard();
             _settings.Autosave = _vm.Autosave;
             _settings.RibbonMode = _vm.RibbonMode;
             _settings.ShowMiniMap = _vm.ShowMiniMap;
@@ -3212,7 +3198,7 @@ public partial class MainWindow : Window
         try
         {
             _closeConfirmed = true;
-            DeleteAutosave();
+            _autosaves.Discard();
             await Updates.ApplyAsync(result);
         }
         catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or IOException)
