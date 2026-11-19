@@ -16,85 +16,61 @@ public partial class MainWindow
 
     private readonly IssueStepper _issueStepper = new();
     private HwndSource? _issueHotkeySource;
-    private int _issueSelectionRevision;
-    private bool _settingIssueSelection;
 
     private void ResetIssueSteps() => RebuildIssueSteps([]);
 
-    private void RebuildIssueSteps(IReadOnlyList<TeleportSpot> spots, ValidationIssue? selected = null)
+    private void RebuildIssueSteps(IReadOnlyList<TeleportSpot> spots)
     {
         _issueStepper.Rebuild(spots);
-        if (_issueStepper.Count == 0) StopIssueHotkeys();
-        if (_issueStepper.Current is { } current) SelectSteppedIssue(current, selected);
+        if (!_issueStepper.HasStops) StopIssueHotkeys();
         UpdateIssueStepControls();
     }
 
     private void UpdateIssueStepControls()
     {
         _vm.CanTeleportIssues = _vm.GameLinkInstalled && _vm.GameLinkConnected && !_vm.IsBusy && !_gameLinkActionRunning;
-        IssueHotkeysCheck.IsEnabled = _vm.GameLinkInstalled && _issueStepper.Count > 0;
+        IssueHotkeysCheck.IsEnabled = _vm.GameLinkInstalled && _issueStepper.HasStops;
     }
 
-    private void SelectSteppedIssue(TeleportSpot spot, ValidationIssue? preferred = null)
+    private void SelectIssueRow(ValidationIssue issue)
     {
-        var issue = spot.Issues.FirstOrDefault(candidate => candidate == preferred) ?? spot.Issues[0];
-        _settingIssueSelection = true;
-        try
-        {
-            IssuesList.SelectedItem = issue;
-            IssuesList.ScrollIntoView(issue);
-        }
-        finally { _settingIssueSelection = false; }
-    }
-
-    private void Issues_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_settingIssueSelection || IssuesList.SelectedItem is not ValidationIssue issue) return;
-        _issueSelectionRevision++;
-        _issueStepper.SelectIssue(issue);
+        if (_vm.Issues.FirstOrDefault(row => row == issue) is not { } current) return;
+        IssuesList.SelectedItem = current;
+        IssuesList.ScrollIntoView(current);
     }
 
     private async void TeleportIssue_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: ValidationIssue issue } && _issueStepper.StopFor(issue) is { } stop)
-            await TeleportToIssueAsync(stop, issue);
+        if (sender is FrameworkElement { DataContext: ValidationIssue issue })
+            await TeleportToIssueAsync(issue);
     }
 
-    private async Task StepIssueAsync(bool next)
-    {
-        int index = IssuesList.SelectedIndex;
-        if (index >= 0)
-        {
-            if (_issueStepper.AdjacentIssue(_vm.Issues, index, next) is { } row && _issueStepper.StopFor(row) is { } target)
-                await TeleportToIssueAsync(target, row);
-            return;
-        }
+    private Task StepIssueAsync(bool next) =>
+        _issueStepper.AdjacentIssue(_vm.Issues, IssuesList.SelectedIndex, next) is { } row
+            ? TeleportToIssueAsync(row) : Task.CompletedTask;
 
-        if ((next ? _issueStepper.Next : _issueStepper.Previous) is { } spot)
-            await TeleportToIssueAsync(spot);
-    }
-
-    private async Task TeleportToIssueAsync(TeleportSpot spot, ValidationIssue? preferred = null)
+    private async Task TeleportToIssueAsync(ValidationIssue issue)
     {
         if (!_vm.CanTeleportIssues || _world is not { } world || !CanUseGameLink(world) ||
-            spot.StandingCell is not { } standing ||
+            _issueStepper.StopFor(issue)?.StandingCell is not { } standing ||
             TeleportCommand.CoordinatesForCell(world, standing.X, standing.Z) is not { } target) return;
 
-        await RunGameLinkActionAsync(world, target.X, target.Z, standing.Facing, issueStop: spot, issueRow: preferred);
-    }
-
-    private bool IsPendingIssueStep(TeleportSpot spot) =>
-        ReferenceEquals(spot, _issueStepper.StopFor(spot.Issues[0]));
-
-    private void CompleteIssueStep(TeleportSpot spot, ValidationIssue? issue, int selectionRevision)
-    {
-        if (selectionRevision != _issueSelectionRevision)
+        var selected = IssuesList.SelectedItem as ValidationIssue;
+        bool selectionChanged = false;
+        void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            _issueStepper.RecordVisit(spot);
-            return;
+            // Validate can replace the selected row with an equal result.
+            if (e.AddedItems.Count > 0 && !Equals(e.AddedItems[0], selected)) selectionChanged = true;
         }
-        _issueStepper.TryMoveTo(spot);
-        if (_issueStepper.Current is { } current) SelectSteppedIssue(current, issue);
+        IssuesList.SelectionChanged += OnSelectionChanged;
+        try
+        {
+            await RunGameLinkActionAsync(world, target.X, target.Z, standing.Facing, issue: issue, onTeleported: () =>
+            {
+                if (!selectionChanged) SelectIssueRow(issue);
+            });
+        }
+        finally { IssuesList.SelectionChanged -= OnSelectionChanged; }
     }
 
     private void IssueHotkeys_Click(object sender, RoutedEventArgs e)

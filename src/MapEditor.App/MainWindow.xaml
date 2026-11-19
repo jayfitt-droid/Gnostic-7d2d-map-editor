@@ -1222,7 +1222,7 @@
                                 </WrapPanel>
                             </StackPanel>
                             <ListBox x:Name="IssuesList" ItemsSource="{Binding Issues}" Margin="0,8,0,0" MouseDoubleClick="Issue_DoubleClick"
-                                     SelectionChanged="Issues_SelectionChanged" VirtualizingPanel.VirtualizationMode="Recycling" HorizontalContentAlignment="Stretch"
+                                     VirtualizingPanel.VirtualizationMode="Recycling" HorizontalContentAlignment="Stretch"
                                      KeyDown="Issue_KeyDown" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      AutomationProperties.Name="Issues" ToolTip="Double-click or press Enter to find it on the map">
                                 <ListBox.ItemTemplate>

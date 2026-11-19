@@ -941,7 +941,8 @@ public partial class MainWindow : Window
         var selectedIssue = IssuesList.SelectedItem as ValidationIssue;
         _vm.Issues.Clear();
         foreach (var issue in issues) _vm.Issues.Add(issue);
-        RebuildIssueSteps(issueStops, selectedIssue);
+        RebuildIssueSteps(issueStops);
+        if (selectedIssue is not null) SelectIssueRow(selectedIssue);
         int errors = issues.Count(i => i.Severity == IssueSeverity.Error);
         int warnings = issues.Count(i => i.Severity == IssueSeverity.Warning);
         static string Count(int n, string word) => n == 1 ? $"1 {word}" : $"{n} {word}s";
