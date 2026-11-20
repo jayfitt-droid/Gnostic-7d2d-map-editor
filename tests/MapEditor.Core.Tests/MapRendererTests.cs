@@ -68,6 +68,36 @@ public sealed class MapRendererTests
     }
 
     [Fact]
+    public void Water_uses_the_coast_palette_at_each_depth()
+    {
+        var world = FlatWorld(256);
+        const byte surface = 30;
+        const int north = 255;
+        // The 0–12 m depth range maps to the preview's −4 to −320 m shore distances.
+        (float Depth, uint Colour)[] samples =
+        [
+            (0, 0xFF70A2BC), (12f * 28 / 316, 0xFF457699), (12f * 111 / 316, 0xFF2B4E6E),
+            (12, 0xFF203952), (18, 0xFF203952),
+        ];
+        for (int x = 0; x < samples.Length; x++)
+        {
+            world.Height[x, north] = World.MetresToHeight(surface - samples[x].Depth);
+            world.Water![x, north] = surface;
+        }
+        var renderer = new MapRenderer(world, BiomeTable.Vanilla);
+        var tile = new uint[MapRenderer.TileSize * MapRenderer.TileSize];
+
+        renderer.RenderTile(0, 0, 0, MapLayers.All, tile);
+
+        Assert.Equal(samples.Select(s => s.Colour), tile.Take(samples.Length));
+
+        renderer.RenderTile(0, 0, 0, MapLayers.All & ~MapLayers.Water, tile);
+
+        for (int x = 0; x < samples.Length; x++)
+            Assert.NotEqual(samples[x].Colour, tile[x]);
+    }
+
+    [Fact]
     public void Thin_roads_survive_at_coarse_levels()
     {
         var world = FlatWorld(2048);

@@ -5,6 +5,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MapEditor.App.Map;
 using MapEditor.Core.Ops;
+using MapEditor.Core.Rendering;
 
 namespace MapEditor.App.Editing;
 
@@ -373,17 +374,39 @@ public sealed partial class LandToolController(MapView map, MainViewModel vm) : 
         }
     }
 
+    private static uint AverageCoastColours(uint a, uint b, uint c, uint d)
+    {
+        const uint redBlue = 0xFF00FF, green = 0x00FF00;
+        uint rb = ((a & redBlue) + (b & redBlue) + (c & redBlue) + (d & redBlue) + 0x020002) >> 2;
+        uint g = ((a & green) + (b & green) + (c & green) + (d & green) + 0x000200) >> 2;
+        return (rb & redBlue) | (g & green);
+    }
+
     private static BitmapSource CoastImage(int size, LandDrawing drawing)
     {
         var field = LandShapes.Build(size, new LandShape { Kind = LandShapeKind.Drawn, Drawing = drawing })!;
-        int w = field.Width * 2;
+        int w = field.Width * 4;
+        float spacing = (float)size / w;
+        float quarter = spacing / 4;
         var pixels = new uint[w * w];
         for (int row = 0; row < w; row++)
+        {
+            float z = size - (row + 0.5f) * spacing;
             for (int col = 0; col < w; col++)
             {
-                float d = field.Sample((col + 0.5f) * LandField.Cell / 2, size - (row + 0.5f) * LandField.Cell / 2);
-                pixels[col + row * w] = d > 24 ? 0xFF608965 : d > 0 ? 0xFFD2C693 : d > -64 ? 0xFF457F92 : 0xFF2C5973;
+                float x = (col + 0.5f) * spacing;
+                float d = field.Sample(x, z);
+                // Sample the four quadrant centres within a pixel of the near-shore stops.
+                uint colour = Math.Abs(d + 32) < spacing || Math.Abs(d + 4) < spacing || Math.Abs(d - 3) < spacing
+                    || Math.Abs(d - 20) < spacing || Math.Abs(d - 30) < spacing
+                    ? AverageCoastColours(CoastColours.AtDistance(field.Sample(x - quarter, z - quarter)),
+                        CoastColours.AtDistance(field.Sample(x + quarter, z - quarter)),
+                        CoastColours.AtDistance(field.Sample(x - quarter, z + quarter)),
+                        CoastColours.AtDistance(field.Sample(x + quarter, z + quarter)))
+                    : CoastColours.AtDistance(d);
+                pixels[col + row * w] = colour;
             }
+        }
         var bitmap = BitmapSource.Create(w, w, 96, 96, PixelFormats.Bgr32, null, pixels, w * 4);
         bitmap.Freeze();
         return bitmap;
