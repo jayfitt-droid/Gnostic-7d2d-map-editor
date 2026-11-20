@@ -59,10 +59,17 @@ public sealed class AutosaveStore(string folder)
         }
     }
 
-    /// <summary>Finds the newest completed recovery copy, including the original fixed-name autosave.</summary>
+    /// <summary>Deletes abandoned staging files and finds the newest completed recovery copy.</summary>
     public FileInfo? FindRecovery()
     {
-        lock (_gate) return RecoveryFiles().MaxBy(file => file.LastWriteTimeUtc);
+        lock (_gate)
+        {
+            var cutoff = DateTime.UtcNow.AddHours(-1);
+            foreach (var file in GetFiles(AutosaveFileName + ".*"))
+                if (file.LastWriteTimeUtc < cutoff && IsStagingFile(file.Name))
+                    TryDelete(file.FullName);
+            return RecoveryFiles().MaxBy(file => file.LastWriteTimeUtc);
+        }
     }
 
     private IEnumerable<FileInfo> RecoveryFiles() => GetFiles("*" + ProjectStore.Extension).Where(file => IsRecoveryFile(file.Name));
@@ -77,6 +84,17 @@ public sealed class AutosaveStore(string folder)
         return digits > 0 && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
             && name.EndsWith(ProjectStore.Extension, StringComparison.OrdinalIgnoreCase)
             && name.AsSpan(prefix.Length, digits).IndexOfAnyExceptInRange('0', '9') < 0;
+    }
+
+    private static bool IsStagingFile(string name)
+    {
+        const string prefix = AutosaveFileName + ".";
+        if (name.Equals(prefix + "tmp", StringComparison.OrdinalIgnoreCase)) return true;
+        if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || name.Length <= prefix.Length + 32) return false;
+
+        var suffix = name.AsSpan(prefix.Length + 32);
+        return (suffix.Equals(".pending", StringComparison.OrdinalIgnoreCase) || suffix.Equals(".pending.tmp", StringComparison.OrdinalIgnoreCase))
+            && Guid.TryParseExact(name.AsSpan(prefix.Length, 32), "N", out _);
     }
 
     private FileInfo[] GetFiles(string pattern)
