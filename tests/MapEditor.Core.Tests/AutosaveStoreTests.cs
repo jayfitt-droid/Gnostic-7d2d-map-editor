@@ -156,6 +156,30 @@ public sealed class AutosaveStoreTests : IDisposable
     }
 
     [Fact]
+    public void FindRecovery_deletes_only_old_autosave_staging_files()
+    {
+        var store = new AutosaveStore(RecoveryFolder);
+        Directory.CreateDirectory(RecoveryFolder);
+        var now = DateTime.UtcNow;
+        string prefix = "autosave" + ProjectStore.Extension;
+        string oldPending = $"{prefix}.{Guid.NewGuid():N}.pending";
+        string newPending = $"{prefix}.{Guid.NewGuid():N}.pending";
+        string[] abandoned = [oldPending, oldPending + ".tmp", prefix + ".tmp"];
+        string[] unrelated = [prefix + ".notes.pending", $"project.7dmap.{Guid.NewGuid():N}.pending.tmp"];
+        string[] recent = [newPending, newPending + ".tmp"];
+        foreach (string name in abandoned.Concat(unrelated).Concat(recent))
+        {
+            string path = Path.Combine(RecoveryFolder, name);
+            File.WriteAllText(path, "staged");
+            File.SetLastWriteTimeUtc(path, recent.Contains(name) ? now : now.AddHours(-2));
+        }
+
+        Assert.Null(store.FindRecovery());
+
+        Assert.Equal(unrelated.Concat(recent).Order(), Directory.GetFiles(RecoveryFolder).Select(Path.GetFileName).Order());
+    }
+
+    [Fact]
     public async Task Opening_a_recovery_copy_keeps_it_until_the_work_is_saved_or_discarded()
     {
         var store = new AutosaveStore(RecoveryFolder);
