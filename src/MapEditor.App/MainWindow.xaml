@@ -16,6 +16,35 @@
             <Setter Property="Margin" Value="0,2,20,2" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <Style x:Key="LandToolToggle" TargetType="local:LandToolToggleButton" BasedOn="{StaticResource FlatButton}">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Padding" Value="9,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="local:LandToolToggleButton">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" BorderBrush="Transparent"
+                                BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorDisabledBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
             <Setter Property="Margin" Value="0,0,20,0" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -541,11 +570,27 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="Land mode" FontWeight="SemiBold" FontSize="15" Margin="0,0,20,0" VerticalAlignment="Center" />
-                    <StackPanel x:Name="LandTools" Orientation="Horizontal"
-                                IsEnabled="{Binding DataContext.CanBuildLand, RelativeSource={RelativeSource AncestorType=Window}}">
-                        <RadioButton Content="Rectangle" GroupName="LandTools" IsChecked="{Binding RectangleTool}" Margin="0,0,12,0" />
-                        <RadioButton Content="Select boxes" GroupName="LandTools" IsChecked="{Binding SelectTool}" />
-                    </StackPanel>
+                    <Border BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorSecondaryBrush}" CornerRadius="5" Padding="2">
+                        <StackPanel x:Name="LandTools" Orientation="Horizontal" KeyboardNavigation.DirectionalNavigation="Cycle"
+                                    IsEnabled="{Binding DataContext.CanBuildLand, RelativeSource={RelativeSource AncestorType=Window}}">
+                            <local:LandToolToggleButton Style="{StaticResource LandToolToggle}" IsChecked="{Binding RectangleTool}"
+                                                        AutomationProperties.Name="Rectangle">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{x:Static local:Icons.Rectangle}" Style="{StaticResource IconPath}" Width="16" Height="16" Margin="0,0,6,0" />
+                                    <TextBlock Text="Rectangle" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </local:LandToolToggleButton>
+                            <local:LandToolToggleButton Style="{StaticResource LandToolToggle}" IsChecked="{Binding SelectTool}"
+                                                        AutomationProperties.Name="Select boxes" Margin="2,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{x:Static local:Icons.Cursor}" Style="{StaticResource IconPath}" Width="16" Height="16" Margin="0,0,6,0" />
+                                    <TextBlock Text="Select boxes" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </local:LandToolToggleButton>
+                        </StackPanel>
+                    </Border>
+                    <CheckBox x:Name="LandGridLayer" Content="Grid Layer" Margin="12,0,0,0"
+                              AutomationProperties.Name="Grid Layer" ToolTip="Show the 150 m grid" />
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -1071,38 +1116,71 @@
                           Visibility="{Binding IsLandMode, Converter={StaticResource BoolToVisibility}}" IsEnabled="{Binding CanBuildLand}">
                 <StackPanel x:Name="LandPanel" Margin="16,12">
                     <TextBlock Text="Land" FontSize="18" FontWeight="SemiBold" />
-                    <TextBlock Text="Drag to draw land. Hold Alt and drag to cut out water." Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                    <TextBlock Text="Use Select boxes to move a box. Drag a handle to resize it." Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,4,0,12" />
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Left" Text="Box" Style="{StaticResource OptionLabel}" />
-                        <ComboBox ItemsSource="{Binding BoxNames}" SelectedIndex="{Binding SelectedIndex}" HorizontalAlignment="Stretch" AutomationProperties.Name="Box" />
-                    </DockPanel>
+                    <TextBlock Text="Box" Margin="0,12,0,4" />
+                    <ComboBox ItemsSource="{Binding BoxNames}" SelectedIndex="{Binding SelectedIndex}" MinWidth="0"
+                              HorizontalAlignment="Stretch" AutomationProperties.Name="Box">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{x:Static local:Icons.Rectangle}" Style="{StaticResource IconPath}" Width="14" Height="14" Margin="0,0,6,0" />
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                     <StackPanel Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="{Binding BoxSize}" Style="{StaticResource HintText}" Margin="0,4,0,0" />
-                        <DockPanel Margin="0,8,0,0">
-                            <TextBlock DockPanel.Dock="Left" Text="Coast seed" Style="{StaticResource OptionLabel}" Width="75" />
-                            <Button DockPanel.Dock="Right" Content="Re-roll" Margin="6,0,0,0" Click="RerollLandBox_Click" ToolTip="Give this box a new coast seed" />
-                            <TextBox Text="{Binding CoastSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Coast seed" />
-                        </DockPanel>
-                        <DockPanel Margin="0,8,0,0">
-                            <TextBlock DockPanel.Dock="Left" Text="Fill" Style="{StaticResource OptionLabel}" Width="75" />
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding Fill, StringFormat={}{0}%}" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
-                            <Slider x:Name="LandFill" Minimum="10" Maximum="80" Value="{Binding Fill}"
-                                    IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center" AutomationProperties.Name="Fill"
-                                    ToolTip="How much of the box to fill" Thumb.DragStarted="LandSlider_DragStarted" Thumb.DragCompleted="LandSlider_DragCompleted" />
-                        </DockPanel>
-                        <DockPanel Margin="0,4,0,0">
-                            <TextBlock DockPanel.Dock="Left" Text="Roughness" Style="{StaticResource OptionLabel}" Width="75" />
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding Roughness, StringFormat={}{0}%}" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
-                            <Slider Minimum="0" Maximum="100" Value="{Binding Roughness}" IsSnapToTickEnabled="True" TickFrequency="5"
-                                    VerticalAlignment="Center" AutomationProperties.Name="Roughness" ToolTip="Higher values make a more ragged coast"
-                                    Thumb.DragStarted="LandSlider_DragStarted" Thumb.DragCompleted="LandSlider_DragCompleted" />
-                        </DockPanel>
-                        <TextBlock Text="A small island can disappear. Make this box larger or increase Fill."
-                                   Visibility="{Binding WarnSmallBox, Converter={StaticResource BoolToVisibility}}"
-                                   Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                        <Button Content="Delete box" HorizontalAlignment="Left" Margin="0,10,0,0" Click="DeleteLandBox_Click" />
+                        <Border BorderThickness="0,1,0,1" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" Margin="0,12,0,0" Padding="0,10">
+                            <StackPanel>
+                                <TextBlock Text="Coast seed" Margin="0,0,0,4" />
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Margin="6,0,0,0" Click="RerollLandBox_Click" ToolTip="Give this box a new coast seed"
+                                            AutomationProperties.Name="Re-roll">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Data="{x:Static local:Icons.Reroll}" Style="{StaticResource IconPath}" Width="16" Height="16" Margin="0,0,6,0" />
+                                            <TextBlock Text="Re-roll" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBox Text="{Binding CoastSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Coast seed" />
+                                </DockPanel>
+                                <DockPanel Margin="0,10,0,2">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Fill, StringFormat={}{0}%}" />
+                                    <TextBlock Text="Fill" />
+                                </DockPanel>
+                                <Slider x:Name="LandFill" Minimum="10" Maximum="80" Value="{Binding Fill}"
+                                        IsSnapToTickEnabled="True" TickFrequency="1" AutomationProperties.Name="Fill"
+                                        ToolTip="How much of the box to fill" Thumb.DragStarted="LandSlider_DragStarted" Thumb.DragCompleted="LandSlider_DragCompleted" />
+                                <DockPanel Margin="0,10,0,2">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Roughness, StringFormat={}{0}%}" />
+                                    <TextBlock Text="Roughness" />
+                                </DockPanel>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding Roughness}" IsSnapToTickEnabled="True" TickFrequency="5"
+                                        AutomationProperties.Name="Roughness" ToolTip="Higher values make a more ragged coast"
+                                        Thumb.DragStarted="LandSlider_DragStarted" Thumb.DragCompleted="LandSlider_DragCompleted" />
+                                <TextBlock Text="A small island can disappear. Make this box larger or increase Fill."
+                                           Visibility="{Binding WarnSmallBox, Converter={StaticResource BoolToVisibility}}"
+                                           Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Button HorizontalAlignment="Left" Margin="0,10,0,0" Click="DeleteLandBox_Click" AutomationProperties.Name="Delete box">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{x:Static local:Icons.Trash}" Style="{StaticResource IconPath}" Width="16" Height="16" Margin="0,0,6,0" />
+                                <TextBlock Text="Delete box" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
+                    <Border Margin="0,12,0,0" Padding="10,8" CornerRadius="6" BorderThickness="1"
+                            Background="{DynamicResource SolidBackgroundFillColorQuarternaryBrush}"
+                            BorderBrush="{DynamicResource SurfaceStrokeColorFlyoutBrush}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource HintText}" FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+                                <Run Text="Drag with Rectangle to draw land." />
+                                <LineBreak />
+                                <Run Text="Hold Alt while you drag" FontWeight="SemiBold" /><Run Text=" over land to make water." />
+                            </TextBlock>
+                            <TextBlock Text="Use Select boxes to move a box. Drag a handle to resize it." Style="{StaticResource HintText}" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
             <DockPanel Visibility="{Binding IsWorldMode, Converter={StaticResource BoolToVisibility}}">
@@ -2093,6 +2171,7 @@
                          ShowPrefabDetail="{Binding ShowPrefabDetail}"
                          ShowSpawns="{Binding ShowSpawns}"
                          ShowWorldGrid="{Binding ShowWorldGrid}"
+                         ShowLandGrid="{Binding IsChecked, ElementName=LandGridLayer}"
                          DimMap="{Binding DimMap}"
                          AutomationProperties.Name="Map" />
             <map:PlayerMarkerOverlay x:Name="PlayerOverlay" IsHitTestVisible="False" ClipToBounds="True" />

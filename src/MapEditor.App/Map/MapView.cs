@@ -153,6 +153,17 @@ public sealed class MapView : FrameworkElement
         set { _landPreview = value; InvalidateVisual(); }
     }
 
+    /// <summary>Show the world's 150 m grid over the coast in Land mode.</summary>
+    public bool ShowLandGrid
+    {
+        get => (bool)GetValue(ShowLandGridProperty);
+        set => SetValue(ShowLandGridProperty, value);
+    }
+
+    public static readonly DependencyProperty ShowLandGridProperty = DependencyProperty.Register(
+        nameof(ShowLandGrid), typeof(bool), typeof(MapView),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
     private void SendToolInput(ToolInputEventArgs e) =>
         (LandPreview is null ? ToolInput : LandToolInput)?.Invoke(this, e);
 
@@ -697,14 +708,27 @@ public sealed class MapView : FrameworkElement
         DrawBrushCursor(dc);
     }
 
-    private static readonly Brush LandSea = Frozen(new SolidColorBrush(Color.FromRgb(44, 89, 115)));
-    private static readonly Pen LandBoxPen = Frozen(new Pen(Brushes.PaleGreen, 1) { DashStyle = DashStyles.Dash });
-    private static readonly Pen WaterBoxPen = Frozen(new Pen(Brushes.LightSkyBlue, 1) { DashStyle = DashStyles.Dash });
+    private static readonly Brush LandSea = Frozen(new SolidColorBrush(Color.FromRgb((byte)(CoastColours.DeepWater >> 16),
+        (byte)((CoastColours.DeepWater >> 8) & 0xFF), (byte)(CoastColours.DeepWater & 0xFF))));
+    private static readonly Pen LandBoxPen = DashedBoxPen(Brushes.PaleGreen, 1.15, 6, 4);
+    private static readonly Pen WaterBoxPen = DashedBoxPen(Brushes.LightSkyBlue, 1.35, 2, 4);
+    private static readonly Pen SelectedLandBoxPen = Frozen(new Pen(Brushes.White, 1.5));
+    private static readonly Pen LandHandlePen = Frozen(new Pen(CursorShadowPen.Brush, 1));
+
+    private static Pen DashedBoxPen(Brush brush, double width, double dash, double gap) =>
+        Frozen(new Pen(brush, width) { DashCap = PenLineCap.Flat, DashStyle = new DashStyle([dash / width, gap / width], 0) });
 
     private void DrawLand(DrawingContext dc, Rect world, LandPreview drawing)
     {
         if (drawing.Coast is { } coast) dc.DrawImage(coast, world);
         else dc.DrawRectangle(LandSea, null, world);
+
+        if (ShowLandGrid)
+        {
+            dc.PushClip(new RectangleGeometry(world));
+            DrawWorldGrid(dc, VisibleMapRect, landPreview: true);
+            dc.Pop();
+        }
 
         Rect? selection = null;
         for (int i = 0; i < drawing.Boxes.Count; i++)
@@ -717,10 +741,14 @@ public sealed class MapView : FrameworkElement
         // Draw the selection over all other boxes so their outlines cannot cover its handles.
         if (selection is not { } box) return;
         dc.DrawRectangle(null, CursorShadowPen, box);
-        dc.DrawRectangle(null, HoverPen, box);
+        dc.DrawRectangle(null, SelectedLandBoxPen, box);
         if (box.Width > 0 && box.Height > 0)
             foreach (var handle in LandPreview.ResizeHandles(box))
-                dc.DrawRectangle(Brushes.White, CursorShadowPen, new Rect(handle.X - 4, handle.Y - 4, 8, 8));
+            {
+                bool corner = (handle.X == box.Left || handle.X == box.Right) && (handle.Y == box.Top || handle.Y == box.Bottom);
+                double size = corner ? 7 : 5;
+                dc.DrawRectangle(Brushes.White, LandHandlePen, new Rect(handle.X - size / 2, handle.Y - size / 2, size, size));
+            }
     }
 
     private void DrawRoadPreview(DrawingContext dc)
@@ -1059,10 +1087,10 @@ public sealed class MapView : FrameworkElement
     /// The world's shared 150 m street-tile grid, counted from its south-west corner as the Town sites stage and the
     /// Town tool count it (<see cref="TownGenerator.NearestGridLine"/>), so the lines are where towns snap.
     /// </summary>
-    private void DrawWorldGrid(DrawingContext dc, Rect visible)
+    private void DrawWorldGrid(DrawingContext dc, Rect visible, bool landPreview = false)
     {
         double cell = TownGenerator.Tile * _scale;
-        if (_renderer is null || cell < WorldGridMinCell) return;
+        if (_renderer is null || !landPreview && cell < WorldGridMinCell) return;
         int size = _renderer.World.Size;
         int last = size / TownGenerator.Tile * TownGenerator.Tile;
         var corner = MapToScreen(new Point(0, 0));
@@ -1081,7 +1109,8 @@ public sealed class MapView : FrameworkElement
             if (y >= visible.Top - 1 && y <= visible.Bottom + 1) horizontal.Add(Crisp(MapToScreen(new Point(0, y)).Y));
         }
 
-        dc.PushOpacity(Math.Clamp((cell - WorldGridMinCell) / (WorldGridFullCell - WorldGridMinCell), 0.15, 1));
+        // Keep the Land mode grid visible when the whole map fits, even on large worlds.
+        dc.PushOpacity(Math.Clamp((cell - WorldGridMinCell) / (WorldGridFullCell - WorldGridMinCell), landPreview ? 0.35 : 0.15, 1));
         // A faint dark line one pixel beside each light one keeps the grid readable on snow and sand.
         foreach (var x in vertical) dc.DrawLine(WorldGridShadowPen, new Point(x + dip, corner.Y), new Point(x + dip, far.Y));
         foreach (var y in horizontal) dc.DrawLine(WorldGridShadowPen, new Point(corner.X, y + dip), new Point(far.X, y + dip));

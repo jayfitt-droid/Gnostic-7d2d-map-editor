@@ -114,23 +114,16 @@ public sealed class MapRenderer
                 float h = height[x, z] / 257f;
                 byte surface = water is null ? (byte)0 : water[x, z];
                 bool wet = surface > 0 && h <= surface + 0.5f;
-                // Under water the floor is one plain colour, not its biome's: biomes reach under the sea (they grow
-                // across it between islands), and their colours would show through the water as blocks.
                 // A colour painted while this tile renders may not be in biomeDisplay yet; the tile is redrawn after the edit.
                 int bi = biomes && !wet ? biomeLayer!.Indices[x / biomeScale, z / biomeScale] : 0;
-                uint rgb = wet ? SeaFloor : biomes && bi < biomeDisplay.Length ? biomeDisplay[bi] : ElevationGrey(h);
+                uint rgb = wet ? CoastColours.AtWaterDepth(surface - h)
+                    : biomes && bi < biomeDisplay.Length ? biomeDisplay[bi] : ElevationGrey(h);
                 float r = (rgb >> 16) & 0xFF, g = (rgb >> 8) & 0xFF, b = rgb & 0xFF;
 
-                if (shade)
+                if (shade && !wet)
                 {
                     float light = Hillshade(height, x, z, step, size);
                     r *= light; g *= light; b *= light;
-                }
-
-                if (wet)
-                {
-                    float depth = Math.Clamp((surface - h) / 12f, 0f, 1f);
-                    Blend(ref r, ref g, ref b, 0x3A78B8, 0.55f + 0.35f * depth);
                 }
 
                 if (roads is not null && RoadAt(roads, x, z, step, size) is var road and not RoadType.None)
@@ -184,9 +177,6 @@ public sealed class MapRenderer
         }
         return best;
     }
-
-    /// <summary>The ground under water, whatever its biome: a sandy grey the water colour is laid over.</summary>
-    private const uint SeaFloor = 0x9A9078;
 
     private static uint ElevationGrey(float metres)
     {
