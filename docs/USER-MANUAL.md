@@ -295,7 +295,8 @@ Click **Multi-select** next to **Select**, or press **M**.
 - Drag a box around items on the map. The box must contain the whole item.
 - Hold **Shift** and drag to add items to the selection. Hold **Shift** and click an item to add or remove it. Click empty ground to clear the selection.
 - Drag a selected item to move the group. Street tiles stay level, and the POIs on them move with them. Other POIs and spawn points sit on the ground at the new location.
-- Press **Q** or **E** to turn the group around its centre. Press **PgUp** or **PgDn** to move the selected prefabs one block higher or lower. Press **Del** to remove the group.
+- Press **Q** or **E** to turn the group around its centre. Press the other key to put the items back where they were. Press **PgUp** or **PgDn** to move the selected prefabs one block higher or lower. Press **Del** to remove the group.
+- The editor stops a move or turn if any part of a prefab would go outside the map.
 - A drop replaces covered prefabs. The editor stops the drop if a selected street tile partly overlaps another street tile, or if the group overlaps a bridge. Bridges made with the Bridge tool or Highways stay in place.
 - Each group edit takes one undo step. The map shows the selection.
 
