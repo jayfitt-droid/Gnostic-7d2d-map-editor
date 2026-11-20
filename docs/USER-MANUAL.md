@@ -222,7 +222,7 @@ Open **History** in the side panel. In the Modern theme, click the clock icon. T
 
 History keeps edits, Generate runs, saves, exports, and other project events. In Land mode, **Build World** adds one entry with the number of boxes. Drawing boxes adds no entries.
 
-Click **Undo to here** to undo the edits after that entry. Click **Redo to here** to redo the edits up to and including that entry. You can also right-click the entry to use the same action. Each undo or redo adds an entry to the list.
+Click **Undo to here** to undo the edits after that entry. Click **Redo to here** to redo the edits up to and including that entry. You can also right-click the entry to use the same action. The entry for the current state has no button. Each undo or redo adds an entry to the list.
 
 You can use these actions while the edit is in the undo or redo list. When the editor drops an old undo step to save memory, its history entry stays. A `.7dmap` keeps the history. When you open it again, you can read the old entries and go to their map areas. To keep the history of a world you opened from a game folder, use **Save Project As**.
 
