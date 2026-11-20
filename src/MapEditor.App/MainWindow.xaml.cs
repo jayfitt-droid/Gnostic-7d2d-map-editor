@@ -74,7 +74,7 @@ public partial class MainWindow : Window
 
     /// <summary>The world differs from what was last saved: a setting changed, or the history is not at the save point.</summary>
     private bool Dirty => _world is not null && (_dirty || !_undo.AtSavePoint);
-    /// <summary>The window was asked to close while a save was running; it closes once the save is done.</summary>
+    /// <summary>The window was asked to close while work was running; it closes once that work is done.</summary>
     private bool _closeWhenIdle;
     private static readonly string AutosaveFolder = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7D2DMapEditor", "autosave");
@@ -701,6 +701,7 @@ public partial class MainWindow : Window
         finally
         {
             _vm.IsBusy = false;
+            CloseIfWaiting();
         }
     }
 
@@ -709,6 +710,7 @@ public partial class MainWindow : Window
     {
         if (_world is not { } world) return false;
         var issues = await ValidateAsync(showPanel: false);
+        if (_closeWhenIdle) return false;
         string location = Path.GetDirectoryName(_savePath ?? _sourcePath ?? "") is { Length: > 0 } dir ? dir : GameInstall.UserGeneratedWorldsDir;
         string name = _savePath is { } saved ? Path.GetFileName(saved) : world.Name;
         var dialog = new ExportDialog(name, location, issues, BoxFormNote(world)) { Owner = this };
@@ -853,6 +855,7 @@ public partial class MainWindow : Window
         finally
         {
             _vm.IsBusy = false;
+            CloseIfWaiting();
         }
     }
 
@@ -900,6 +903,7 @@ public partial class MainWindow : Window
     {
         if (_world is not { } world || RefuseWhileBusy()) return;
         var issues = await ValidateAsync(showPanel: false);
+        if (_closeWhenIdle) return;
         var spots = TeleportList.Build(world, issues, _vm.Prefabs, _fixedIssues);
         if (spots.Count == 0)
         {
@@ -1181,6 +1185,7 @@ public partial class MainWindow : Window
     }
 
     private bool _closeConfirmed;
+    private bool _confirmingClose;
 
     /// <summary>Set by Settings > Theme: the editor starts again once this window has closed.</summary>
     private bool _restartWhenClosed;
@@ -1236,18 +1241,26 @@ public partial class MainWindow : Window
         Process.Start(start);
     }
 
-    /// <summary>Closes the window if it was asked to close while a save was running and nothing is running now.</summary>
+    /// <summary>Closes the window when the current operation and the close prompt have finished.</summary>
     private void CloseIfWaiting()
     {
-        if (_closeWhenIdle && !_vm.IsBusy && !_autosaving)
+        if (!_closeWhenIdle || _vm.IsBusy || _autosaving || _confirmingClose) return;
+        // Let the current command finish its UI updates before the Closing event checks for unsaved changes.
+        _ = Dispatcher.BeginInvoke(() =>
         {
+            if (!_closeWhenIdle || _vm.IsBusy || _autosaving || _confirmingClose) return;
             _closeWhenIdle = false;
-            _ = Dispatcher.BeginInvoke(Close);
-        }
+            Close();
+        }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private async void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
+        if (_confirmingClose)
+        {
+            e.Cancel = true;
+            return;
+        }
         // Closing would cut a running save off half-written; wait for it, then close.
         if (_vm.IsBusy || _autosaving)
         {
@@ -1258,9 +1271,10 @@ public partial class MainWindow : Window
                 generating.Cancel();
                 _vm.Status = "Closing once the generator stops...";
             }
-            else _vm.Status = "Closing once the save finishes...";
+            else _vm.Status = "Closing when the current operation finishes...";
             return;
         }
+        _closeWhenIdle = false;
         if (_vm.IsLandMode && !ConfirmCloseLand())
         {
             e.Cancel = true;
@@ -1282,12 +1296,17 @@ public partial class MainWindow : Window
             return;
         }
         e.Cancel = true;
-        if (await ConfirmDiscardAsync())
+        _confirmingClose = true;
+        try
         {
+            if (!await ConfirmDiscardAsync()) return;
             _closeConfirmed = true;
-            // "Don't save" completes synchronously, still inside this Closing event, where Close() throws;
-            // close once the event has returned instead.
-            _ = Dispatcher.BeginInvoke(Close);
+            _closeWhenIdle = true;
+        }
+        finally
+        {
+            _confirmingClose = false;
+            CloseIfWaiting();
         }
     }
 
