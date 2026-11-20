@@ -216,6 +216,16 @@ The editor remembers where you saved. If you undo or redo back to that point, th
 
 If an edit fails, the editor puts the world back as it was and shows a message. A failed road or town keeps its points or plan, so you can try again.
 
+### View the history
+
+Open **History** in the side panel. In the Modern theme, click the clock icon. The newest entry is at the top. Type words in the filter box to find an entry. Click an entry with a map area to go to that area.
+
+History keeps edits, Generate runs, saves, exports, and other project events. In Land mode, **Build World** adds one entry with the number of boxes. Drawing boxes adds no entries.
+
+Click **Undo to here** to undo the edits after that entry. Click **Redo to here** to redo the edits up to and including that entry. You can also right-click the entry to use the same action. Each undo or redo adds an entry to the list.
+
+You can use these actions while the edit is in the undo or redo list. When the editor drops an old undo step to save memory, its history entry stays. A `.7dmap` keeps the history. When you open it again, you can read the old entries and go to their map areas. To keep the history of a world you opened from a game folder, use **Save Project As**.
+
 ## 5. The tools
 
 Click a tool on the ribbon, or press its key.
