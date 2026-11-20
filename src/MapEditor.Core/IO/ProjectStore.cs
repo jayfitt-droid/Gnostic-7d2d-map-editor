@@ -137,7 +137,8 @@ public static class ProjectStore
     public static void Save(WorldSnapshot snapshot, string path, ProjectSettings? settings = null) =>
         Save(snapshot.World, path, settings, snapshot);
 
-    private static void Save(World world, string path, ProjectSettings? settings, WorldSnapshot? snapshot)
+    internal static void Save(World world, string path, ProjectSettings? settings, WorldSnapshot? snapshot,
+        long maxHistoryBytes = MaxHistoryBytes)
     {
         // Load refuses these, so a project saved with one could never be opened again (#22). WorldWriter checks the same.
         foreach (var name in world.ExtraFiles.Keys)
@@ -183,10 +184,7 @@ public static class ProjectStore
                 using (var entry = zip.CreateEntry(ManifestEntry, CompressionLevel.Optimal).Open())
                     JsonSerializer.Serialize(entry, manifest, Json);
                 if (settings?.History is { Count: > 0 } history)
-                {
-                    using var writer = new StreamWriter(zip.CreateEntry(HistoryFile, CompressionLevel.Fastest).Open());
-                    foreach (var row in history) writer.WriteLine(JsonSerializer.Serialize(row, HistoryJson));
-                }
+                    WriteHistory(zip, history, maxHistoryBytes);
                 WriteGrid(zip, HeightEntry, world.Height, snapshot);
                 if (world.Biomes is { } biomes) WriteGrid(zip, BiomesEntry, biomes.Indices, snapshot);
                 if (world.Roads is { } roads) WriteGrid(zip, RoadsEntry, roads, snapshot);
@@ -281,6 +279,27 @@ public static class ProjectStore
         // Format 4 added the starter-trader spawns option, on by default; older projects keep the old way.
         if (manifest.Format < 4 && settings.Generator is { } gen) gen.Spawns.NearStarterTrader = false;
         return world;
+    }
+
+    /// <summary>Writes as much of the most recent history as the reader can load, in recording order.</summary>
+    private static void WriteHistory(ZipArchive zip, List<HistoryEntry> history, long maxBytes)
+    {
+        var rows = new Stack<byte[]>();
+        for (int i = history.Count - 1; i >= 0; i--)
+        {
+            byte[] row = JsonSerializer.SerializeToUtf8Bytes(history[i], HistoryJson);
+            maxBytes -= row.Length + 1L;
+            if (maxBytes < 0) break;
+            rows.Push(row);
+        }
+
+        if (rows.Count == 0) return;
+        using var stream = zip.CreateEntry(HistoryFile, CompressionLevel.Fastest).Open();
+        foreach (byte[] row in rows)
+        {
+            stream.Write(row);
+            stream.Write("\n"u8);
+        }
     }
 
     /// <summary>Each line is independent, so a bad record does not hide the other entries.</summary>
