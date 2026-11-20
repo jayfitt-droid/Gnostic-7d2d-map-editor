@@ -3,6 +3,7 @@ using MapEditor.Core.GameData;
 using MapEditor.Core.IO;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
+using MapEditor.Core.Validate;
 
 namespace MapEditor.Core.Tests;
 
@@ -240,6 +241,41 @@ public sealed class EditingTests : IDisposable
         Assert.True(gx < 200 || gx >= 312 || gz < 200 || gz >= 312, "spawn should be out of the water");
         Assert.Equal(46, spawn.Y);
         Assert.Null(SpawnHelper.EnsureOne(world));
+    }
+
+    [Fact]
+    public void A_default_spawn_lands_in_the_only_dry_corner()
+    {
+        var world = Flat(512, 20);
+        world.Water = new Grid<byte>(512, 512);
+        Array.Fill(world.Water.Data, (byte)30);
+        for (int z = 0; z < 32; z++)
+            for (int x = 0; x < 32; x++) world.Height[x, z] = World.MetresToHeight(45);
+
+        var issues = WorldValidator.Validate(world, PrefabLibrary.Empty);
+        Assert.Empty(world.Spawns);
+        var spawn = SpawnHelper.EnsureOne(world);
+
+        Assert.NotNull(spawn);
+        Assert.Same(spawn, Assert.Single(world.Spawns));
+        Assert.Equal(world.GridToWorld(31), spawn.X);
+        Assert.Equal(world.GridToWorld(31), spawn.Z);
+        Assert.Equal(46, spawn.Y);
+        Assert.Contains(issues, i => i.Severity == IssueSeverity.Warning && i.Message.Contains("dry ground"));
+    }
+
+    [Fact]
+    public void A_default_spawn_is_not_added_when_there_is_no_dry_ground()
+    {
+        var world = Flat(512, 20);
+        world.Water = new Grid<byte>(512, 512);
+        Array.Fill(world.Water.Data, (byte)30);
+
+        Assert.Null(SpawnHelper.EnsureOne(world));
+        var issues = WorldValidator.Validate(world, PrefabLibrary.Empty);
+
+        Assert.Empty(world.Spawns);
+        Assert.Contains(issues, i => i.Severity == IssueSeverity.Error && i.Message.Contains("no dry ground"));
     }
 
     [Fact]

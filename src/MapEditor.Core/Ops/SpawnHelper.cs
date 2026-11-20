@@ -11,26 +11,44 @@ public static class SpawnHelper
     /// </summary>
     public static SpawnPoint? EnsureOne(World world)
     {
-        if (world.Spawns.Count > 0) return null;
-        int size = world.Size, centre = size / 2;
-        // Walk outward in 16 m rings until the ground is above any water surface.
-        for (int r = 0; r < centre; r += 16)
+        if (world.Spawns.Count > 0 || FindDryGround(world) is not { } cell) return null;
+        var spawn = new SpawnPoint
         {
-            for (int i = 0; i < Math.Max(1, r / 2); i++)
+            X = world.GridToWorld(cell.X), Y = StandingHeight(world, cell.X, cell.Z), Z = world.GridToWorld(cell.Z),
+        };
+        world.Spawns.Add(spawn);
+        return spawn;
+    }
+
+    /// <summary>Finds the dry cell nearest the centre, or null when the whole map is under water.</summary>
+    internal static (int X, int Z)? FindDryGround(World world)
+    {
+        int size = world.Size, centre = size / 2;
+        var water = world.Water;
+        if (water is null || IsDry(world.Height[centre, centre], water[centre, centre])) return (centre, centre);
+
+        (int X, int Z)? nearest = null;
+        int nearestDistanceSquared = int.MaxValue;
+        // Scan by row for locality, skipping rows that cannot beat the nearest cell found so far.
+        for (int z = 0; z < size; z++)
+        {
+            int dz = z - centre, dzSquared = dz * dz;
+            if (dzSquared >= nearestDistanceSquared) continue;
+            var heights = world.Height.Row(z);
+            var levels = water.Row(z);
+            for (int x = 0; x < size; x++)
             {
-                double angle = 2 * Math.PI * i / Math.Max(1, r / 2);
-                int x = centre + (int)(r * Math.Cos(angle)), z = centre + (int)(r * Math.Sin(angle));
-                if (!world.Height.Contains(x, z)) continue;
-                float h = World.HeightToMetres(world.Height[x, z]);
-                byte water = world.Water?[x, z] ?? 0;
-                if (water > 0 && h <= water + 0.5f) continue;
-                var spawn = new SpawnPoint { X = world.GridToWorld(x), Y = MathF.Ceiling(h) + 1, Z = world.GridToWorld(z) };
-                world.Spawns.Add(spawn);
-                return spawn;
+                if (!IsDry(heights[x], levels[x])) continue;
+                int dx = x - centre, distanceSquared = dx * dx + dzSquared;
+                if (distanceSquared >= nearestDistanceSquared) continue;
+                nearestDistanceSquared = distanceSquared;
+                nearest = (x, z);
             }
         }
-        return null;
+        return nearest;
     }
+
+    private static bool IsDry(ushort height, byte water) => water == 0 || World.HeightToMetres(height) > water + 0.5f;
 
     /// <summary>The height a spawn at grid cell (x, z) stands at: a metre above the rounded-up ground.</summary>
     public static float StandingHeight(World world, int x, int z)

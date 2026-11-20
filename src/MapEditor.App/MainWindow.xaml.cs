@@ -776,6 +776,12 @@ public partial class MainWindow : Window
             }
 
             addedSpawn = SpawnHelper.EnsureOne(world);
+            if (world.Spawns.Count == 0)
+            {
+                _vm.Status = "Export cancelled";
+                ThemedMessageBox.Show(this, WorldValidator.NoDrySpawnMessage, "Export World", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return (false, false);
+            }
             if (addedSpawn is not null) Map.InvalidateVisual();
 
             var sw = Stopwatch.StartNew();
