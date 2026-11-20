@@ -677,6 +677,8 @@ The list also shows the issues that you fixed with a **Fix** button while the wo
 2. Select a folder. To play the world, select the game's `GeneratedWorlds` folder.
 3. The editor validates the world, then writes the world folder. Double-click an issue in the list to close the dialog and go to the issue on the map.
 
+If the world has no spawn points, the editor adds one on the dry ground nearest the centre. If there is no dry ground, Validate shows an error and the editor stops the export. Make dry ground before you export again.
+
 The world then shows under **New Game** in the game.
 
 ### Export a picture of the map
