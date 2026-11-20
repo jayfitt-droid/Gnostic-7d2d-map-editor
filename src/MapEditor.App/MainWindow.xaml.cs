@@ -432,11 +432,13 @@ public partial class MainWindow : Window
         {
             _vm.Status = "Failed to open the project";
             ThemedMessageBox.Show(this, ex.Message, "Open", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
         }
         finally
         {
             _vm.IsBusy = false;
         }
+        if (_projectSettings.Generator?.Sites.Any(s => !s.Built) == true) await ReplanTownsAsync();
     }
 
     /// <summary>Errors a damaged or unexpected file can cause while opening it: shown as a message, not a crash.</summary>
@@ -1353,7 +1355,6 @@ public partial class MainWindow : Window
             : "Not run yet. Generate places spawns by the gravel roads near traders, then tops up to the minimum.";
         g.RefreshSpawns();
         _genTools.Refresh();
-        if (settings.Sites.Any(s => !s.Built)) _ = ReplanTownsAsync();
     }
 
     // ---- town sites ----------------------------------------------------------
