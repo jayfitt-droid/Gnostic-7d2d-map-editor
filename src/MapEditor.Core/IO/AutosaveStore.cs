@@ -5,8 +5,10 @@ namespace MapEditor.Core.IO;
 /// <summary>Stores recovery copies for the current document in a folder reserved for autosaves.</summary>
 public sealed class AutosaveStore(string folder)
 {
+    private const string AutosaveName = "autosave";
+    private const string AutosaveFileName = AutosaveName + ProjectStore.Extension;
     private readonly Lock _gate = new();
-    private readonly string _autosavePath = Path.Combine(folder, "autosave" + ProjectStore.Extension);
+    private readonly string _autosavePath = Path.Combine(folder, AutosaveFileName);
     private string? _recoveredPath;
     private long _generation;
 
@@ -46,10 +48,14 @@ public sealed class AutosaveStore(string folder)
         lock (_gate)
         {
             _generation++;
+            _recoveredPath = null;
             foreach (var file in RecoveryFiles())
-                if (!string.Equals(file.FullName, recoveredPath, StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.Equals(file.FullName, recoveredPath, StringComparison.OrdinalIgnoreCase))
+                    _recoveredPath = file.FullName;
+                else
                     TryDelete(file.FullName);
-            _recoveredPath = recoveredPath;
+            }
         }
     }
 
@@ -59,9 +65,23 @@ public sealed class AutosaveStore(string folder)
         lock (_gate) return RecoveryFiles().MaxBy(file => file.LastWriteTimeUtc);
     }
 
-    private FileInfo[] RecoveryFiles()
+    private IEnumerable<FileInfo> RecoveryFiles() => GetFiles("*" + ProjectStore.Extension).Where(file => IsRecoveryFile(file.Name));
+
+    private static bool IsRecoveryFile(string name)
     {
-        try { return new DirectoryInfo(folder).GetFiles("*" + ProjectStore.Extension); }
+        if (name.Equals(AutosaveFileName, StringComparison.OrdinalIgnoreCase)) return true;
+
+        // Also accept numbered recovery copies such as autosave-2.7dmap.
+        const string prefix = AutosaveName + "-";
+        int digits = name.Length - prefix.Length - ProjectStore.Extension.Length;
+        return digits > 0 && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            && name.EndsWith(ProjectStore.Extension, StringComparison.OrdinalIgnoreCase)
+            && name.AsSpan(prefix.Length, digits).IndexOfAnyExceptInRange('0', '9') < 0;
+    }
+
+    private FileInfo[] GetFiles(string pattern)
+    {
+        try { return new DirectoryInfo(folder).GetFiles(pattern); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return []; }
     }
 

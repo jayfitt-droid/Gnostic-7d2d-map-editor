@@ -76,8 +76,9 @@ public partial class MainWindow : Window
     private bool Dirty => _world is not null && (_dirty || !_undo.AtSavePoint);
     /// <summary>The window was asked to close while a save was running; it closes once the save is done.</summary>
     private bool _closeWhenIdle;
-    private readonly AutosaveStore _autosaves = new(Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7D2DMapEditor", "autosave"));
+    private static readonly string AutosaveFolder = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7D2DMapEditor", "autosave");
+    private readonly AutosaveStore _autosaves = new(AutosaveFolder);
     private readonly System.Windows.Threading.DispatcherTimer _autosaveTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private bool _autosaving;
 
@@ -622,7 +623,8 @@ public partial class MainWindow : Window
                 Title = "Save project",
                 Filter = "Map editor project (*.7dmap)|*.7dmap",
                 FileName = _world.Name + ProjectStore.Extension,
-                InitialDirectory = Path.GetDirectoryName(_projectPath ?? "") is { Length: > 0 } dir && Directory.Exists(dir) && !IsGameWorldsPath(dir)
+                InitialDirectory = Path.GetDirectoryName(_projectPath ?? "") is { Length: > 0 } dir
+                    && Directory.Exists(dir) && !IsGameWorldsPath(dir) && !IsRecoveryPath(dir)
                     ? dir
                     : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             };
@@ -630,6 +632,12 @@ public partial class MainWindow : Window
             if (IsGameWorldsPath(dialog.FileName))
             {
                 ThemedMessageBox.Show(this, "Projects can't be saved in the game's world folders. Choose another folder, such as Documents.",
+                    "Save project", MessageBoxButton.OK, MessageBoxImage.Warning);
+                continue;
+            }
+            if (IsRecoveryPath(dialog.FileName))
+            {
+                ThemedMessageBox.Show(this, "Choose a folder outside the editor's recovery folder, such as Documents.",
                     "Save project", MessageBoxButton.OK, MessageBoxImage.Warning);
                 continue;
             }
@@ -644,6 +652,14 @@ public partial class MainWindow : Window
         string full = Path.GetFullPath(path);
         return new[] { GameInstall.UserGeneratedWorldsDir, _install?.WorldsDir }.Any(root => root is not null
             && full.StartsWith(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>True if the path is the recovery folder or is inside it.</summary>
+    private static bool IsRecoveryPath(string path)
+    {
+        string full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        return full.Equals(AutosaveFolder, StringComparison.OrdinalIgnoreCase)
+            || full.StartsWith(AutosaveFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<bool> SaveProjectAsync(string path, bool saveAs)
