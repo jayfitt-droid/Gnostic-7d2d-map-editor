@@ -27,6 +27,9 @@ public sealed record ValidationIssue(IssueSeverity Severity, string Message, int
 /// <summary>Checks a world for problems before it is exported: spawns, traders, prefab overlaps, water and bounds.</summary>
 public static class WorldValidator
 {
+    /// <summary>The reason export stops when a world needs a spawn point but has no dry ground.</summary>
+    public const string NoDrySpawnMessage = "There are no spawn points and no dry ground for one. Make dry ground before you export.";
+
     /// <summary>
     /// The opening quest sends every new player to one trader (<see cref="StarterTrader"/>): warns when it finds none,
     /// or when a spawn is <see cref="StarterTrader.FarSpawn"/> or more from it, naming a nearer pine-forest trader that
@@ -90,7 +93,9 @@ public static class WorldValidator
             issues.Add(new(IssueSeverity.Warning, "The world has no biomes, so the game will use one biome everywhere."));
 
         if (world.Spawns.Count == 0)
-            issues.Add(new(IssueSeverity.Warning, "There are no spawn points; one will be added at the world centre on export."));
+            issues.Add(SpawnHelper.FindDryGround(world) is null
+                ? new(IssueSeverity.Error, NoDrySpawnMessage)
+                : new(IssueSeverity.Warning, "There are no spawn points. Export will add one on the dry ground nearest the world centre."));
         foreach (var s in world.Spawns)
         {
             int gx = world.WorldToGrid((int)MathF.Floor(s.X)), gz = world.WorldToGrid((int)MathF.Floor(s.Z));
