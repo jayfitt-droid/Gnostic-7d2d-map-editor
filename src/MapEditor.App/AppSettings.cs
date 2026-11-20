@@ -67,8 +67,8 @@ public sealed class AppSettings
     /// <summary>Town presets saved from the Town sites card.</summary>
     public List<TownPreset> TownPresets { get; set; } = [];
 
-    /// <summary>The starter presets have been added. Keep this set when the user deletes them.</summary>
-    public bool TownPresetsInitialized { get; set; }
+    /// <summary>Names of the starter town presets already offered, so a deleted starter doesn't come back.</summary>
+    public List<string> OfferedTownPresets { get; set; } = [];
 
     /// <summary>Overrides the release feed for update checks (see Updates).</summary>
     public string? UpdateUrl { get; set; }
@@ -92,12 +92,7 @@ public sealed class AppSettings
             settings = new AppSettings();
         }
 
-        if (!settings.TownPresetsInitialized)
-        {
-            var names = settings.TownPresets.Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            settings.TownPresets.AddRange(StarterTownPresets.Create().Where(p => names.Add(p.Name)));
-            settings.TownPresetsInitialized = true;
-        }
+        StarterTownPresets.AddNew(settings.TownPresets, settings.OfferedTownPresets);
 
         if (settings.GameFolder is null || !GameInstall.IsValid(settings.GameFolder))
             settings.GameFolder = GameInstall.FindCandidates().FirstOrDefault();

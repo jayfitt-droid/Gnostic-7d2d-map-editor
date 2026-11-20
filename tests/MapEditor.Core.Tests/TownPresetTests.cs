@@ -125,9 +125,9 @@ public sealed class TownPresetTests
     }
 
     [Theory]
-    [InlineData("Small towns (4 km)", 2, 0)]
-    [InlineData("Mixed towns (6 km)", 3, 1)]
-    [InlineData("More cities (8 km)", 4, 3)]
+    [InlineData("6K Countryside", 2, 1)]
+    [InlineData("8K Cities", 3, 4)]
+    [InlineData("16K Huge", 10, 8)]
     public void Starter_presets_set_fixed_counts_for_each_town_type(string name, int towns, int cities)
     {
         var preset = StarterTownPresets.Create().Single(p => p.Name == name);
@@ -139,5 +139,35 @@ public sealed class TownPresetTests
         Assert.Equal(GameNames.TownshipNames.Keys.Order(), preset.Rows.Select(r => r.Township).Order());
         Assert.Equal(towns, target.Rows.Single(r => r.Township == "town").Count);
         Assert.Equal(cities, target.Rows.Single(r => r.Township == "city").Count);
+    }
+
+    [Fact]
+    public void Starters_have_twelve_unique_names_and_valid_tile_ranges()
+    {
+        var starters = StarterTownPresets.Create();
+
+        Assert.Equal(12, starters.Count);
+        Assert.Equal(12, starters.Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.All(starters.SelectMany(p => p.Rows), r => Assert.True(r.Count >= 0 && r.MinTiles >= 1 && r.MinTiles <= r.MaxTiles));
+        Assert.Equal(4, starters[0].Rows.Single(r => r.Township == "countrytown").Distance);
+        Assert.Equal(5, starters[0].Rows.Single(r => r.Township == "city").Distance);
+    }
+
+    [Fact]
+    public void New_starters_are_offered_once_and_deleted_ones_stay_gone()
+    {
+        var presets = new List<TownPreset> { new() { Name = "6k cities", EdgeMargin = 0.2f } };
+        var offered = new List<string> { "8K Countryside" };
+
+        Assert.True(StarterTownPresets.AddNew(presets, offered));
+
+        Assert.Equal(12, offered.Count);
+        Assert.DoesNotContain(presets, p => p.Name == "8K Countryside");
+        Assert.Equal(0.2f, presets.Single(p => p.Name.Equals("6K Cities", StringComparison.OrdinalIgnoreCase)).EdgeMargin);
+        Assert.Equal(11, presets.Count);
+
+        presets.RemoveAll(p => p.Name == "16K Huge");
+        Assert.False(StarterTownPresets.AddNew(presets, offered));
+        Assert.DoesNotContain(presets, p => p.Name == "16K Huge");
     }
 }
