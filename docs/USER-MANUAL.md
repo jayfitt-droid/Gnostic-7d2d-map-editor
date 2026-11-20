@@ -177,11 +177,13 @@ On an island world, the share of each biome is a share of the land. The coast se
 
 ### Draw land in Land mode
 
-1. Select **Rectangle** and drag a box on the map. The preview shows the coast as you draw. Draw several boxes to make islands. Land joins where two coasts meet. To make land run off the map, drag the box to the map edge.
-2. Hold **Alt** and drag a box to cut water out of the land. Use it to make a bay or an inland sea.
-3. Click **Select boxes**, then click a box on the map. You can also pick a box in the **Land** panel. Drag inside the box to move it. Drag a corner or side handle to resize it. The pointer shows which way the handle moves.
+1. Click **Rectangle** in the Land mode toolbar and drag a box on the map. The preview shows the coast as you draw. Draw several boxes to make islands. Land joins where two coasts meet. To make land run off the map, drag the box to the map edge.
+2. Hold **Alt** while you drag a box over land to make a water box. Use it to make a bay or an inland sea.
+3. Click **Select boxes** next to **Rectangle**, then click a box on the map. You can also select a box from the **Box** list in the **Land** panel. Drag inside the box to move it. Drag a corner or side handle to resize it. The pointer shows which way the handle moves.
 4. In the **Land** panel, change **Fill** to set how much of the box to fill. Change **Roughness** to set how ragged the coast is. Set a **Coast seed** or click **Re-roll** to change the coast of that box. Use **Delete box** to remove the box. An island with less than about 360 × 360 m of land can disappear. Make its box larger or increase **Fill**.
-5. Click **Build World**. The editor makes the ground, beaches, sea floor, ocean and biomes, then opens the normal tools. Save the world as a `.7dmap` project to keep the boxes.
+5. Click **Build World**. The editor makes the ground, beaches, sea floor, ocean and biomes, then opens the normal tools. The map uses the same blue colours for water as the Land mode preview. Save the world as a `.7dmap` project to keep the boxes.
+
+Select **Grid Layer** in the Land mode toolbar to show a grid with 150 m squares. See the bottom of the **Land** panel for help with dragging boxes.
 
 Use **Ctrl+Z** and **Ctrl+Y** in Land mode to undo and redo changes to the drawing. After **Build World**, one world undo puts back the previous ground and drawing.
 
