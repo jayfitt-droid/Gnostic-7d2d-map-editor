@@ -39,6 +39,11 @@ public sealed class EditSession(string name, World? world = null)
 
     public string Name { get; } = name;
 
+    /// <summary>Extra text for the running history, such as the generator seed used by this edit.</summary>
+    public string? HistoryDetail { get; set; }
+
+    internal object? CommittedPosition { get; set; }
+
     /// <summary>Bounds of everything touched, in world metres.</summary>
     public GridRect Bounds { get; private set; } = GridRect.Empty;
 
@@ -273,6 +278,7 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
 {
     private readonly LinkedList<UndoStep> _undo = new();
     private readonly Stack<UndoStep> _redo = new();
+    private readonly Dictionary<object, HistoryAction> _actions = new();
     private long _bytes;
 
     private static readonly object Empty = new();
@@ -295,13 +301,20 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
 
     public event EventHandler? Changed;
 
-    public void Push(EditSession session)
+    internal HistoryAction ActionFor(object position) => _actions.GetValueOrDefault(position);
+
+    public UndoStep? Push(EditSession session)
     {
-        if (!session.HasChanges) return;
+        if (!session.HasChanges) return null;
         var step = session.ToStep();
         _undo.AddLast(step);
+        _actions.Add(step.Position, HistoryAction.Undo);
         _bytes += step.Bytes;
-        foreach (var s in _redo) _bytes -= s.Bytes;
+        foreach (var s in _redo)
+        {
+            _bytes -= s.Bytes;
+            _actions.Remove(s.Position);
+        }
         _redo.Clear();
         while (_bytes > maxBytes && _undo.Count > 1)
         {
@@ -310,8 +323,10 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
             _start = oldest.Position;
             _bytes -= oldest.Bytes;
             _undo.RemoveFirst();
+            _actions.Remove(oldest.Position);
         }
         Changed?.Invoke(this, EventArgs.Empty);
+        return step;
     }
 
     /// <summary>Undoes the latest step and returns it (for its bounds), or null if there is none.</summary>
@@ -321,6 +336,7 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
         _undo.RemoveLast();
         node.Value.Swap();
         _redo.Push(node.Value);
+        _actions[node.Value.Position] = HistoryAction.Redo;
         Changed?.Invoke(this, EventArgs.Empty);
         return node.Value;
     }
@@ -330,6 +346,7 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
         if (!_redo.TryPop(out var step)) return null;
         step.Swap();
         _undo.AddLast(step);
+        _actions[step.Position] = HistoryAction.Undo;
         Changed?.Invoke(this, EventArgs.Empty);
         return step;
     }
@@ -339,6 +356,7 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
     {
         _undo.Clear();
         _redo.Clear();
+        _actions.Clear();
         _bytes = 0;
         _saved = _start = new();
         Changed?.Invoke(this, EventArgs.Empty);

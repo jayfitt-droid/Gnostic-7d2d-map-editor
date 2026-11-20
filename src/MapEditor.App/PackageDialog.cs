@@ -31,6 +31,9 @@ public sealed class PackageDialog : Window
     private bool _syncingName;
     private BundlePlan _plan = new([], [], 0);
 
+    /// <summary>Raised with the zip name after each successful package.</summary>
+    public event EventHandler<string>? Packaged;
+
     public PackageDialog(GameInstall install, PrefabLibrary library)
     {
         _install = install;
@@ -233,6 +236,7 @@ public sealed class PackageDialog : Window
             }), token));
             _bar.Value = _bar.Maximum;
             _status.Text = $"Wrote {zip} ({FormatSize(new FileInfo(zip).Length)}). Unzip it into a Mods folder.";
+            Packaged?.Invoke(this, Path.GetFileName(zip));
         }
         catch (OperationCanceledException)
         {

@@ -1,4 +1,6 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
@@ -440,12 +442,14 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (_placedStale) RefreshPlaced();
         else UpdatePlacedMatches();
+        RefreshHistory();
     }
 
     partial void OnSidePanelTabChanged(int value)
     {
         if (_placedStale) RefreshPlaced();
         else UpdatePlacedMatches();
+        RefreshHistory();
     }
 
     /// <summary>Rebuilds the Placed list after an edit, undo or a new world; waits while the tab isn't shown.</summary>
@@ -500,6 +504,64 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
         PlacedMatches = PlacedResults.Select(r => r.Instance).ToArray();
+    }
+
+    // ---- project history ----------------------------------------------------
+
+    [ObservableProperty] private ProjectHistory? _history;
+    [ObservableProperty] private string _historySearch = "";
+    [ObservableProperty] private ObservableCollection<HistoryEntry> _historyResults = [];
+    [ObservableProperty] private string _historyResultsText = "";
+    [ObservableProperty] private int _historyRevision;
+
+    private string[] _historyWords = [];
+    private int _historyShownCount = -1;
+
+    partial void OnHistoryChanged(ProjectHistory? value)
+    {
+        HistoryResults = [];
+        _historyShownCount = -1;
+        RefreshHistory();
+    }
+
+    partial void OnHistorySearchChanged(string value)
+    {
+        _historyWords = value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        _historyShownCount = -1;
+        RefreshHistory();
+    }
+
+    private bool MatchesHistory(HistoryEntry entry)
+    {
+        foreach (string word in _historyWords)
+            if (!entry.Text.Contains(word, StringComparison.OrdinalIgnoreCase)) return false;
+        return true;
+    }
+
+    /// <summary>Updates the visible list after recording history. Bulk moves and filter changes rebuild it once.</summary>
+    public void RefreshHistory()
+    {
+        if (!ShowSidePanel || SidePanelTab != HistoryTab) return;
+        IReadOnlyList<HistoryEntry> entries = History?.Entries ?? [];
+        int count = entries.Count;
+        if (_historyShownCount == count) return;
+
+        if (_historyShownCount >= 0 && count == _historyShownCount + 1)
+        {
+            if (MatchesHistory(entries[^1])) HistoryResults.Insert(0, entries[^1]);
+        }
+        else
+        {
+            var rows = new List<HistoryEntry>(count);
+            for (int i = count - 1; i >= 0; i--)
+                if (MatchesHistory(entries[i])) rows.Add(entries[i]);
+            HistoryResults = new ObservableCollection<HistoryEntry>(rows);
+        }
+
+        _historyShownCount = count;
+        HistoryResultsText = count == 0 ? "No history entries."
+            : _historyWords.Length == 0 ? $"{count:N0} entries" : $"{HistoryResults.Count:N0} of {count:N0} entries";
+        HistoryRevision++;
     }
 
     /// <summary>Starred prefab names. Replaced (not changed) on each toggle, so bindings on it update.</summary>
@@ -822,6 +884,7 @@ public sealed partial class MainViewModel : ObservableObject
         IssuesTab => "ISSUES",
         WorldTab => "WORLD",
         GenerateTab => "GENERATE",
+        HistoryTab => "HISTORY",
         _ => "PREFABS",
     };
 
@@ -833,9 +896,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     public const double DefaultSidePanelWidth = 400, MinSidePanelWidth = 320, MaxSidePanelWidth = 900;
 
-    public const int PrefabsTab = 0, PlacedTab = 1, IssuesTab = 2, WorldTab = 3, GenerateTab = 4;
+    public const int PrefabsTab = 0, PlacedTab = 1, IssuesTab = 2, WorldTab = 3, GenerateTab = 4, HistoryTab = 5;
 
-    /// <summary>The side panel's tab: <see cref="PrefabsTab"/>, <see cref="PlacedTab"/>, <see cref="IssuesTab"/>, <see cref="WorldTab"/> or <see cref="GenerateTab"/>.</summary>
+    /// <summary>The selected side panel tab, from <see cref="PrefabsTab"/> to <see cref="HistoryTab"/>.</summary>
     [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarTitle))] private int _sidePanelTab;
 
     [ObservableProperty] private string _worldSizeText = "";

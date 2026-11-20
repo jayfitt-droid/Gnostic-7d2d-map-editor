@@ -42,8 +42,8 @@ public sealed class EditRunner(UndoStack undo)
     /// <summary>Pushes the edit onto the undo history if it changed anything. Returns whether it did.</summary>
     public bool Commit(EditSession session)
     {
-        if (!session.HasChanges) return false;
-        undo.Push(session);
+        if (undo.Push(session) is not { } step) return false;
+        session.CommittedPosition = step.Position;
         Committed?.Invoke(this, session);
         return true;
     }
