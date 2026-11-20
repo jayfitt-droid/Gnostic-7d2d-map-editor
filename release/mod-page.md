@@ -71,6 +71,7 @@ The editor reads stamps, prefabs and biome colours from your own copy of the gam
 ## Known issues
 
 - Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- If you open two editor windows, they share one recovery copy and one settings file. Closing one window can remove the other window's recovery copy or its new town presets. ([#137](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/137), [#138](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/138))
 - Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
 
 ## Install
