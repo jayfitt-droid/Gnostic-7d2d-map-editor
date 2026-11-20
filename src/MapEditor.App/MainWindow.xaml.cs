@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     public static readonly RoutedUICommand FindCommand = new("Find", nameof(FindCommand), typeof(MainWindow));
     public static readonly RoutedUICommand UndoCommand = new("Undo", nameof(UndoCommand), typeof(MainWindow));
     public static readonly RoutedUICommand RedoCommand = new("Redo", nameof(RedoCommand), typeof(MainWindow));
+    public static readonly RoutedUICommand HistoryMoveCommand = new("Move to history entry", nameof(HistoryMoveCommand), typeof(MainWindow));
 
     private readonly MainViewModel _vm = new();
     private readonly AppSettings _settings = AppSettings.Load();
@@ -110,7 +111,12 @@ public partial class MainWindow : Window
         };
 
         _edits = new EditRunner(_undo);
-        _edits.Committed += (_, _) => OnWorldEdited();
+        _edits.Committed += (_, edit) =>
+        {
+            _vm.History?.RecordEdit(edit);
+            _vm.RefreshHistory();
+            OnWorldEdited();
+        };
         _edits.Failed += (_, e) => OnEditFailed(e);
         _landTools = new LandToolController(Map, _vm);
         LandTools.DataContext = LandPanel.DataContext = _landTools;
@@ -356,6 +362,7 @@ public partial class MainWindow : Window
             var stamps = _vm.Stamps;
             var world = await Task.Run(() => NewWorldGenerator.Create(options, stamps, template is null ? null : File.ReadAllBytes(template.Path)));
             SetWorld(world, sourcePath: null, dirty: true);
+            BeginHistory($"New world: {world.Name}");
             // The Generate panel takes over from here, starting with the terrain.
             _projectSettings.Generator = GeneratorSettings.ForNewWorld(options.Seed,
                 options.Edges ?? [EdgeStyle.Land, EdgeStyle.Land, EdgeStyle.Land, EdgeStyle.Land], options.BaseHeight, options.Shape,
@@ -405,6 +412,7 @@ public partial class MainWindow : Window
             SetWorld(world, sourcePath: null, dirty: recovered, recoveryPath: recovered ? path : null);
             _projectPath = recovered ? null : path;
             _projectSettings = settings;
+            BeginHistory(recovered ? $"Recover autosave: {world.Name}" : $"Open project: {Path.GetFileName(path)}");
             _bridgeTools.Refresh();
             LoadGeneratorSettings();
             _savePath = recovered ? null : settings.ExportFolder;
@@ -467,6 +475,7 @@ public partial class MainWindow : Window
             var world = await Task.Run(() => WorldReader.Read(folder));
             await _gameDataLoad;
             SetWorld(world, folder, dirty: false);
+            BeginHistory($"Open world: {world.Name}");
             _vm.Status = $"Loaded {world.Name} in {sw.Elapsed.TotalSeconds:0.0} s";
             _settings.LastWorldFolder = folder;
             _settings.AddRecent(folder);
@@ -585,7 +594,9 @@ public partial class MainWindow : Window
                 "Package maps", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        new PackageDialog(_install, _vm.Prefabs) { Owner = this }.ShowDialog();
+        var dialog = new PackageDialog(_install, _vm.Prefabs) { Owner = this };
+        dialog.Packaged += (_, file) => RecordHistoryEvent($"Package: {file}");
+        dialog.ShowDialog();
     }
 
     /// <summary>
@@ -596,7 +607,12 @@ public partial class MainWindow : Window
     {
         if (_world is null) return false;
         if (!saveAs && _projectPath is null && _sourcePath is not null && _savePath is not null)
-            return (await WriteWorldAsync(_savePath)).Ok;
+        {
+            string folder = _savePath;
+            var (ok, _) = await WriteWorldAsync(folder);
+            if (ok) RecordHistoryEvent($"Save: {Path.GetFileName(folder)}");
+            return ok;
+        }
 
         string? path = saveAs ? null : _projectPath;
         while (path is null)
@@ -619,7 +635,7 @@ public partial class MainWindow : Window
             }
             path = dialog.FileName;
         }
-        return await SaveProjectAsync(path);
+        return await SaveProjectAsync(path, saveAs);
     }
 
     /// <summary>True if the path is inside GeneratedWorlds or the game's own Worlds folder, where projects must not go.</summary>
@@ -630,7 +646,7 @@ public partial class MainWindow : Window
             && full.StartsWith(Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
     }
 
-    private async Task<bool> SaveProjectAsync(string path)
+    private async Task<bool> SaveProjectAsync(string path, bool saveAs)
     {
         if (_world is not { } world) return false;
         _vm.IsBusy = true;
@@ -642,9 +658,12 @@ public partial class MainWindow : Window
             world.Name = Path.GetFileNameWithoutExtension(path);
             // A copy: the Generate panel can change the settings while the save runs.
             var settings = CopyProjectSettings();
+            var entry = HistoryEntry.Event($"{(saveAs ? "Save As" : "Save")}: {Path.GetFileName(path)}");
+            settings.History.Add(entry);
             long revision = _revision;
             var position = _undo.Position;
             await Task.Run(() => ProjectStore.Save(world, path, settings));
+            RecordHistoryEvent(entry);
             _projectPath = path;
             _dirty = _revision != revision;
             _undo.MarkSaved(position);
@@ -693,6 +712,7 @@ public partial class MainWindow : Window
         }
         bool exportStatusChanged = ExportHasChanges != false;
         var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder);
+        if (ok) RecordHistoryEvent($"Export: {Path.GetFileName(dialog.Folder)}");
         if (ok && _projectPath is not null)
         {
             // Remember the export in the project, so Export offers the same place next time. Only a new folder, or an
@@ -1109,6 +1129,7 @@ public partial class MainWindow : Window
         _exportPosition = null;
         _dirty = false;
         _undo.Clear();
+        _vm.History = null;
         _tools.World = null;
         _prefabTools.World = null;
         _prefabTools.Refresh();
@@ -1431,6 +1452,7 @@ public partial class MainWindow : Window
         TownSiteStage.MarkBuilt(world, library, gen.Sites);
         g.Planned = towns;
         MarkSettingsChanged();
+        RecordHistoryEvent($"Plan towns (seed {options.Seed})");
         int planned = towns.Count;
         g.TownStatus = $"Planned {planned} town{(planned == 1 ? "" : "s")} with seed {options.Seed} in {sw.Elapsed.TotalSeconds:0.0} s."
                        + (result.Shortfalls.Count > 0 ? " No room for all of: " + string.Join("; ", result.Shortfalls) + "." : "");
@@ -1493,6 +1515,7 @@ public partial class MainWindow : Window
                 NoteGeneratorState(session);
                 if (newSeed is { } seed) g.TownSeed = seed;
                 options = gen.Towns.Clone();
+                session.HistoryDetail = $"seed {options.Seed}";
             });
         }
         finally
@@ -1625,7 +1648,7 @@ public partial class MainWindow : Window
                 if (inTheWay.Count > 0) FeatureStage.Remove(world, gen.PlacedFeatures, inTheWay, stamps, session);
                 TownSiteStage.Build(world, library, towns, session);
                 RebuildBridges(world, bridges, library, session);
-            }, NoteGeneratorState);
+            }, session => NoteGeneratorState(session, $"seed {gen.Towns.Seed}"));
         }
         finally
         {
@@ -1715,7 +1738,7 @@ public partial class MainWindow : Window
                 roadsOut = TakeDownHighways(world, gen, session);
                 result = FeatureStage.Run(world, options, gen.PlacedFeatures, stamps, mixer, library, sites, plan, baseHeight, session, progress, cancel.Token);
                 RebuildBridges(world, bridges, library, session);
-            }, NoteGeneratorState);
+            }, session => NoteGeneratorState(session, $"seed {options.Seed}"));
         }
         finally
         {
@@ -1875,7 +1898,7 @@ public partial class MainWindow : Window
                 result = HighwayStage.Run(world, options, gen.PlacedRoads, library, mixer, sites, session, progress, cancel.Token,
                     [.. _projectSettings.Bridges.Select(b => BridgeTool.KeepClearArea(b, world.Size))]);
                 RebuildBridges(world, bridges, library, session);
-            }, NoteGeneratorState);
+            }, session => NoteGeneratorState(session, $"seed {options.Seed}"));
         }
         finally
         {
@@ -2033,7 +2056,7 @@ public partial class MainWindow : Window
                 result = WildernessStage.Run(world, options, gen.PlacedWilderness, library, mixer, biomes, sites, session, progress, cancel.Token,
                     [.. _projectSettings.Bridges.Select(b => BridgeTool.KeepClearArea(b, world.Size))]);
                 RebuildBridges(world, bridges, library, session);
-            }, NoteGeneratorState);
+            }, session => NoteGeneratorState(session, $"seed {options.Seed}"));
         }
         finally
         {
@@ -2180,7 +2203,8 @@ public partial class MainWindow : Window
         try
         {
             ok = await _edits.RunInBackgroundAsync(world, "Generate spawns", session =>
-                result = SpawnStage.Run(world, options, gen.PlacedSpawns, library, biomes, sites, pois, session), NoteGeneratorState);
+                result = SpawnStage.Run(world, options, gen.PlacedSpawns, library, biomes, sites, pois, session),
+                session => NoteGeneratorState(session, $"seed {options.Seed}"));
         }
         finally
         {
@@ -2248,8 +2272,9 @@ public partial class MainWindow : Window
     /// Saves the generator's Done marks, plans and status lines in a generator edit's undo step, so undo and redo
     /// bring them back with the ground (#15). Call it on the UI thread before the edit changes anything.
     /// </summary>
-    private void NoteGeneratorState(EditSession session)
+    private void NoteGeneratorState(EditSession session, string? historyDetail = null)
     {
+        session.HistoryDetail = historyDetail;
         if (_projectSettings.Generator is { } gen) GeneratorUndoState.Touch(session, gen, _vm.Generate, _seedsBeforeReroll);
         _seedsBeforeReroll = null;
     }
@@ -2391,7 +2416,7 @@ public partial class MainWindow : Window
                     throw new InvalidOperationException("The biome map isn't the size New World made it.");
             }, session =>
             {
-                NoteGeneratorState(session);
+                NoteGeneratorState(session, $"seed {seed}");
                 layout.Seed = seed;
                 layout.PlannedFor = shape.Clone();
                 // The last run's mountain biome was painted over the old layout; the next terrain run must not put it back.
@@ -2512,7 +2537,7 @@ public partial class MainWindow : Window
         bool ok;
         try
         {
-            ok = await _edits.RunInBackgroundAsync(world, drawing is null ? "Generate terrain" : "build world", session =>
+            ok = await _edits.RunInBackgroundAsync(world, drawing is null ? "Generate terrain" : "Build World", session =>
             {
                 ran = session;
                 // Later stages come out newest first, so each puts back the ground it found.
@@ -2542,7 +2567,8 @@ public partial class MainWindow : Window
                 if (drawing is not null)
                     session.TouchState(_landTools, () => g.Settings.Terrain.Shape.Drawing,
                         previous => g.Settings.Terrain.Shape.Drawing = (LandDrawing?)previous, ReferenceEquals);
-                NoteGeneratorState(session);
+                NoteGeneratorState(session, drawing is null ? $"seed {options.Seed}"
+                    : $"{drawing.Boxes.Count} land {(drawing.Boxes.Count == 1 ? "box" : "boxes")}");
                 if (drawing is not null) g.Settings.Terrain.Shape.Drawing = drawing;
             });
         }
@@ -2691,6 +2717,7 @@ public partial class MainWindow : Window
             var biomes = _vm.Biomes;
             var prefabs = _vm.Prefabs;
             await Task.Run(() => new MapImage(world, biomes, prefabs, options).WritePng(path, progress));
+            RecordHistoryEvent($"Export Map Image: {Path.GetFileName(path)}");
             _vm.Status = $"Exported {Path.GetFileName(path)} in {sw.Elapsed.TotalSeconds:0.0} s";
         }
         catch (Exception ex) when (IsWriteError(ex) || ex is OutOfMemoryException)
@@ -2704,30 +2731,84 @@ public partial class MainWindow : Window
         }
     }
 
+    // ---- project history --------------------------------------------------
+
+    private void BeginHistory(string text)
+    {
+        var history = new ProjectHistory(_undo, _projectSettings.History);
+        history.RecordEvent(HistoryEntry.Event(text));
+        _vm.History = history;
+    }
+
+    private void RecordHistoryEvent(string text) => RecordHistoryEvent(HistoryEntry.Event(text));
+
+    private void RecordHistoryEvent(HistoryEntry entry)
+    {
+        _vm.History?.RecordEvent(entry);
+        _vm.RefreshHistory();
+    }
+
+    private void History_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemsControl.ContainerFromElement(HistoryList, (DependencyObject)e.OriginalSource) is ListBoxItem { DataContext: HistoryEntry entry })
+            JumpToHistory(entry);
+    }
+
+    private void History_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.OriginalSource is Button || HistoryList.SelectedItem is not HistoryEntry entry) return;
+        JumpToHistory(entry);
+        e.Handled = true;
+    }
+
+    private void JumpToHistory(HistoryEntry entry)
+    {
+        if (_world is not { } world || entry.Bounds is not { } area) return;
+        area = area.Clamp(world.Size, world.Size);
+        if (area.IsEmpty) return;
+        double span = Math.Max(500, 1.15 * Math.Max(area.X1 - area.X0, area.Z1 - area.Z0));
+        Map.ZoomTo(Math.Min(Map.ActualWidth, Map.ActualHeight) / span);
+        Map.CenterOn(new Point((area.X0 + area.X1) / 2.0, world.Size - (area.Z0 + area.Z1) / 2.0));
+    }
+
+    private void HistoryMove_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
+        e.CanExecute = !_vm.IsLandMode && CanChangeUndoHistory && e.Parameter is HistoryEntry entry
+            && _vm.History?.ActionFor(entry) is HistoryAction.Undo or HistoryAction.Redo;
+
+    private void HistoryMove_Executed(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (_vm.IsLandMode || !CanChangeUndoHistory || e.Parameter is not HistoryEntry entry || _vm.History is not { } history) return;
+        var action = history.ActionFor(entry);
+        if (history.MoveTo(entry, action) is { } move)
+            AfterUndoRedo(move.Bounds, move.LastStep.Name, redo: action == HistoryAction.Redo);
+    }
+
     // ---- undo --------------------------------------------------------------
 
+    private bool CanChangeUndoHistory => !_vm.IsBusy && _tools is { IsStroking: false }
+        && _prefabTools is { IsDragging: false } && _multiSelect is { IsDragging: false } && _townTools is { IsDragging: false };
+
     private void Undo_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _vm.IsLandMode ? CanUndoLand(redo: false)
-            : _undo.CanUndo && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
+        e.CanExecute = _vm.IsLandMode ? _landTools is not null && CanUndoLand(redo: false) : _undo.CanUndo && CanChangeUndoHistory;
 
     private void Redo_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _vm.IsLandMode ? CanUndoLand(redo: true)
-            : _undo.CanRedo && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_vm.IsBusy;
+        e.CanExecute = _vm.IsLandMode ? _landTools is not null && CanUndoLand(redo: true) : _undo.CanRedo && CanChangeUndoHistory;
 
     private void Undo_Executed(object sender, ExecutedRoutedEventArgs e)
     {
         if (_vm.IsLandMode) { UndoLand(redo: false); return; }
-        if (_undo.Undo() is { } step) AfterUndoRedo(step, "Undid");
+        if (_vm.History?.Undo() is { } step) AfterUndoRedo(step.Bounds, step.Name, redo: false);
     }
 
     private void Redo_Executed(object sender, ExecutedRoutedEventArgs e)
     {
         if (_vm.IsLandMode) { UndoLand(redo: true); return; }
-        if (_undo.Redo() is { } step) AfterUndoRedo(step, "Redid");
+        if (_vm.History?.Redo() is { } step) AfterUndoRedo(step.Bounds, step.Name, redo: true);
     }
 
-    private void AfterUndoRedo(UndoStep step, string verb)
+    private void AfterUndoRedo(GridRect bounds, string editName, bool redo)
     {
+        _vm.RefreshHistory();
         _townCells = null;
         _vm.Generate.RefreshFeatures();
         _vm.Generate.RefreshHighways();
@@ -2739,11 +2820,11 @@ public partial class MainWindow : Window
         }
         // Undo can bring back a copy taken before a game-folder change converted it.
         if (_world is not null) GroundLevel.Resolve(_world, _vm.Prefabs);
-        Map.InvalidateRegion(step.Bounds);
+        Map.InvalidateRegion(bounds);
         _prefabTools.Refresh();
         _townTools.Refresh();
         OnWorldEdited();
-        _vm.Status = $"{verb} {step.Name}";
+        _vm.Status = $"{(redo ? "Redid" : "Undid")} {editName}";
     }
 
     private void UpdateUndoText()
@@ -2865,7 +2946,7 @@ public partial class MainWindow : Window
         System.Windows.Data.BindingOperations.ClearBinding(ToolHintLine, VisibilityProperty);
         ToolHintLine.Visibility = Visibility.Collapsed;
 
-        System.Windows.Media.Geometry[] icons = [Icons.Prefab, Icons.ActivityPlaced, Icons.ActivityIssues, Icons.ActivityWorld, Icons.Generate];
+        System.Windows.Media.Geometry[] icons = [Icons.Prefab, Icons.ActivityPlaced, Icons.ActivityIssues, Icons.ActivityWorld, Icons.Generate, Icons.ActivityHistory];
         for (int i = 0; i < icons.Length; i++)
         {
             var item = (System.Windows.Controls.TabItem)SideTabs.Items[i];

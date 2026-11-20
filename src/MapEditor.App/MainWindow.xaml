@@ -6,6 +6,7 @@
         xmlns:ops="clr-namespace:MapEditor.Core.Ops;assembly=MapEditor.Core"
         Title="{x:Static local:App.ProductName}" Width="1400" Height="900" MinWidth="1000" MinHeight="480">
     <Window.Resources>
+        <local:HistoryActionLabelConverter x:Key="HistoryActionLabel" />
         <!-- One labelled field in the tool options strip. -->
         <Style x:Key="OptionLabel" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -418,6 +419,7 @@
         <CommandBinding Command="{x:Static local:MainWindow.PackageCommand}" Executed="Package_Executed" />
         <CommandBinding Command="{x:Static local:MainWindow.FindCommand}" Executed="Find_Executed" />
         <CommandBinding Command="{x:Static local:MainWindow.UndoCommand}" Executed="Undo_Executed" CanExecute="Undo_CanExecute" />
+        <CommandBinding Command="{x:Static local:MainWindow.HistoryMoveCommand}" Executed="HistoryMove_Executed" CanExecute="HistoryMove_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.RedoCommand}" Executed="Redo_Executed" CanExecute="Redo_CanExecute" />
     </Window.CommandBindings>
 
@@ -2147,6 +2149,72 @@
                                 </Expander>
                             </StackPanel>
                         </ScrollViewer>
+                    </TabItem>
+                    <TabItem Header="_History">
+                        <DockPanel Margin="0,8,0,0">
+                            <StackPanel DockPanel.Dock="Top">
+                                <TextBox Text="{Binding HistorySearch, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                         ToolTip="Filter history by text" AutomationProperties.Name="Filter history" />
+                                <TextBlock Text="{Binding HistoryResultsText}" Style="{StaticResource HintText}" Margin="0,6,0,4" />
+                            </StackPanel>
+                            <ListBox x:Name="HistoryList" ItemsSource="{Binding HistoryResults}" AutomationProperties.Name="Project history"
+                                     MouseLeftButtonUp="History_Click" KeyDown="History_KeyDown"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="True"
+                                     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Tag">
+                                            <Setter.Value>
+                                                <MultiBinding Converter="{StaticResource HistoryActionLabel}">
+                                                    <Binding />
+                                                    <Binding Path="DataContext.History" RelativeSource="{RelativeSource AncestorType=ListBox}" />
+                                                    <Binding Path="DataContext.HistoryRevision" RelativeSource="{RelativeSource AncestorType=ListBox}" />
+                                                </MultiBinding>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="ContextMenu">
+                                            <Setter.Value>
+                                                <ContextMenu DataContext="{Binding PlacementTarget, RelativeSource={RelativeSource Self}}">
+                                                    <MenuItem Header="{Binding Tag}" Command="{x:Static local:MainWindow.HistoryMoveCommand}"
+                                                              CommandTarget="{Binding}" CommandParameter="{Binding DataContext}" />
+                                                </ContextMenu>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="Tag" Value="{x:Null}">
+                                                <Setter Property="ContextMenu" Value="{x:Null}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel ToolTip="{Binding Text}">
+                                                <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                <TextBlock Text="{Binding LocalTime, StringFormat={}{0:G}}" FontSize="11"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                            <Button x:Name="HistoryActionButton" Grid.Column="1" Margin="8,0,0,0" Padding="8,2" VerticalAlignment="Center"
+                                                    Content="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                                                    Command="{x:Static local:MainWindow.HistoryMoveCommand}" CommandParameter="{Binding}" />
+                                        </Grid>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="{x:Null}">
+                                                <Setter TargetName="HistoryActionButton" Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
                     </TabItem>
                 </TabControl>
             </DockPanel>

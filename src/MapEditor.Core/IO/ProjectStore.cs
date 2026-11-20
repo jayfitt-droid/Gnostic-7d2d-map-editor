@@ -10,7 +10,7 @@ namespace MapEditor.Core.IO;
 
 /// <summary>
 /// The editor's own project file (.7dmap): a zip holding project.json (name, size, prefabs, spawns, map_info and
-/// settings) plus each layer as raw little-endian samples. Unlike a game world folder it keeps everything the
+/// settings), an optional history, and each layer as raw little-endian samples. Unlike a game world folder it keeps everything the
 /// editor knows, including the export folder, and it saves faster because nothing is PNG-encoded.
 /// </summary>
 public static class ProjectStore
@@ -40,6 +40,7 @@ public static class ProjectStore
     public const int FormatVersion = 5;
 
     private const string ManifestEntry = "project.json";
+    private const string HistoryFile = "history.jsonl";
     private const string HeightEntry = "layers/height.u16";
     private const string BiomesEntry = "layers/biomes.u8";
     private const string RoadsEntry = "layers/roads.u8";
@@ -49,6 +50,7 @@ public static class ProjectStore
     private const string ExtraDir = "extra/";
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions HistoryJson = new() { IgnoreReadOnlyProperties = true };
 
     /// <summary>Largest world a project may hold, in metres: the game's own limit.</summary>
     public const int MaxWorldSize = 16384;
@@ -58,6 +60,7 @@ public static class ProjectStore
 
     /// <summary>Largest project.json read, in bytes.</summary>
     private const long MaxManifestBytes = 256L << 20;
+    private const long MaxHistoryBytes = 64L << 20;
 
     /// <summary>Editor state stored beside the world.</summary>
     public sealed class ProjectSettings
@@ -77,6 +80,10 @@ public static class ProjectStore
         /// </summary>
         public List<Ops.PlacedBridge> Bridges { get; set; } = [];
 
+        /// <summary>Project events in recording order. Stored separately so a damaged history leaves the map readable.</summary>
+        [JsonIgnore]
+        public List<HistoryEntry> History { get; set; } = [];
+
         /// <summary>
         /// A deep copy of everything saved, for a save or autosave that runs while editing carries on. Every saved field
         /// must be copied here, or saving drops it.
@@ -87,6 +94,7 @@ public static class ProjectStore
             ExportHasChanges = ExportHasChanges,
             Generator = Generator?.Clone(),
             Bridges = [.. Bridges.Select(b => b.Clone())],
+            History = [.. History],
         };
     }
 
@@ -174,6 +182,11 @@ public static class ProjectStore
             {
                 using (var entry = zip.CreateEntry(ManifestEntry, CompressionLevel.Optimal).Open())
                     JsonSerializer.Serialize(entry, manifest, Json);
+                if (settings?.History is { Count: > 0 } history)
+                {
+                    using var writer = new StreamWriter(zip.CreateEntry(HistoryFile, CompressionLevel.Fastest).Open());
+                    foreach (var row in history) writer.WriteLine(JsonSerializer.Serialize(row, HistoryJson));
+                }
                 WriteGrid(zip, HeightEntry, world.Height, snapshot);
                 if (world.Biomes is { } biomes) WriteGrid(zip, BiomesEntry, biomes.Indices, snapshot);
                 if (world.Roads is { } roads) WriteGrid(zip, RoadsEntry, roads, snapshot);
@@ -261,12 +274,52 @@ public static class ProjectStore
         }
 
         settings = manifest.DrawnWorldSettings ?? manifest.Settings ?? new ProjectSettings();
+        settings.History = ReadHistory(zip, world);
         // Format 3 added the bridge list; a project from before it has none.
         if (manifest.Format < 3 || settings.Bridges is null) settings.Bridges = [];
         FillMissing(settings, size);
         // Format 4 added the starter-trader spawns option, on by default; older projects keep the old way.
         if (manifest.Format < 4 && settings.Generator is { } gen) gen.Spawns.NearStarterTrader = false;
         return world;
+    }
+
+    /// <summary>Each line is independent, so a bad record does not hide the other entries.</summary>
+    private static List<HistoryEntry> ReadHistory(ZipArchive zip, World world)
+    {
+        if (zip.GetEntry(HistoryFile) is not { } entry) return [];
+        if (entry.Length > MaxHistoryBytes)
+        {
+            world.Warnings.Add("The project history is too large to read.");
+            return [];
+        }
+
+        var history = new List<HistoryEntry>();
+        bool skipped = false;
+        try
+        {
+            // Bound the data we read even if a damaged zip gives the wrong uncompressed size.
+            using var reader = new StreamReader(new MemoryStream(ReadBytes(zip, HistoryFile, MaxHistoryBytes)!));
+            while (reader.ReadLine() is { } line)
+            {
+                try
+                {
+                    if (JsonSerializer.Deserialize<HistoryEntry>(line, HistoryJson) is { } row && row.Time != default
+                        && !string.IsNullOrWhiteSpace(row.Kind) && !string.IsNullOrWhiteSpace(row.Text))
+                    {
+                        history.Add(row with { Time = row.Time.ToUniversalTime() });
+                        continue;
+                    }
+                }
+                catch (JsonException) { }
+                skipped = true;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or NotSupportedException)
+        {
+            skipped = true;
+        }
+        if (skipped) world.Warnings.Add("Some entries in the project history could not be read.");
+        return history;
     }
 
     /// <summary>
