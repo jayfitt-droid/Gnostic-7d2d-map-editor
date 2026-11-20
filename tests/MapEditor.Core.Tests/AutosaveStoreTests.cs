@@ -124,6 +124,38 @@ public sealed class AutosaveStoreTests : IDisposable
     }
 
     [Fact]
+    public void Discard_keeps_a_saved_project_in_the_recovery_folder()
+    {
+        var store = new AutosaveStore(RecoveryFolder);
+        string saved = Path.Combine(RecoveryFolder, "autosave-notes" + ProjectStore.Extension);
+        string recovery = Path.Combine(RecoveryFolder, "autosave" + ProjectStore.Extension);
+        ProjectStore.Save(MakeWorld("Saved"), saved);
+        ProjectStore.Save(MakeWorld("Recovery"), recovery);
+
+        store.Discard();
+
+        Assert.Equal(saved, Assert.Single(Directory.GetFiles(RecoveryFolder)));
+        Assert.Equal("Saved", ProjectStore.Load(saved).Name);
+    }
+
+    [Fact]
+    public void FindRecovery_ignores_a_newer_saved_project_in_the_recovery_folder()
+    {
+        var store = new AutosaveStore(RecoveryFolder);
+        string saved = Path.Combine(RecoveryFolder, "autosave-notes" + ProjectStore.Extension);
+        string recovery = Path.Combine(RecoveryFolder, "autosave-2" + ProjectStore.Extension);
+        ProjectStore.Save(MakeWorld("Saved"), saved);
+        ProjectStore.Save(MakeWorld("Recovery"), recovery);
+        var now = DateTime.UtcNow;
+        File.SetLastWriteTimeUtc(saved, now);
+        File.SetLastWriteTimeUtc(recovery, now.AddMinutes(-1));
+
+        Assert.Equal(recovery, store.FindRecovery()?.FullName);
+        File.Delete(recovery);
+        Assert.Null(store.FindRecovery());
+    }
+
+    [Fact]
     public async Task Opening_a_recovery_copy_keeps_it_until_the_work_is_saved_or_discarded()
     {
         var store = new AutosaveStore(RecoveryFolder);
