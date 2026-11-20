@@ -478,7 +478,7 @@ This stage plans towns and cities, and then builds them. It uses the game's town
 
 **Town presets**
 
-- The editor adds starter presets for 4 km, 6 km, and 8 km maps. You can replace or delete these presets.
+- The editor adds 12 starter presets. For 6K, 8K and 10K maps, there are three presets: **Many towns** (the counts the game uses when you set Towns to Many), **Countryside** (more villages, fewer cities) and **Cities** (more and bigger cities). There are also **12K Large**, **16K Huge** and **Sparse (any size)**, which has few towns. You can replace or delete these presets.
 - In the **Town sites** card, enter a name under **Preset** and click **Save**. Use the same name to replace a preset. Uppercase and lowercase letters match.
 - Select a preset and click **Use**. The editor restores the town table, trader setting, biome border setting, edge margin, spacing, and biome list. The town seed and the other stages stay the same.
 - Save a preset for each map size. The editor uses the saved values at any map size.
