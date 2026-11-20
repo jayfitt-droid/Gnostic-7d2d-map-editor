@@ -64,6 +64,41 @@ public sealed class ProjectHistoryTests : IDisposable
     }
 
     [Fact]
+    public void Newest_edit_has_no_action_and_older_edits_can_be_undone_to()
+    {
+        var world = MakeWorld();
+        var undo = new UndoStack();
+        var history = new ProjectHistory(undo, []);
+        var runner = Track(undo, history);
+        foreach (string name in new[] { "First", "Second", "Third" }) runner.Run(world, name, s => Raise(world, s));
+
+        Assert.Equal(new[] { HistoryAction.Undo, HistoryAction.Undo, HistoryAction.None },
+            history.Entries.Select(history.ActionFor));
+    }
+
+    [Fact]
+    public void Actions_follow_the_current_edit_back_to_the_start()
+    {
+        var world = MakeWorld();
+        var undo = new UndoStack();
+        var history = new ProjectHistory(undo, []);
+        var runner = Track(undo, history);
+        foreach (string name in new[] { "First", "Second", "Third" }) runner.Run(world, name, s => Raise(world, s));
+        var (first, second, third) = (history.Entries[0], history.Entries[1], history.Entries[2]);
+
+        Assert.NotNull(history.MoveTo(second, HistoryAction.Undo));
+        Assert.Equal(HistoryAction.Undo, history.ActionFor(first));
+        Assert.Equal(HistoryAction.None, history.ActionFor(second));
+        Assert.Equal(HistoryAction.Redo, history.ActionFor(third));
+
+        Assert.NotNull(history.Undo());
+        Assert.NotNull(history.Undo());
+        Assert.Equal(0, world.Height[1, 2]);
+        Assert.DoesNotContain(history.Entries, entry => history.ActionFor(entry) == HistoryAction.Undo);
+        Assert.All(new[] { first, second, third }, entry => Assert.Equal(HistoryAction.Redo, history.ActionFor(entry)));
+    }
+
+    [Fact]
     public void Move_to_keeps_the_target_applied_and_records_each_step()
     {
         var world = MakeWorld();
@@ -77,13 +112,14 @@ public sealed class ProjectHistoryTests : IDisposable
         Assert.Null(history.MoveTo(third, HistoryAction.Undo));
         Assert.Equal("Second", history.MoveTo(first, HistoryAction.Undo)?.LastStep.Name);
         Assert.Equal(1, world.Height[1, 2]);
-        Assert.Equal(HistoryAction.Undo, history.ActionFor(first));
+        Assert.Equal(HistoryAction.None, history.ActionFor(first));
         Assert.Equal(HistoryAction.Redo, history.ActionFor(second));
         Assert.Equal(HistoryAction.Redo, history.ActionFor(third));
         Assert.Null(history.MoveTo(second, HistoryAction.Undo));
 
         Assert.Equal("Third", history.MoveTo(third, HistoryAction.Redo)?.LastStep.Name);
         Assert.Equal(3, world.Height[1, 2]);
+        Assert.Equal(HistoryAction.None, history.ActionFor(third));
         Assert.Equal(new[] { "First", "Second", "Third", "Undo: Third", "Undo: Second", "Redo: Second", "Redo: Third" },
             history.Entries.Select(e => e.Text));
     }

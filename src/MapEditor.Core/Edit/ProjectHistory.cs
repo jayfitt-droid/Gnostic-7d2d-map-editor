@@ -32,8 +32,10 @@ public sealed class ProjectHistory(UndoStack undo, List<HistoryEntry> entries)
     /// <summary>Records a project event after it succeeds.</summary>
     public void RecordEvent(HistoryEntry entry) => entries.Add(entry);
 
+    /// <summary>Gets the action that moves to the entry's state, if available.</summary>
     public HistoryAction ActionFor(HistoryEntry entry) =>
-        entry.EditPosition is { } position ? undo.ActionFor(position) : HistoryAction.None;
+        entry.EditPosition is { } position && !ReferenceEquals(position, undo.Position)
+            ? undo.ActionFor(position) : HistoryAction.None;
 
     public UndoStep? Undo() => RecordMove(undo.Undo(), "Undo");
     public UndoStep? Redo() => RecordMove(undo.Redo(), "Redo");
