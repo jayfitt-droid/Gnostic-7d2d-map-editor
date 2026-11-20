@@ -65,7 +65,7 @@ public static class ProjectStore
     /// <summary>Editor state stored beside the world.</summary>
     public sealed class ProjectSettings
     {
-        /// <summary>The game world folder this project was last exported to.</summary>
+        /// <summary>The game world folder this project was opened from or last exported to.</summary>
         public string? ExportFolder { get; set; }
 
         /// <summary>Whether the saved world has edits since export. Null if the export state is unknown.</summary>

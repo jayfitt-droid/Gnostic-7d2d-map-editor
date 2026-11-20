@@ -730,17 +730,14 @@ public partial class MainWindow : Window
             }
             return false;
         }
+        string? previousFolder = GameLinkExportFolder;
         bool exportStatusChanged = ExportHasChanges != false;
         var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder);
         if (ok) RecordHistoryEvent($"Export: {Path.GetFileName(dialog.Folder)}");
         if (ok && _projectPath is not null)
         {
-            // Remember the export in the project, so Export offers the same place next time. Only a new folder, or an
-            // export that changed the world's saved data or export status, makes the project changed.
-            string? recorded = _projectSettings.ExportFolder;
-            bool newFolder = recorded is not { Length: > 0 }
-                || !string.Equals(Path.GetFullPath(dialog.Folder), Path.GetFullPath(recorded), StringComparison.OrdinalIgnoreCase);
-            _projectSettings.ExportFolder = dialog.Folder;
+            // Only a new folder, or an export that changed the world's saved data or export status, makes the project changed.
+            bool newFolder = !WorldFiles.SameFolder(dialog.Folder, previousFolder);
             if (newFolder || savedChanged || exportStatusChanged)
             {
                 _dirty = true;
@@ -779,8 +776,8 @@ public partial class MainWindow : Window
         _vm.Status = "Writing " + folder + "...";
         try
         {
-            bool newGuid = !string.Equals(Path.GetFullPath(folder), _sourcePath is null ? null : Path.GetFullPath(_sourcePath), StringComparison.OrdinalIgnoreCase)
-                           && folder != _savePath;
+            bool newGuid = !WorldFiles.SameFolder(folder, _sourcePath)
+                           && !WorldFiles.SameFolder(folder, GameLinkExportFolder);
             byte[]? template = null;
             if (!world.ExtraFiles.ContainsKey(WorldFiles.Level))
             {
@@ -2305,6 +2302,7 @@ public partial class MainWindow : Window
     private ProjectStore.ProjectSettings CopyProjectSettings()
     {
         var settings = _projectSettings.Clone();
+        settings.ExportFolder = GameLinkExportFolder;
         settings.ExportHasChanges = settings.ExportFolder is null ? null : ExportHasChanges;
         return settings;
     }
