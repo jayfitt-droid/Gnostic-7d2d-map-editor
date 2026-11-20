@@ -13,6 +13,13 @@ public static class WorldFiles
     public const string MapInfo = "map_info.xml";
     public const string Level = "main.ttw";
 
+    /// <summary>Compares world folder paths using Windows path casing, without requiring the folders to exist.</summary>
+    public static bool SameFolder(string folder, string? otherFolder) =>
+        !string.IsNullOrEmpty(otherFolder) && string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(otherFolder)),
+            StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Whether a coarse layer (biomes.png, radiation.png) of this size can be laid over a <paramref name="worldSize"/>
     /// world: square, and dividing the world evenly so each cell covers a whole number of metres. Every reader of
