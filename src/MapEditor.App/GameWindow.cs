@@ -4,14 +4,33 @@ using System.Runtime.InteropServices;
 
 namespace MapEditor.App;
 
-/// <summary>Activates the local 7 Days to Die window after an editor request.</summary>
+/// <summary>Checks and activates the local 7 Days to Die window.</summary>
 internal static class GameWindow
 {
+    private const string GameProcessName = "7DaysToDie";
     private const int Restore = 9;
+
+    /// <summary>Checks whether the foreground window belongs to the game or this editor process.</summary>
+    public static bool IsGameOrEditorInForeground()
+    {
+        IntPtr window = GetForegroundWindow();
+        if (window == IntPtr.Zero || GetWindowThreadProcessId(window, out uint processId) == 0) return false;
+        if (processId == Environment.ProcessId) return true;
+
+        Process[] games = Process.GetProcessesByName(GameProcessName);
+        try
+        {
+            return Array.Exists(games, game => game.Id == processId);
+        }
+        finally
+        {
+            foreach (Process game in games) game.Dispose();
+        }
+    }
 
     public static bool TryActivate()
     {
-        Process[] games = Process.GetProcessesByName("7DaysToDie");
+        Process[] games = Process.GetProcessesByName(GameProcessName);
         try
         {
             foreach (Process game in games)
@@ -40,6 +59,9 @@ internal static class GameWindow
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

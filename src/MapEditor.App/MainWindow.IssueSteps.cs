@@ -118,7 +118,8 @@ public partial class MainWindow
         // Run outside the native hook, since a step can show a modal dialog.
         _ = Dispatcher.InvokeAsync(new Action(async () =>
         {
-            if (_issueHotkeySource is { IsDisposed: false } source && IsWindowEnabled(source.Handle))
+            if (_issueHotkeySource is { IsDisposed: false } source && IsWindowEnabled(source.Handle) &&
+                GameWindow.IsGameOrEditorInForeground())
                 await StepIssueAsync(next: id == NextIssueHotkey);
         }));
         return IntPtr.Zero;
