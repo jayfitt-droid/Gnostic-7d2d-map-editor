@@ -42,7 +42,9 @@ public sealed class PrefabGroup
 
         var footprints = _prefabs.Select(p => PrefabPlacer.Footprint(world, p, library)).ToArray();
         double half = world.Size / 2;
-        if (footprints.Length + _spawns.Length > 0)
+        if (footprints.Length == 0 && _spawns.Length > 0)
+            _centre = (_spawns.Average(s => (double)s.X), _spawns.Average(s => (double)s.Z));
+        else if (footprints.Length > 0)
             _centre = (
                 (footprints.Select(r => r.X0 - half).Concat(_spawns.Select(s => (double)s.X)).Min() +
                  footprints.Select(r => r.X1 - half).Concat(_spawns.Select(s => (double)s.X)).Max()) / 2,
@@ -87,11 +89,10 @@ public sealed class PrefabGroup
         double offsetZ = _centre.Z - (_centre.X * sin + _centre.Z * cos);
         if (_prefabs.Count > 0)
         {
-            // Grid-align the common offset once. Opposite ties for the two centre parities keep a rectangular
-            // prefab group centred on the same grid cells after a turn and its inverse.
-            bool wholeX = _centre.X == Math.Floor(_centre.X);
-            offsetX = wholeX ? Math.Floor(offsetX + 0.5) : Math.Ceiling(offsetX - 0.5);
-            offsetZ = wholeX ? Math.Ceiling(offsetZ - 0.5) : Math.Floor(offsetZ + 0.5);
+            // A tie shifts the centre by half a cell on that axis. Use the centre's half of the cell
+            // to break the tie in the opposite direction on the inverse turn, even with fractional spawns.
+            offsetX = _centre.X - Math.Floor(_centre.X) < 0.5 ? Math.Floor(offsetX + 0.5) : Math.Ceiling(offsetX - 0.5);
+            offsetZ = _centre.Z - Math.Floor(_centre.Z) < 0.5 ? Math.Floor(offsetZ + 0.5) : Math.Ceiling(offsetZ - 0.5);
         }
         offsetX += dx;
         offsetZ += dz;

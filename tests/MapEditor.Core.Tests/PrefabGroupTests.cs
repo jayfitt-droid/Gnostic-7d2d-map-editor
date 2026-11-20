@@ -115,6 +115,30 @@ public sealed class PrefabGroupTests
         Assert.Equal((20f, 15.5f, 90f), (spawn.X, spawn.Z, spawn.RotationY));
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(-1)]
+    public void Opposite_turns_restore_a_prefab_group_with_a_fractional_spawn(int step)
+    {
+        var world = Flat();
+        var poi = Add(world, Poi, 0, 0);
+        var spawn = new SpawnPoint { X = 20.5f, Y = 41, Z = 30.5f, RotationY = 90 };
+        world.Spawns.Add(spawn);
+        var edits = new EditRunner(new UndoStack());
+        string? problem = null;
+
+        foreach (int turn in new[] { step, -step })
+        {
+            Assert.True(edits.Run(world, "Rotate selection", s =>
+                problem = new PrefabGroup(world, Library, [poi], [spawn]).Apply(0, 0, turn, false, false, s)));
+            Assert.Null(problem);
+        }
+
+        Assert.Equal(new Int3(0, 40, 0), poi.Position);
+        Assert.Equal(0, poi.Rotation);
+        Assert.Equal((20.5f, 41f, 30.5f, 90f), (spawn.X, spawn.Y, spawn.Z, spawn.RotationY));
+    }
+
     [Fact]
     public void Spawn_only_selection_turns_in_45_degree_steps()
     {
@@ -132,6 +156,34 @@ public sealed class PrefabGroupTests
         Assert.Equal(7.071f, b.Z, 3);
         Assert.Equal(315, a.RotationY);
         Assert.Equal(315, b.RotationY);
+    }
+
+    [Fact]
+    public void Opposite_turns_restore_an_uneven_spawn_only_group()
+    {
+        var world = Flat();
+        var a = new SpawnPoint { Y = 41 };
+        var b = new SpawnPoint { X = 80, Y = 41, RotationY = 90 };
+        var c = new SpawnPoint { Z = 40, Y = 41, RotationY = 270 };
+        world.Spawns.AddRange([a, b, c]);
+        var before = world.Spawns.Select(s => (s.X, s.Y, s.Z, s.RotationY)).ToArray();
+        var edits = new EditRunner(new UndoStack());
+        string? problem = null;
+
+        foreach (int turn in new[] { 1, -1 })
+        {
+            Assert.True(edits.Run(world, "Rotate selection", s =>
+                problem = new PrefabGroup(world, Library, [], [a, b, c]).Apply(0, 0, turn, false, false, s)));
+            Assert.Null(problem);
+        }
+
+        Assert.All(world.Spawns, (spawn, index) =>
+        {
+            Assert.Equal(before[index].X, spawn.X, 3);
+            Assert.Equal(before[index].Y, spawn.Y);
+            Assert.Equal(before[index].Z, spawn.Z, 3);
+            Assert.Equal(before[index].RotationY, spawn.RotationY);
+        });
     }
 
     [Theory]
