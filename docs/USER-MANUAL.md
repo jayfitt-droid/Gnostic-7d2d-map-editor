@@ -131,13 +131,13 @@ Gnostic Game Link is an optional mod for 7 Days to Die 3.4. It connects the edit
 
 ##### Teleport and add a waypoint
 
-1. Export the world. Open that world in the game.
+1. Open the same world in the editor and in the game. Export the world first if it has no game world folder.
 2. Right-click a place in the editor. Click **Teleport Here** to go to the place in the game.
 3. To mark a POI, right-click the POI and click **Add Waypoint**. The game shows a temporary waypoint on the map and compass. The game does not save the waypoint.
 
 The waypoint option shows for POI names of up to 64 characters. The name can use letters A to Z, digits, underscores and hyphens.
 
-The editor compares the world in the game with the last export folder. If they differ, the editor asks if you want to continue. Check the world names before you continue.
+The editor compares the world in the game with the world folder you opened or last exported to. If they differ, the editor asks if you want to continue. Check the world names before you continue.
 
 If the editor cannot connect to Game Link, it shows a message. You can still use **Copy teleport command**.
 
@@ -147,7 +147,7 @@ After a teleport, the status bar tells you if the editor has changes since expor
 
 #### Show the player on the map
 
-Open **Layers** and select **Show player**. When the game has the exported world open, a purple arrow shows where you are and which way you face. The arrow updates about once a second.
+Open **Layers** and select **Show player**. When the game has the same world open, a purple arrow shows where you are and which way you face. The arrow updates about once a second.
 
 Select **Follow** to keep the player in view. Any change you make to the view turns off **Follow**. You can drag the map, zoom, or go to an issue. If Game Link loses its connection, the arrow fades and the status bar tells you. The arrow comes back when the game replies from the matching world. Clear **Show player** to hide the arrow.
 
@@ -206,6 +206,8 @@ If you opened a world folder, Ctrl+S saves the world back to that folder.
 
 For **Save Project As**, select a folder outside the editor's recovery folder.
 
+A project keeps the world folder you opened or last exported to. When you open the project again, Game Link uses that folder.
+
 If you close the editor during a save or export, the editor waits for the operation to finish. The editor asks about any unsaved changes before it closes.
 
 The editor saves a recovery copy of unsaved work every 5 minutes. When you save, close, or switch worlds, the editor deletes the old copy. After a crash, the editor offers to recover the most recent copy. Click **No** to delete the recovery copies. When the editor searches for recovery copies, it also deletes temporary autosave files that are more than one hour old.
@@ -229,6 +231,8 @@ History keeps edits, Generate runs, saves, exports, and other project events. In
 Click **Undo to here** to undo the edits after that entry. Click **Redo to here** to redo the edits up to and including that entry. You can also right-click the entry to use the same action. The entry for the current state has no button. Each undo or redo adds an entry to the list.
 
 You can use these actions while the edit is in the undo or redo list. When the editor drops an old undo step to save memory, its history entry stays. A `.7dmap` keeps the history. When you open it again, you can read the old entries and go to their map areas. To keep the history of a world you opened from a game folder, use **Save Project As**.
+
+If the history is larger than 64 MB, the editor drops the oldest entries when it saves the project.
 
 ## 5. The tools
 
@@ -526,6 +530,8 @@ This stage plans towns and cities, and then builds them. It uses the game's town
 2. Look at the plan on the map. If you do not like it, click **Re-roll** to plan again with a new seed.
 3. Click **Build**. The editor builds all the planned towns: streets, districts, POIs, traders and flat ground. This is one undo step.
 
+If you save a project before you build the towns, the same planned sites show when you open it again. You can then click **Build** or **Clear**.
+
 To put a town in a specific position, use the **Town** tool on the ribbon (G).
 
 After **Build**, you can still click **Plan towns** or **Re-roll**. The editor asks first. Then it removes the built towns that are not pinned, with the highways, wilderness POIs and spawns that use them, and plans new towns. Pinned towns stay. Undo puts everything back.
@@ -684,6 +690,8 @@ The list also shows the issues that you fixed with a **Fix** button while the wo
 If the world has no spawn points, the editor adds one on the dry ground nearest the centre. If there is no dry ground, Validate shows an error and the editor stops the export. Make dry ground before you export again.
 
 The world then shows under **New Game** in the game.
+
+If you export to the same folder again, the world keeps its ID. Uppercase and lowercase letters in the folder name match.
 
 ### Export a picture of the map
 
