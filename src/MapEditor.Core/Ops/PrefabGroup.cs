@@ -132,6 +132,9 @@ public sealed class PrefabGroup
             return (t.Prefab, t.Spot, Info: info,
                 Cells: PrefabPlacer.Footprint(_world, info, t.Spot.X, t.Spot.Z, t.Spot.Rotation));
         }).ToArray();
+        if (targets.Any(t => t.Cells != t.Cells.Clamp(_world.Size, _world.Size)))
+            return "The selection would move a prefab outside the map.";
+
         var covered = new HashSet<PrefabInstance>();
         if (replaceCovered)
             foreach (var t in targets)

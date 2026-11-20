@@ -134,6 +134,37 @@ public sealed class PrefabGroupTests
         Assert.Equal(315, b.RotationY);
     }
 
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(10, 0)]
+    [InlineData(0, 1)]
+    public void A_prefab_footprint_outside_the_map_blocks_the_whole_edit(int dx, int steps)
+    {
+        var world = Flat();
+        var edge = Add(world, Poi, 502, -20, y: 68);
+        var other = Add(world, Trader, 490, 15, y: 52);
+        var spawn = new SpawnPoint { X = 500, Y = 55, Z = 10, RotationY = 90 };
+        world.Spawns.Add(spawn);
+        SetGround(world, 490, -20, 20, 20, 80);
+        var heights = world.Height.Data.ToArray();
+        var group = new PrefabGroup(world, Library, [edge, other], [spawn]);
+        var undo = new UndoStack();
+        string? problem = null;
+
+        Assert.True(new EditRunner(undo).Run(world, "Move selection",
+            s => problem = group.Apply(dx, 0, steps, true, true, s)));
+
+        Assert.Equal("The selection would move a prefab outside the map.", problem);
+        Assert.Equal([edge, other], world.Prefabs);
+        Assert.Equal(new Int3(502, 68, -20), edge.Position);
+        Assert.Equal(new Int3(490, 52, 15), other.Position);
+        Assert.Equal(0, edge.Rotation);
+        Assert.Equal(0, other.Rotation);
+        Assert.Equal((500f, 55f, 10f, 90f), (spawn.X, spawn.Y, spawn.Z, spawn.RotationY));
+        Assert.Equal(heights, world.Height.Data);
+        Assert.False(undo.CanUndo);
+    }
+
     [Fact]
     public void Drop_replaces_covered_prefabs_and_their_contents()
     {
