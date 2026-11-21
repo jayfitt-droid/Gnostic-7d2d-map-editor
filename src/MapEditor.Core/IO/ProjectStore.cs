@@ -84,6 +84,17 @@ public static class ProjectStore
         [JsonIgnore]
         public List<HistoryEntry> History { get; set; } = [];
 
+        /// <summary>Clears the export link and returns true if the Save As file has a different project name.</summary>
+        public bool ForgetExportForSaveAs(string currentName, string path)
+        {
+            if (string.Equals(currentName, Path.GetFileNameWithoutExtension(path), StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            ExportFolder = null;
+            ExportHasChanges = null;
+            return true;
+        }
+
         /// <summary>
         /// A deep copy of everything saved, for a save or autosave that runs while editing carries on. Every saved field
         /// must be copied here, or saving drops it.

@@ -670,9 +670,21 @@ public partial class MainWindow : Window
         _vm.IsBusy = true;
         _vm.Status = "Saving " + Path.GetFileName(path) + "...";
         string oldName = world.Name;
+        string? oldSavePath = _savePath;
+        string? oldExportFolder = _projectSettings.ExportFolder;
+        bool? oldExportHasChanges = _projectSettings.ExportHasChanges;
+        var oldPlayerMarker = PlayerOverlay.LiveMarker;
+        string? oldPlayerTrackingStatus = _playerTrackingStatus;
+        bool forgotExport = false;
         try
         {
             var sw = Stopwatch.StartNew();
+            forgotExport = saveAs && _projectSettings.ForgetExportForSaveAs(oldName, path);
+            if (forgotExport)
+            {
+                _savePath = null;
+                ClearPlayerMarker();
+            }
             world.Name = Path.GetFileNameWithoutExtension(path);
             // A copy: the Generate panel can change the settings while the save runs.
             var settings = CopyProjectSettings();
@@ -696,6 +708,14 @@ public partial class MainWindow : Window
         catch (Exception ex) when (IsWriteError(ex))
         {
             world.Name = oldName;
+            if (forgotExport)
+            {
+                _savePath = oldSavePath;
+                _projectSettings.ExportFolder = oldExportFolder;
+                _projectSettings.ExportHasChanges = oldExportHasChanges;
+                PlayerOverlay.SetMarker(oldPlayerMarker);
+                ReportPlayerTrackingStatus(oldPlayerTrackingStatus);
+            }
             _vm.Status = "Save failed";
             ThemedMessageBox.Show(this, ex.Message, "Save", MessageBoxButton.OK, MessageBoxImage.Error);
             return false;

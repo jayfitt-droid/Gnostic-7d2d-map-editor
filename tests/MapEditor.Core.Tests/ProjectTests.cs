@@ -69,6 +69,38 @@ public sealed class ProjectTests : IDisposable
         Assert.Equal(hasChanges, loaded.ExportHasChanges);
     }
 
+    [Theory]
+    [InlineData("Test2", true)]
+    [InlineData("Test1", false)]
+    [InlineData("test1", false)]
+    public void SaveAsForgetsExportOnlyWhenTheProjectNameChanges(string newName, bool forgetsExport)
+    {
+        string exportFolder = Path.Combine(_dir, "Test1");
+        var settings = new ProjectStore.ProjectSettings { ExportFolder = exportFolder, ExportHasChanges = true };
+        string path = Path.Combine(_dir, "other", newName + ProjectStore.Extension);
+
+        Assert.Equal(forgetsExport, settings.ForgetExportForSaveAs("Test1", path));
+        Assert.Equal(forgetsExport ? null : exportFolder, settings.ExportFolder);
+        Assert.Equal(forgetsExport ? (bool?)null : true, settings.ExportHasChanges);
+    }
+
+    [Fact]
+    public void SaveAsWithANewNameStoresNoExportLink()
+    {
+        var world = MakeWorld();
+        var settings = new ProjectStore.ProjectSettings { ExportFolder = "Exported World", ExportHasChanges = false };
+        string path = Path.Combine(_dir, "New Project" + ProjectStore.Extension);
+        settings.ForgetExportForSaveAs(world.Name, path);
+        world.Name = Path.GetFileNameWithoutExtension(path);
+
+        ProjectStore.Save(world, path, settings.Clone());
+        var loadedWorld = ProjectStore.Load(path, out var loadedSettings);
+
+        Assert.Equal("New Project", loadedWorld.Name);
+        Assert.Null(loadedSettings.ExportFolder);
+        Assert.Null(loadedSettings.ExportHasChanges);
+    }
+
     [Fact]
     public void Passthrough_image_is_kept_until_its_layer_is_edited()
     {
