@@ -1,0 +1,75 @@
+[size=6][b]Gnostic Game Link[/b][/size]
+
+[b]An optional mod for 7 Days to Die that connects the game to Gnostic - 7D2D Map Editor. Teleport to any spot on the editor's map, mark a POI with a waypoint, and see where you are while you edit.[/b]
+
+[size=5][b]What it does[/b][/size]
+
+[b]Teleport from the editor.[/b] Right-click the map and click [b]Teleport Here[/b]. You arrive in the game at that spot, facing the way you choose.
+
+[b]Check each issue in the game.[/b] In the editor's Issues tab, click [b]Teleport[/b] next to an issue to go straight to it.
+
+[b]Mark a POI.[/b] Right-click a POI and click [b]Add Waypoint[/b]. The game shows a temporary waypoint on its map and compass.
+
+[b]See yourself on the map.[/b] [b]Layers > Show player[/b] shows a purple arrow where you are and the way you face. [b]Follow[/b] keeps you in view while you walk.
+
+[b]A plug in the status bar[/b] turns green when the game replies, so you always know if the link works.
+
+The editor checks that the game has the same world open before it teleports you or shows you on the map.
+
+[size=5][b]Requirements[/b][/size]
+
+[list]
+[*]7 Days to Die 3.4, with Easy Anti-Cheat (EAC) off
+[*]Single-player, or a game that you host on the same PC
+[*][url=https://www.nexusmods.com/7daystodie/mods/13503]Gnostic - 7D2D Map Editor[/url] v2.3.0 or later, on the same PC
+[/list]
+
+Game Link does not work when you join another player's game or a dedicated server.
+
+[size=5][b]Install[/b][/size]
+
+[list=1]
+[*]Close the game.
+[*]Download [b][url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest/download/GnosticGameLink-1.0.0.zip]GnosticGameLink-1.0.0.zip[/url][/b] from GitHub.
+[*]Extract the [font=Courier New]GnosticGameLink[/font] folder into [font=Courier New]%AppData%\7DaysToDie\Mods[/font]. Create the [font=Courier New]Mods[/font] folder if it does not exist. The folder [font=Courier New]Mods\GnosticGameLink[/font] must contain [font=Courier New]ModInfo.xml[/font] and [font=Courier New]GnosticGameLink.dll[/font].
+[*]Start the game with EAC off. With EAC on, the game does not load the mod.
+[/list]
+
+To uninstall the mod, delete the [font=Courier New]GnosticGameLink[/font] folder.
+
+[size=5][b]Quick start[/b][/size]
+
+[list=1]
+[*]Export your world from the editor into [font=Courier New]GeneratedWorlds[/font] (Ctrl+E).
+[*]Start a game on that world, in single-player or as the host.
+[*]In the editor, right-click the map and click [b]Teleport Here[/b].
+[/list]
+
+The [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/USER-MANUAL.md#use-gnostic-game-link]user manual[/url] explains each step.
+
+[size=5][b]Safe by design[/b][/size]
+
+[list]
+[*]The mod listens only on your own PC (127.0.0.1, port 7790). Other computers cannot connect to it.
+[*]It accepts only three short requests: status, teleport and waypoint. It does not change your world, your saves or other players.
+[*]Waypoints are temporary. The game does not save them.
+[*]It needs no other mods and changes no game files.
+[/list]
+
+[size=5][b]For mod and tool authors[/b][/size]
+
+Your own tools can use Game Link too. The protocol is one line of text over a local TCP connection, with a JSON reply. The [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/GAME-LINK.md]developer guide[/url] describes each request and reply, with a short example client. The source is in the editor's [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/tree/main/mod/GnosticGameLink]repository[/url], under the GPL-3.0 licence.
+
+[line]
+
+[size=5][b]Bugs and feedback[/b][/size]
+
+To report a bug, use the [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/new?template=bug_report.yml]bug report form[/url] on GitHub, and say that you use Game Link. No GitHub account? Post in the comments with the editor version ([b]Help > About[/b]), the game version, and what happened. The game's log ([font=Courier New]%AppData%\7DaysToDie\logs[/font]) has lines that start with [font=Courier New][Gnostic Game Link][/font].
+
+[size=5][b]Support my work[/b][/size]
+
+The editor and the mod are free, and I build them in my spare time. If they save you time, you can buy me a coffee on [url=https://ko-fi.com/jayfitt]Ko-fi[/url]. Thank you!
+
+[line]
+
+[i]This is a fan-made mod. It is not made by or affiliated with The Fun Pimps.[/i]
