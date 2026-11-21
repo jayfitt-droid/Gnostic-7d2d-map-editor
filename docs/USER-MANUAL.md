@@ -208,6 +208,8 @@ For **Save Project As**, select a folder outside the editor's recovery folder.
 
 A project keeps the world folder you opened or last exported to. When you open the project again, Game Link uses that folder.
 
+If you use **Save Project As** with a new name, the editor makes a new project. The editor suggests the new project name for its first export.
+
 If you close the editor during a save or export, the editor waits for the operation to finish. The editor asks about any unsaved changes before it closes.
 
 The editor saves a recovery copy of unsaved work every 5 minutes. When you save, close, or switch worlds, the editor deletes the old copy. After a crash, the editor offers to recover the most recent copy. Click **No** to delete the recovery copies. When the editor searches for recovery copies, it also deletes temporary autosave files that are more than one hour old.
