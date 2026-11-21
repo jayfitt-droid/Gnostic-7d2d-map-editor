@@ -2,6 +2,47 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.3.0 (2026-11-21)
+
+This full release has all the changes since v2.2.0, with all the changes from the three release candidates. Copies of v2.2.0 update to this version from **Help > Check for Updates**.
+
+### New
+
+- **Modern theme.** **Settings > Theme** has a new theme, **Modern**. The menus and the window title are in a slim title bar. The tools are in one row with their names. A row of icons opens the side bar, which can go on either side of the map. The Issues icon and the status bar show the number of errors and warnings. **Flat**, the layout you know, stays the default. ([#63](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/63))
+- **Draw your own land.** In **New World**, select **Draw your own** to draw the land in Land mode. Drag boxes of land on the map, and hold **Alt** to cut out water. Each box has its own coast seed, fill and roughness. **Build World** makes the terrain from your drawing. The project keeps the drawing, so you can click **Edit land** and build again. ([#91](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/91), [#119](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/119))
+- **Gnostic Game Link.** An optional mod for 7 Days to Die 3.4 connects the editor to the game on the same PC. Right-click the map and click **Teleport Here**, or right-click a POI and click **Add Waypoint**. In the Issues tab, click **Teleport** to go to an issue in the game. **Show player** shows where you are. Download `GnosticGameLink-1.0.0.zip` from the release page and extract it into `%AppData%\7DaysToDie\Mods`. Play with EAC off, in single-player or as the host. Other programs can use the mod too: [docs/GAME-LINK.md](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/GAME-LINK.md) tells how. ([#92](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/92))
+- **Multi-select tool.** The **Multi-select** tool (**M**) selects the POIs, traders, street tiles and spawn points in a box. Drag the group to move it. **Q** and **E** turn it, **PgUp** and **PgDn** move it up or down, and **Del** removes it. The status bar tells you what each key did. Each change is one undo step. ([#90](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/90), [#149](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/149))
+- **History tab.** The **History** tab shows each edit, Generate stage, save and export, with its date and time. Click an entry to go to its area on the map. Click **Undo to here** or **Redo to here** to go back or forward to an edit. The project keeps the history. ([#57](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/57))
+- **Town presets.** The **Town sites** stage has a **Preset** list. Save the town table and the town settings with a name, and use them again in any world. The editor adds 12 starter presets for 6K to 16K maps. ([#116](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/116))
+- **World grid in map images.** **File > Export Map Image** has a **World grid** checkbox. The picture then shows the 150 m grid that towns snap to. ([#85](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/85))
+- **Project files in File Explorer.** When you install with Setup, `.7dmap` files get their own icon, and a double-click opens the project in the editor. ([#93](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/93))
+
+### Changes
+
+- Water is a slate blue that gets darker as it gets deeper, on the map and in Land mode. ([#119](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/119))
+- The **Generate** panel is easier to read. Each stage shows its main settings and its buttons. **More settings** holds the seed and the other settings. **Help** holds the longer text. New worlds use 15% route wiggle and a 120 m longest causeway for highways. ([#114](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/114))
+- The editor no longer has **Review on the map** (stage 2) or **Place on the map** (stage 5). Use the **Town** tool and the **Prefabs** tools to put towns and POIs on the map. ([#114](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/114))
+- Stage 1 no longer paints tile types or has **Show the last run's tile types**. Use the **Terrain** tools to shape the ground. Old projects still open. ([#115](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/115))
+
+### Fixes
+
+- A click to select a POI or a spawn point could move it a small distance. Now an item moves only when you drag it. In the Flat theme, the map also no longer moves when you select an item. ([#157](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/157))
+- After **Save Project As** with a new name, **Export** still suggested the old world name, so an export could replace the old world. Now a project that you save with a new name exports with its new name. ([#165](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/165))
+- A project did not open again if the world's original `biomes.png` or `radiation.png` was larger than the world. ([#73](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/73))
+- An autosave that was still running when you saved or closed the world could bring back an old recovery copy. ([#74](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/74))
+- A failed **Export Map Image** replaced the old PNG with a part of a file. Now the old PNG stays. ([#76](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/76))
+- An export to the same folder as before marked the project changed. ([#82](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/82))
+- If you saved a project before you built its planned towns, the town sites were gone when you opened it again. ([#127](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/127))
+- An export to the same folder, with the folder name in other uppercase and lowercase letters, gave the world a new ID. ([#132](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/132))
+- A world with land only near a corner exported with no spawn point. Now export finds dry ground anywhere on the map. If there is no dry ground, the export stops. ([#133](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/133))
+- If you closed the editor during a save or an export, it did not close when the work finished. ([#136](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/136))
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- If you open two editor windows, they share one recovery copy and one settings file. Closing one window can remove the other window's recovery copy or its new town presets. ([#137](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/137), [#138](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/138))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
+
 ## v2.3.0-rc.3 (2026-11-21)
 
 The third release candidate for v2.3.0. It has all the changes in v2.3.0-rc.2 below, and these fixes. Only copies of a test version update to it. To try it, download it from the releases page.
