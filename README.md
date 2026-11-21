@@ -126,7 +126,7 @@ Open a terminal and run these commands. Use the tag of the version you want, or 
 ```
 git clone https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor.git
 cd Gnostic-7d2d-map-editor
-git checkout v2.2.0
+git checkout v2.3.0
 ```
 
 ### Build the editor
