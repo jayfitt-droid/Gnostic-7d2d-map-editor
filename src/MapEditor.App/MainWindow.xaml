@@ -981,8 +981,8 @@
                                    Visibility="{Binding IsTownTool, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock Text="{Binding PlacementText}" Style="{StaticResource HintText}" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                    Visibility="{Binding IsPrefabTool, Converter={StaticResource BoolToVisibility}}" />
-                        <TextBlock Text="{Binding SelectionText}" Style="{StaticResource HintText}" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                   Visibility="{Binding ShowSelectionText, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBlock Text="{Binding FlatSelectionText}" Style="{StaticResource HintText}" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                   Visibility="{Binding ShowFlatSelectionLine, Converter={StaticResource BoolToVisibility}}" />
                     </Grid>
                     <TextBlock x:Name="ToolHintLine" Text="{Binding CurrentTool.Hint}" Style="{StaticResource HintText}" Margin="0,4,0,0"
                                Visibility="{Binding ShowToolHint, Converter={StaticResource BoolToVisibility}}" />

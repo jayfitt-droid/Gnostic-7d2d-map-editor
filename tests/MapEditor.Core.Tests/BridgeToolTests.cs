@@ -508,6 +508,22 @@ public sealed class BridgeToolTests : IDisposable
         Assert.Null(BridgeTool.Find(list, new Vector2(SeaFrom - 100, 300)));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Finding_a_bridge_on_its_drawn_deck_outline(bool alongZ)
+    {
+        var bridge = new PlacedBridge { AlongZ = alongZ, Start = 100, Line = 200, Pieces = 4 };
+        var line = bridge.Where;
+        float halfWidth = BridgeOp.Width / 2f;
+
+        Assert.Same(bridge, BridgeTool.Find([bridge], line.At(line.Start)));
+        Assert.Same(bridge, BridgeTool.Find([bridge], line.At(line.End)));
+        Assert.Same(bridge, BridgeTool.Find([bridge], line.At(line.Start + 9, -halfWidth)));
+        Assert.Same(bridge, BridgeTool.Find([bridge], line.At(line.Start + 9, halfWidth)));
+        Assert.Null(BridgeTool.Find([bridge], line.At(line.End + 1)));
+    }
+
     // ---- the stage's bridges and the tool's ----
 
     [Fact]

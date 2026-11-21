@@ -72,11 +72,9 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
 
         if (_gesture is not { } gesture) return;
         var delta = e.MapPoint - gesture.Start;
-        bool drag = Math.Abs(delta.X) * map.Scale >= SystemParameters.MinimumHorizontalDragDistance ||
-                    Math.Abs(delta.Y) * map.Scale >= SystemParameters.MinimumVerticalDragDistance;
         if (gesture.Moving)
         {
-            if (_moving is null && drag)
+            if (_moving is null && e.DragThresholdPassed)
             {
                 _moving = Capture(world);
                 _session = edits.Begin(world, "Move selection");
@@ -89,7 +87,8 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
                 return;
             }
         }
-        else if (_boxing || drag)
+        else if (_boxing || Math.Abs(delta.X) * map.Scale >= SystemParameters.MinimumHorizontalDragDistance ||
+                 Math.Abs(delta.Y) * map.Scale >= SystemParameters.MinimumVerticalDragDistance)
         {
             _boxing = true;
             var box = new Rect(gesture.Start, e.MapPoint);
