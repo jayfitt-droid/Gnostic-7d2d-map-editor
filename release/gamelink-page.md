@@ -4,7 +4,7 @@
 
 ## What it does
 
-**Teleport from the editor.** Right-click the map and click **Teleport Here**. You arrive in the game at that spot, facing the way you choose.
+**Teleport from the editor.** Right-click the map and click **Teleport Here**. You arrive in the game at that same spot.
 
 **Check each issue in the game.** In the editor's Issues tab, click **Teleport** next to an issue to go straight to it.
 
