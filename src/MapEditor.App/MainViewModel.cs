@@ -142,7 +142,7 @@ public sealed partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsBrushTool), nameof(IsStampTool), nameof(IsFlattenTool), nameof(IsNoiseTool),
         nameof(HasRadius), nameof(IsBiomeTool), nameof(IsRadiationTool), nameof(IsWaterTool), nameof(IsRoadTool), nameof(IsBridgeTool),
         nameof(IsPrefabTool), nameof(IsTraderTool), nameof(IsPrefabsTool), nameof(PlacingPrefab), nameof(IsSpawnTool), nameof(IsSelectTool), nameof(IsMultiSelectTool), nameof(ShowSelectionText), nameof(IsTownTool), nameof(ReservesInfoLines), nameof(CurrentTool),
-        nameof(IsGenerateAreaTool), nameof(IsFeaturesTool),
+        nameof(IsGenerateAreaTool), nameof(IsFeaturesTool), nameof(ShowFlatSelectionLine),
         nameof(HasSize), nameof(SizeValue), nameof(SizeMin), nameof(SizeMax), nameof(SizeText),
         nameof(HasStrength), nameof(StrengthValue), nameof(StrengthMin), nameof(StrengthText), nameof(CurrentSwatch))]
     private EditorTool _selectedTool = EditorTool.Select;
@@ -172,8 +172,14 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsSelectTool => SelectedTool == EditorTool.Select;
     public bool IsMultiSelectTool => SelectedTool == EditorTool.MultiSelect;
 
-    /// <summary>The selection text under the ribbon: for spawns, which have no info card.</summary>
+    /// <summary>Whether the Modern hint card can show selection text.</summary>
     public bool ShowSelectionText => IsSpawnTool || IsSelectTool && !HasPrefabSelection;
+
+    public bool ShowFlatSelectionLine => IsSelectTool || IsSpawnTool;
+
+    /// <summary>Keep room for the two lines of spawn details even when the Flat selection strip is empty.</summary>
+    public string FlatSelectionText => HasPrefabSelection || SelectionText.Length == 0 ? "\n" : SelectionText;
+
     public bool IsTownTool => SelectedTool == EditorTool.Town;
 
     /// <summary>
@@ -308,7 +314,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _prefabAddParts = true;
 
     /// <summary>Describes the selected prefab or spawn on the map.</summary>
-    [ObservableProperty] private string _selectionText = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FlatSelectionText))]
+    private string _selectionText = "";
 
     /// <summary>Describes the prefab being placed or dragged.</summary>
     [ObservableProperty] private string _placementText = "";
@@ -318,7 +326,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _selectedMapPrefabName = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowPrefabCard), nameof(ShowSelectionText))]
+    [NotifyPropertyChangedFor(nameof(ShowPrefabCard), nameof(ShowSelectionText), nameof(FlatSelectionText))]
     private bool _hasPrefabSelection;
 
     /// <summary>

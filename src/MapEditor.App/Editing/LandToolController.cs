@@ -194,6 +194,15 @@ public sealed partial class LandToolController(MapView map, MainViewModel vm) : 
         }
 
         if (_drag is not { } drag) return;
+        if (drag.Index >= 0 && !e.DragThresholdPassed)
+        {
+            if (e.Phase == ToolPhase.Up)
+            {
+                _drag = null;
+                UpdateCursor(e.MapPoint);
+            }
+            return;
+        }
         if (e.Phase == ToolPhase.Move)
         {
             if (pos == drag.Last) return;

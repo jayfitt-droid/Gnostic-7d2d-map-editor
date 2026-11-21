@@ -541,9 +541,9 @@ public static class BridgeTool
     public static HighwayRoad? StageOwner(IEnumerable<HighwayRoad>? roads, PrefabInstance piece) =>
         roads?.FirstOrDefault(r => r.Kind == HighwayKind.Bridge && r.Prefabs.Any(w => w.Matches(piece)));
 
-    /// <summary>The bridge whose deck covers <paramref name="grid"/> (grid metres), if any; the last one in the list wins.</summary>
+    /// <summary>The bridge whose deck or outline covers <paramref name="grid"/> (grid metres); the last one in the list wins.</summary>
     public static PlacedBridge? Find(IEnumerable<PlacedBridge> bridges, Vector2 grid) =>
-        bridges.LastOrDefault(b => b.Where.Rect is var r && grid.X >= r.X0 && grid.X < r.X1 && grid.Y >= r.Z0 && grid.Y < r.Z1);
+        bridges.LastOrDefault(b => b.Where.Rect is var r && grid.X >= r.X0 && grid.X <= r.X1 && grid.Y >= r.Z0 && grid.Y <= r.Z1);
 
     /// <summary>The ends of every bridge the world has a record of: the tool's own and the Highways stage's.</summary>
     public static List<BridgeEnd> Ends(IEnumerable<PlacedBridge> bridges, IEnumerable<HighwayRoad>? stage = null)

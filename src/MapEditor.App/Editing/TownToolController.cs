@@ -90,20 +90,21 @@ public sealed class TownToolController
             case ToolPhase.Down when _selection is { } current && EdgesAt(current, grid) is var edges and not Edges.None:
                 _resize = edges;
                 _resizeFrom = current;
-                _plan = null;
-                _offRoads.Clear();
-                ShowPreview();
                 break;
             case ToolPhase.Down when _plan is not null && RoadAt(grid) is { } road:
                 ToggleRoad(road);
                 break;
-            case ToolPhase.Move when _resize != Edges.None:
+            case ToolPhase.Move when _resize != Edges.None && e.DragThresholdPassed:
+                _plan = null;
+                _offRoads.Clear();
                 _selection = Resized(_resizeFrom, _resize, grid, world.Size);
                 ShowPreview();
                 break;
             case ToolPhase.Up when _resize != Edges.None:
-                _selection = Resized(_resizeFrom, _resize, grid, world.Size);
+                var resizedEdges = _resize;
                 _resize = Edges.None;
+                if (!e.DragThresholdPassed) break;
+                _selection = Resized(_resizeFrom, resizedEdges, grid, world.Size);
                 ChooseDefaultTownship(world, _selection.Value, TownGenerator.CellsIn(world, _selection.Value).Count);
                 Replan();
                 break;

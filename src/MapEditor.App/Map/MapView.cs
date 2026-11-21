@@ -41,6 +41,7 @@ public sealed class MapView : FrameworkElement
     private Point? _dragStart;
     private Point _dragOrigin;
     private bool _toolDrag;
+    private DragThreshold _toolDragThreshold;
     private Point? _mouseMap;
 
     // Prefab outlines are drawn in software (see OverlayRaster); colours are premultiplied BGRA.
@@ -166,6 +167,22 @@ public sealed class MapView : FrameworkElement
 
     private void SendToolInput(ToolInputEventArgs e) =>
         (LandPreview is null ? ToolInput : LandToolInput)?.Invoke(this, e);
+
+    private void SendPointerToolInput(ToolPhase phase, Point mapPoint, MouseEventArgs e, int clickCount = 1, bool captureLost = false)
+    {
+        var windowPoint = e.GetPosition(Window.GetWindow(this));
+        if (phase == ToolPhase.Down)
+            _toolDragThreshold = new DragThreshold(windowPoint.X, windowPoint.Y,
+                SystemParameters.MinimumHorizontalDragDistance, SystemParameters.MinimumVerticalDragDistance);
+        else if (!captureLost)
+            _toolDragThreshold.Update(windowPoint.X, windowPoint.Y);
+
+        SendToolInput(new ToolInputEventArgs(phase, mapPoint, windowPoint, Keyboard.Modifiers, clickCount)
+        {
+            DragThresholdPassed = _toolDragThreshold.Passed,
+            CaptureLost = captureLost,
+        });
+    }
 
     private BrushCursor? _brushCursor;
 
@@ -538,7 +555,7 @@ public sealed class MapView : FrameworkElement
         {
             _toolDrag = true;
             CaptureMouse();
-            SendToolInput(new ToolInputEventArgs(ToolPhase.Down, ScreenToMap(e.GetPosition(this)), Keyboard.Modifiers, e.ClickCount));
+            SendPointerToolInput(ToolPhase.Down, ScreenToMap(e.GetPosition(this)), e, e.ClickCount);
             e.Handled = true;
             return;
         }
@@ -560,7 +577,7 @@ public sealed class MapView : FrameworkElement
         if (_toolDrag && e.ChangedButton == MouseButton.Left)
         {
             _toolDrag = false;
-            SendToolInput(new ToolInputEventArgs(ToolPhase.Up, ScreenToMap(e.GetPosition(this)), Keyboard.Modifiers));
+            SendPointerToolInput(ToolPhase.Up, ScreenToMap(e.GetPosition(this)), e);
             ReleaseMouseCapture();
             return;
         }
@@ -592,7 +609,7 @@ public sealed class MapView : FrameworkElement
             OnViewChanged();
         }
         var map = ScreenToMap(p);
-        if (_toolDrag) SendToolInput(new ToolInputEventArgs(ToolPhase.Move, map, Keyboard.Modifiers));
+        if (_toolDrag) SendPointerToolInput(ToolPhase.Move, map, e);
         _mouseMap = map;
         if (_brushCursor is not null || _roadPreview is not null || _roadSnapper is not null || _prefabGhost is not null || _bridgePreviews is not null) InvalidateVisual();
         CursorMoved?.Invoke(this, map);
@@ -604,7 +621,7 @@ public sealed class MapView : FrameworkElement
         if (_toolDrag)
         {
             _toolDrag = false;
-            SendToolInput(new ToolInputEventArgs(ToolPhase.Up, _mouseMap ?? default, Keyboard.Modifiers) { CaptureLost = true });
+            SendPointerToolInput(ToolPhase.Up, _mouseMap ?? default, e, captureLost: true);
         }
         // And a pan, so the next press isn't taken for a second button mid-drag.
         if (_dragStart is not null)

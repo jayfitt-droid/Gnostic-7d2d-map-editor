@@ -34,6 +34,7 @@ public sealed class PrefabToolController
     private bool _dropInLot;
 
     // Spawn drag, moved live inside one undo step.
+    private bool _spawnGrabbed;
     private EditSession? _spawnSession;
 
     public PrefabToolController(MapView map, MainViewModel vm, EditRunner edits)
@@ -100,7 +101,7 @@ public sealed class PrefabToolController
     private PrefabLibrary Library => _vm.Prefabs;
 
 
-    public bool IsDragging => _dragging is not null || _spawnSession is not null;
+    public bool IsDragging => _dragging is not null || _spawnGrabbed;
 
     private bool Armed => _vm.PlacingPrefab is not null;
 
@@ -130,7 +131,7 @@ public sealed class PrefabToolController
             case ToolPhase.Down:
                 SelectAndGrab(world, WorldQuery.PrefabAt(world, world.GridToWorld((int)grid.X), world.GridToWorld((int)grid.Y), Library), grid);
                 break;
-            case ToolPhase.Move when _dragging is not null:
+            case ToolPhase.Move when _dragging is not null && e.DragThresholdPassed:
                 DragTo(world, grid);
                 break;
             case ToolPhase.Up when _dragging is not null:
@@ -183,26 +184,19 @@ public sealed class PrefabToolController
             case ToolPhase.Down when SpawnNear(world, grid) is { } spawn:
                 Select(null);
                 SelectSpawn(spawn);
-                _spawnSession = _edits.Begin(world, "Move spawn");
+                _spawnGrabbed = true;
                 break;
             case ToolPhase.Down:
                 SelectSpawn(null);
                 SelectAndGrab(world, PickAt(world, grid), grid);
                 break;
-            case ToolPhase.Move when _spawnSession is not null && _selectedSpawn is { } moving:
-                if (!world.Height.Contains((int)grid.X, (int)grid.Y)) return;
-                if (!_edits.Step(_spawnSession, s => SpawnHelper.Move(world, moving, (int)grid.X, (int)grid.Y, s)))
-                {
-                    _spawnSession = null;
-                    return;
-                }
-                SelectSpawn(moving);
+            case ToolPhase.Move when _spawnGrabbed && e.DragThresholdPassed:
+                DragSpawn(world, grid);
                 break;
-            case ToolPhase.Up when _spawnSession is not null:
-                Commit(_spawnSession);
-                _spawnSession = null;
+            case ToolPhase.Up when _spawnGrabbed:
+                EndSpawnDrag();
                 break;
-            case ToolPhase.Move when _dragging is not null:
+            case ToolPhase.Move when _dragging is not null && e.DragThresholdPassed:
                 DragTo(world, grid);
                 break;
             case ToolPhase.Up when _dragging is not null:
@@ -425,7 +419,7 @@ public sealed class PrefabToolController
         if (_dragging is not null)
         {
             _dragTurns = (_dragTurns + quarterTurns) & 3;
-            DragTo(world, _dragAt);
+            if (_dropSpot is not null) DragTo(world, _dragAt);
             return;
         }
         if (Locked(_selected)) return;
@@ -523,7 +517,7 @@ public sealed class PrefabToolController
                 if (near is not null)
                 {
                     SelectSpawn(near);
-                    _spawnSession = _edits.Begin(world, "Move spawn");
+                    _spawnGrabbed = true;
                     return;
                 }
                 SpawnPoint spawn = null!;
@@ -531,20 +525,34 @@ public sealed class PrefabToolController
                 SelectSpawn(spawn);
                 _vm.Status = $"Added a spawn point; the world has {world.Spawns.Count}. RWG makes 12.";
                 break;
-            case ToolPhase.Move when _spawnSession is not null && _selectedSpawn is { } moving:
-                if (!world.Height.Contains((int)grid.X, (int)grid.Y)) return;
-                if (!_edits.Step(_spawnSession, s => SpawnHelper.Move(world, moving, (int)grid.X, (int)grid.Y, s)))
-                {
-                    _spawnSession = null;
-                    return;
-                }
-                SelectSpawn(moving);
+            case ToolPhase.Move when _spawnGrabbed && e.DragThresholdPassed:
+                DragSpawn(world, grid);
                 break;
-            case ToolPhase.Up when _spawnSession is not null:
-                Commit(_spawnSession);
-                _spawnSession = null;
+            case ToolPhase.Up when _spawnGrabbed:
+                EndSpawnDrag();
                 break;
         }
+    }
+
+    private void DragSpawn(World world, Point grid)
+    {
+        if (_selectedSpawn is not { } moving || !world.Height.Contains((int)grid.X, (int)grid.Y)) return;
+        _spawnSession ??= _edits.Begin(world, "Move spawn");
+        if (_edits.Step(_spawnSession, s => SpawnHelper.Move(world, moving, (int)grid.X, (int)grid.Y, s)))
+            SelectSpawn(moving);
+        else
+        {
+            _spawnGrabbed = false;
+            _spawnSession = null;
+        }
+    }
+
+    private void EndSpawnDrag()
+    {
+        _spawnGrabbed = false;
+        if (_spawnSession is not { } session) return;
+        _spawnSession = null;
+        Commit(session);
     }
 
     /// <summary>Q and E with the spawn tool: turn the selected spawn 45 degrees (Q counter-clockwise).</summary>
@@ -602,7 +610,7 @@ public sealed class PrefabToolController
     private void UpdateSpawnGhost(Point? mapPoint)
     {
         Point? ghost = null;
-        if (_vm.IsSpawnTool && _spawnSession is null && mapPoint is { } m && World is { } world && _hover is { } grid
+        if (_vm.IsSpawnTool && !_spawnGrabbed && mapPoint is { } m && World is { } world && _hover is { } grid
             && world.Height.Contains((int)grid.X, (int)grid.Y) && SpawnNear(world, grid) is null)
             ghost = m;
         _map.SpawnGhost = ghost;
@@ -611,7 +619,7 @@ public sealed class PrefabToolController
     /// <summary>Alt went down or up: redraws the ghost of the prefab being dragged or placed.</summary>
     public void SnappingChanged()
     {
-        if (_dragging is not null && World is { } world) DragTo(world, _dragAt);
+        if (_dragging is not null && _dropSpot is not null && World is { } world) DragTo(world, _dragAt);
         else UpdateGhost();
     }
 
@@ -673,6 +681,7 @@ public sealed class PrefabToolController
         _dragging = null;
         _dragTurns = 0;
         _map.HiddenPrefabs = null;
+        _spawnGrabbed = false;
         _spawnSession = null;
         if (World is not { } world || _selected is not null && !world.ShownPrefabs.Contains(_selected)) _selected = null;
         if (World is null || _selectedSpawn is not null && !World.Spawns.Contains(_selectedSpawn)) _selectedSpawn = null;

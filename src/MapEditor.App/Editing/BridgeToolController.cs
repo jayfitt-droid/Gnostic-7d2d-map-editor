@@ -93,12 +93,12 @@ public sealed class BridgeToolController
             case ToolPhase.Down when !_vm.IsBusy:
                 Press(world, grid);
                 break;
-            case ToolPhase.Move when _drag != Drag.None:
+            case ToolPhase.Move when _drag != Drag.None && e.DragThresholdPassed:
                 _dragLine = DraggedLine(world, grid);
                 _map.InvalidateVisual();
                 break;
             case ToolPhase.Up when _drag != Drag.None:
-                Release(world, grid);
+                Release(world, grid, e.DragThresholdPassed);
                 break;
         }
     }
@@ -130,7 +130,6 @@ public sealed class BridgeToolController
             _selected = hit;
             _drag = ZoneAt(hit, grid);
             _dragFrom = grid;
-            _dragLine = hit.Where;
             Refresh();
             return;
         }
@@ -167,11 +166,11 @@ public sealed class BridgeToolController
         };
     }
 
-    private void Release(World world, Vector2 grid)
+    private void Release(World world, Vector2 grid, bool moved)
     {
         // Work out where it was dragged to before the drag is dropped: DraggedLine reads the drag's kind.
         var drag = _drag;
-        var target = DraggedLine(world, grid);
+        var target = moved ? DraggedLine(world, grid) : null;
         _drag = Drag.None;
         _dragLine = null;
         if (_selected is { } bridge && target is { } line && line != bridge.Where)

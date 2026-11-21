@@ -13,11 +13,16 @@ public enum ToolPhase
 }
 
 /// <summary>A tool press/drag/release at <see cref="MapPoint"/> (metres from the north-west corner).</summary>
-public sealed class ToolInputEventArgs(ToolPhase phase, Point mapPoint, ModifierKeys modifiers, int clickCount = 1) : EventArgs
+public sealed class ToolInputEventArgs(ToolPhase phase, Point mapPoint, Point windowPoint, ModifierKeys modifiers, int clickCount = 1) : EventArgs
 {
     public ToolPhase Phase { get; } = phase;
     public Point MapPoint { get; } = mapPoint;
+    /// <summary>The pointer in window-relative device-independent pixels, independent of the map layout and zoom.</summary>
+    public Point WindowPoint { get; } = windowPoint;
     public ModifierKeys Modifiers { get; } = modifiers;
+
+    /// <summary>Whether the pointer has reached the system drag distance from the press.</summary>
+    public bool DragThresholdPassed { get; init; }
 
     /// <summary>2 for the second press of a double-click.</summary>
     public int ClickCount { get; } = clickCount;
