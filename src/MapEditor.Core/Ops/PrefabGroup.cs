@@ -16,6 +16,7 @@ public sealed class PrefabGroup
     private readonly PrefabLibrary _library;
     private readonly Func<PrefabInstance, bool> _isBridgePiece;
     private readonly HashSet<PrefabInstance> _prefabs;
+    private readonly int _selectedPrefabCount;
     private readonly SpawnPoint[] _spawns;
     private readonly Dictionary<PrefabInstance, PrefabInstance> _riders = [];
     private readonly (double X, double Z) _centre;
@@ -29,6 +30,7 @@ public sealed class PrefabGroup
         var selected = prefabs.ToHashSet();
         var selectedSpawns = spawns.ToHashSet();
         _prefabs = world.Prefabs.Where(selected.Contains).ToHashSet();
+        _selectedPrefabCount = _prefabs.Count;
         _spawns = world.Spawns.Where(selectedSpawns.Contains).ToArray();
 
         // A whole tile carries its POIs and parts, even if one of them was also picked or sits on a picked POI.
@@ -226,14 +228,19 @@ public sealed class PrefabGroup
         return null;
     }
 
-    /// <summary>Raises or lowers the selected prefabs and their riders by the same number of blocks.</summary>
+    /// <summary>Raises or lowers the selected prefabs and their riders. Returns a status message for the edit.</summary>
     public string? NudgeHeight(int blocks, EditSession session)
     {
         if (MovementProblem() is { } problem) return problem;
-        if (_prefabs.Count == 0 || blocks == 0) return null;
+        if (blocks == 0) return null;
+        if (_selectedPrefabCount == 0)
+            return _spawns.Length == 0 ? null : "Spawn points can't be raised or lowered. Select a prefab.";
+
         TouchPrefabs(session, _prefabs, []);
         foreach (var p in _prefabs) p.Position = p.Position with { Y = p.Position.Y + blocks };
-        return null;
+        string action = blocks > 0 ? "Raised" : "Lowered";
+        long distance = Math.Abs((long)blocks);
+        return $"{action} {_selectedPrefabCount} prefab{(_selectedPrefabCount == 1 ? "" : "s")} {distance} block{(distance == 1 ? "" : "s")}.";
     }
 
     /// <summary>Removes the selected prefabs, their riders and the selected spawn points.</summary>

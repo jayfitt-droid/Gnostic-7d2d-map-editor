@@ -333,26 +333,58 @@ public sealed class PrefabGroupTests
         Assert.Equal(144, Assert.Single(world.Spawns).X);
     }
 
-    [Fact]
-    public void Height_nudge_moves_the_prefabs_and_riders_one_block()
+    [Theory]
+    [InlineData(1, false, "Raised 1 prefab 1 block.")]
+    [InlineData(1, true, "Raised 2 prefabs 1 block.")]
+    [InlineData(-1, false, "Lowered 1 prefab 1 block.")]
+    [InlineData(-1, true, "Lowered 2 prefabs 1 block.")]
+    [InlineData(-2, true, "Lowered 2 prefabs 2 blocks.")]
+    public void Height_nudge_moves_prefabs_and_riders_and_reports_the_selected_prefabs(
+        int blocks, bool selectRider, string expectedStatus)
     {
         var world = Flat();
         var tile = Add(world, Tile, -250, -150, y: 29);
         var rider = Add(world, Poi, -230, -120);
+        var otherRider = Add(world, Poi, -210, -120);
         var spawn = new SpawnPoint { X = 20, Y = 41, Z = 20 };
         world.Spawns.Add(spawn);
-        var group = new PrefabGroup(world, Library, [tile, rider], [spawn]);
+        var group = new PrefabGroup(world, Library, selectRider ? [tile, rider] : [tile], [spawn]);
         var undo = new UndoStack();
+        string name = blocks > 0 ? "Raise selection" : "Lower selection";
+        string? status = null;
 
-        Assert.True(new EditRunner(undo).Run(world, "Raise selection", s => Assert.Null(group.NudgeHeight(1, s))));
+        Assert.True(new EditRunner(undo).Run(world, name, s => status = group.NudgeHeight(blocks, s)));
 
-        Assert.Equal(30, tile.Position.Y);
-        Assert.Equal(41, rider.Position.Y);
+        Assert.Equal(29 + blocks, tile.Position.Y);
+        Assert.Equal(40 + blocks, rider.Position.Y);
+        Assert.Equal(40 + blocks, otherRider.Position.Y);
         Assert.Equal(41, spawn.Y);
         Assert.Equal(40, Ground(world, -250, -150));
-        Assert.Equal("Raise selection", undo.Undo()!.Name);
+        Assert.Equal(name, undo.Undo()!.Name);
+        Assert.False(undo.CanUndo);
         Assert.Equal(29, world.Prefabs[0].Position.Y);
         Assert.Equal(40, world.Prefabs[1].Position.Y);
+        Assert.Equal(40, world.Prefabs[2].Position.Y);
+        Assert.Equal(expectedStatus, status);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(-1)]
+    public void Height_nudge_reports_a_problem_when_only_spawn_points_are_selected(int blocks)
+    {
+        var world = Flat();
+        var spawn = new SpawnPoint { X = 20, Y = 41, Z = 20 };
+        world.Spawns.Add(spawn);
+        var group = new PrefabGroup(world, Library, [], [spawn]);
+        var undo = new UndoStack();
+        string? problem = null;
+
+        Assert.True(new EditRunner(undo).Run(world, "Nudge height", s => problem = group.NudgeHeight(blocks, s)));
+
+        Assert.Equal(41, spawn.Y);
+        Assert.False(undo.CanUndo);
+        Assert.Equal("Spawn points can't be raised or lowered. Select a prefab.", problem);
     }
 
     private static World Flat()

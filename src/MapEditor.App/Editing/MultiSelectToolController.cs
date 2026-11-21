@@ -174,13 +174,13 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
     {
         if (IsDragging || World is not { } world || _prefabs.Count + _spawns.Count == 0) return;
         var group = Capture(world);
-        string? problem = null;
+        string? status = null;
         if (!edits.Run(world, name, session =>
             {
-                problem = change(group, session);
+                status = change(group, session);
                 if (session.HasChanges) Redraw(session);
             })) return;
-        if (problem is not null) vm.Status = problem;
+        if (status is not null) vm.Status = status;
     }
 
     private void Redraw(EditSession session)
