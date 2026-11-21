@@ -8,7 +8,7 @@
 
 **Draw your own land.** Drag boxes of land and water on an empty map, give each coast its own shape, and build the world from your drawing.
 
-**Gnostic Game Link.** A new, optional mod connects the editor to the game. Teleport to any spot or issue, add a waypoint to a POI, and see where you are on the editor's map. It has its own page on this site: search for Gnostic Game Link.
+**Gnostic Game Link.** A new, optional mod connects the editor to the game. Teleport to any spot or issue, add a waypoint to a POI, and see where you are on the editor's map. It has its own page on this site: [Gnostic Game Link](https://7daystodiemods.com/mods/gnostic-game-link-7d2d-3x).
 
 **Multi-select.** Select the POIs, traders, street tiles and spawns in a box, then move, turn, raise or delete them as one group.
 
