@@ -24,6 +24,8 @@ Gnostic Game Link connects the editor to 7 Days to Die 3.4 on the same PC. Use i
 
 Keep the same world open in the game and the editor. [Use Gnostic Game Link](docs/USER-MANUAL.md#use-gnostic-game-link).
 
+Your own tools can use Game Link too. The [developer guide](docs/GAME-LINK.md) describes the protocol.
+
 ## First run
 
 The editor looks for the game through Steam. If it can't find it, use **Settings > Game Folder** and pick the folder that contains `Data`. Biome colours, prefabs and stamps load from there.
