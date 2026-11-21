@@ -641,6 +641,17 @@ The stage uses all traders in the world. These can come from stage 2, from the T
 4. Run stage 4. The highways connect your city to the other towns.
 5. Run stages 5 and 6.
 
+### A world with land that you draw
+
+1. Click **New World** (Ctrl+N). Under **Land shape**, select **Draw your own**. Select the biomes, then click **Create**. Land mode opens.
+2. Click **Rectangle** and drag boxes on the map to make land. Hold **Alt** while you drag to make water, for example a bay.
+3. Click **Select boxes** to move or resize a box. In the **Land** panel, set **Fill** and **Roughness** for each box.
+4. Click **Build World**. The editor makes the terrain (stage 1) and the biomes for your land.
+5. Run stages 2, 3, 4, 5 and 6.
+6. Press **F7** to validate. Then press **Ctrl+E** to export.
+
+To change the land later, go to **Generate > Terrain** and click **Edit land**. **Build World** clears the later stages. Run them again.
+
 ### New spawns for a world that you have
 
 1. Open the world folder.
