@@ -2,6 +2,20 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.3.0-rc.2 (2026-11-20)
+
+The second release candidate for v2.3.0. It has all the changes in v2.3.0-rc.1 below, and these fixes. Only copies of a test version update to it. To try it, download it from the releases page.
+
+### Fixes
+
+- In the **Multi-select** tool, **PgUp** and **PgDn** did not show what they did. Now the status bar shows how many prefabs moved up or down. If you select only spawn points, a message tells you to select a prefab. ([#149](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/149))
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- If you open two editor windows, they share one recovery copy and one settings file. Closing one window can remove the other window's recovery copy or its new town presets. ([#137](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/137), [#138](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/138))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
+
 ## v2.3.0-rc.1 (2026-11-20)
 
 A release candidate for v2.3.0: a test version before the full release. Only copies of a test version update to it. To try it, download it from the releases page.
