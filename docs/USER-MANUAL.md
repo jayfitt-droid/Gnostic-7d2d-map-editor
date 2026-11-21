@@ -285,7 +285,7 @@ Lake, river and water stamps always fill with water. For the other stamps, tick 
 
 With the **Select** tool:
 
-- Click an item to select it. The info card shows its picture, tier and details.
+- Click an item to select it. A click does not move the item. The info card shows its picture, tier and details.
 - Drag the item to move it.
 - Press **Q** or **E** to turn it.
 - Press **PgUp** or **PgDn** to make it one block higher or lower.
