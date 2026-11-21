@@ -1,0 +1,107 @@
+{
+  "Name": "Sample preset",
+  "Terrain": {
+    "Weights": {
+      "Plains": 11,
+      "Hills": 12,
+      "Mountains": 13
+    },
+    "BiomeWeights": {
+      "Wasteland": {
+        "Plains": 17,
+        "Hills": 18,
+        "Mountains": 19
+      }
+    },
+    "Seed": 20,
+    "BaseHeight": 14.5,
+    "Edges": [
+      2,
+      2
+    ],
+    "Shape": {
+      "Kind": "Drawn",
+      "Seed": 27,
+      "LandPercent": 28,
+      "Roughness": 29,
+      "Islands": 30,
+      "PeninsulaEdge": "West",
+      "Drawing": {
+        "Boxes": [
+          {
+            "X0": 35,
+            "Z0": 36,
+            "X1": 37,
+            "Z1": 38,
+            "CutsWater": true,
+            "Seed": 40,
+            "Fill": 41,
+            "Roughness": 42
+          }
+        ]
+      }
+    }
+  },
+  "Towns": {
+    "Seed": 76,
+    "Rows": [
+      {
+        "Township": "s72",
+        "Count": 80,
+        "MinTiles": 81,
+        "MaxTiles": 82,
+        "Distance": 83,
+        "Biomes": [
+          "s78"
+        ]
+      }
+    ],
+    "EdgeMargin": 79.5,
+    "Traders": 1,
+    "CrossBorders": true
+  },
+  "Features": {
+    "Seed": 105,
+    "Rows": [
+      {
+        "Kind": "Crater",
+        "Count": 109,
+        "ScaleMin": 103.5,
+        "ScaleMax": 104.5
+      }
+    ],
+    "MountainLakes": true,
+    "LongRivers": true,
+    "RiverSegments": 114
+  },
+  "Highways": {
+    "Seed": 141,
+    "Wiggle": 135.5,
+    "CausewayMax": 143,
+    "JoinUp": true,
+    "SecondRoad": true,
+    "Bridges": true,
+    "BridgeMax": 147,
+    "BridgeShortcuts": true,
+    "DeckWrecks": true
+  },
+  "Wilderness": {
+    "Seed": 170,
+    "Amount": 171,
+    "CountScale": 165.5,
+    "TierBias": 166.5,
+    "Gap": 174,
+    "Roads": true,
+    "MaxRoad": 176
+  },
+  "Spawns": {
+    "Seed": 217,
+    "Biomes": [
+      "s212"
+    ],
+    "Min": 220,
+    "Max": 221,
+    "TraderDistance": 222,
+    "NearStarterTrader": true
+  }
+}
