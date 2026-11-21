@@ -2,26 +2,27 @@
 
 **A Windows map editor for 7 Days to Die. Edit a world the game generated, build one by hand, or generate a complete world in six stages and change any part of it.**
 
-## New in v2.2.0
+## New in v2.3.0
 
-**Share your maps as a mod.** Package puts one or more maps and their custom prefabs into a mod zip that players unzip into their Mods folder.
+**A new look: Modern.** Settings > Theme has a Modern theme. It has a slim title bar, one row of tools with their names, and a side bar on either side of the map. Flat, the layout you know, stays the default.
 
-**Teleport to any spot in the game.** Right-click the map to copy a teleport command, or save a list with one command for each issue that Validate finds.
+**Draw your own land.** Drag boxes of land and water on an empty map, give each coast its own shape, and build the world from your drawing.
 
-**Fix buttons.** Validate can level a road beside a POI or move a spawn out of the water with one click.
+**Gnostic Game Link.** A new, optional mod connects the editor to the game. Teleport to any spot or issue, add a waypoint to a POI, and see where you are on the editor's map. It has its own page on this site: search for Gnostic Game Link.
 
-**One biome per island.** Island worlds can give each island its own biome, with harder biomes on the islands farther out.
+**Multi-select.** Select the POIs, traders, street tiles and spawns in a box, then move, turn, raise or delete them as one group.
 
-**Better POI placement.** Turn a POI to any side of its lot, keep the turn when you drag it to another lot, and hold Alt to put it anywhere.
+**History.** The History tab lists each edit, Generate stage, save and export. Click an entry to go to it on the map, or undo back to it.
 
-Also a World grid layer, Ctrl+F search and ramps in the Bridge tool's preview. The [changelog](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md) lists every change.
+Also town presets, a world grid in map images, project icons in File Explorer and a simpler Generate panel. The [changelog](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md) lists every change.
 
 ## Features
 
 **Generate**
 - Make a complete world in six stages: terrain, town sites, lakes and rivers, highways, wilderness POIs and spawns. Re-roll any stage and keep the rest.
 - One island, a chain of islands or a peninsula, with highway bridges between the islands.
-- Eight presets, or save your own.
+- Or draw your own land with boxes of land and water, then build the terrain from the drawing.
+- Eight presets, or save your own. Town presets, with 12 starters for 6K to 16K maps.
 
 **Terrain**
 - Raise, Lower, Flatten, Smooth, Roughen.
@@ -41,18 +42,22 @@ Also a World grid layer, Ctrl+F search and ramps in the Bridge tool's preview. T
 - Browse the game's POIs, mod POIs and your own `LocalPrefabs` with pictures, tiers and filters. Mark favourites.
 - Search the POIs in your world. Each match gets a ring on the map, and a click zooms to it.
 - Place, move, turn, raise and replace POIs, traders and street tiles. They snap to street tiles and sit level with the road.
+- Select a group of POIs, traders, street tiles and spawns in a box, and move, turn, raise or delete them together.
 - Draw a whole town on the 150 m street-tile grid.
 - Place player spawn points.
 
+**Play-test in the game**
+- Install the optional Gnostic Game Link mod. Then teleport to any spot or issue, add a waypoint to a POI, and see your player on the map.
+
 **Safe to use**
 - Undo and redo for every edit.
+- A History tab with every edit, save and export. Click an entry to go to it, or undo back to it.
 - Projects (`.7dmap`) save in about a second. Autosave every 5 minutes, with recovery after a crash.
 - **Validate** (F7) finds overlapping or flooded POIs, missing traders or spawns, prefabs off the map, POIs that don't meet their road, bridge problems and spawns far from the first trader.
 - Export writes all files first and only then replaces the old ones, so a failed export never breaks a world.
 
 **Easy to learn**
-- A Paint-style window: ribbon, palette, brush sliders and status bar.
-- Light and dark themes that follow Windows.
+- Two layouts: Flat (ribbon, palette, brush sliders and status bar) and Modern (one row of tools and a side bar). Both have light and dark modes that follow Windows.
 - Export the whole map as a PNG picture.
 - Package your maps and their custom prefabs as a mod zip to share.
 - A full [user manual](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/USER-MANUAL.md).
