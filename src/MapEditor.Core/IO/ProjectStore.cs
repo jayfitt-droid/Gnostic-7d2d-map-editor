@@ -22,7 +22,7 @@ public static class ProjectStore
     /// 3 (v2.1.0): <see cref="ProjectSettings.Bridges"/>, the Bridge tool's list. Older projects have none, and load with it empty.
     /// 4 (v2.1.0): <see cref="Generate.SpawnOptions.NearStarterTrader"/>, on for new projects. Older projects load with it off, so
     /// their spawns stage keeps working as before.
-    /// 5: <see cref="Ops.LandShapeKind.Drawn"/> and its drawing. Older projects have no drawing.
+    /// 5 (v2.3.0): <see cref="Ops.LandShapeKind.Drawn"/> and its drawing. Older projects have no drawing.
     /// </summary>
     /// <remarks>
     /// Users keep projects from every release, and each release must open them all. project.json holds the records
