@@ -35,7 +35,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _status = "Open a world with File > Open World (Ctrl+O).";
     [ObservableProperty] private string _cursorText = "";
-    [ObservableProperty] private string _worldSummary = "";
+    [ObservableProperty] private WorldStatsViewModel? _worldStats;
+    [ObservableProperty] private string _worldStatsStatus = "";
     [ObservableProperty] private string _gameFolderText = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanBuildLand))] private bool _isBusy;
 

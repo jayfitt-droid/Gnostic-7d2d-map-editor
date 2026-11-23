@@ -103,6 +103,7 @@ public partial class MainWindow : Window
         };
         _autosaveTimer.Tick += async (_, _) => await AutosaveAsync();
         _autosaveTimer.Start();
+        _worldStatsTimer.Tick += async (_, _) => await RefreshWorldStatsAsync();
         _vm.PropertyChanged += Vm_PropertyChanged;
         // The automatic ribbon goes compact below this height (DIPs): 1366×768 at 100%, or 1080p at 150%.
         SizeChanged += (_, _) =>
@@ -538,7 +539,12 @@ public partial class MainWindow : Window
         Map.Renderer = renderer;
         _multiSelect.Refresh();
         Overview.SetRenderer(renderer, _vm.Layers);
-        _vm.WorldSummary = WorldSummaryFormatter.Format(world);
+        if (!keepView)
+        {
+            _vm.WorldStats = null;
+            _vm.WorldStatsStatus = "Calculating world statistics...";
+        }
+        QueueWorldStats();
         _vm.WorldSizeText = $"{world.Size} × {world.Size} m";
         StartPanel.Visibility = Visibility.Collapsed;
         UpdateTitle();
@@ -702,6 +708,7 @@ public partial class MainWindow : Window
             _settings.AddRecent(path);
             _settings.Save();
             UpdateTitle();
+            QueueWorldStats();
             _vm.Status = $"Saved {Path.GetFileName(path)} in {sw.Elapsed.TotalSeconds:0.0} s. Use Export (Ctrl+E) to make a world the game can load.";
             return true;
         }
@@ -850,7 +857,7 @@ public partial class MainWindow : Window
             }
             _settings.LastWorldFolder = folder;
             _settings.Save();
-            _vm.WorldSummary = WorldSummaryFormatter.Format(world);
+            QueueWorldStats();
             UpdateTitle();
             _vm.Status = $"Wrote {Path.GetFileName(folder)} in {sw.Elapsed.TotalSeconds:0.0} s. The game rebuilds its caches on first load."
                 + (addedSpawn is null ? "" : $" Added a spawn point at {addedSpawn.X:0}, {addedSpawn.Z:0} because the world had none.")
@@ -1192,7 +1199,9 @@ public partial class MainWindow : Window
         _fixedIssues.Clear();
         _vm.HasFixedIssues = false;
         _vm.IssuesText = "Press Validate (F7) to check the world.";
-        _vm.WorldSummary = "";
+        ClearWorldStatsRequest();
+        _vm.WorldStats = null;
+        _vm.WorldStatsStatus = "";
         _vm.WorldSizeText = "";
         _vm.CursorText = "";
         Map.Renderer = null;
@@ -1249,6 +1258,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        ClearWorldStatsRequest();
         StopGameLinkPolling();
         _vm.ShowPlayer = false;
         StopIssueHotkeys();
@@ -2756,6 +2766,7 @@ public partial class MainWindow : Window
     private void OnWorldEdited()
     {
         _clipboard.Cancel();
+        QueueWorldStats();
         _townCells = null;
         // Edits, undo and redo move the history; Dirty compares it with the save point.
         UpdateTitle();
@@ -3245,6 +3256,7 @@ public partial class MainWindow : Window
         {
             case nameof(MainViewModel.IsBusy):
                 if (_vm.IsBusy) _clipboard.Cancel();
+                UpdateWorldStatsWhileBusy();
                 // Commands that check IsBusy are not re-queried by WPF on their own.
                 CommandManager.InvalidateRequerySuggested();
                 UpdateIssueStepControls();

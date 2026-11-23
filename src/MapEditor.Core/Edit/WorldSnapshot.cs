@@ -33,6 +33,7 @@ public sealed class WorldSnapshot : IDisposable
         copy.Spawns.AddRange(world.Spawns.Select(s => s.Clone()));
         foreach (var (k, v) in world.PassthroughImages) copy.PassthroughImages[k] = v;
         foreach (var (k, v) in world.ExtraFiles) copy.ExtraFiles[k] = v;
+        copy.Warnings.AddRange(world.Warnings);
         World = copy;
     }
 
@@ -136,22 +137,31 @@ public sealed class FrozenGrid<T> : IFrozenGrid where T : unmanaged
         for (int band = 0; band < _bands; band++)
         {
             int z0 = band * Band, rows = Math.Min(Band, _grid.Height - z0);
-            lock (_lock)
+            var cells = buffer.AsSpan(0, rows * width);
+            CopyBand(band, cells, final);
+            visit(z0, cells);
+        }
+    }
+
+    // Lets readers consume several layers in step without keeping a full copy of any raster.
+    internal void CopyBand(int band, Span<T> cells, bool final)
+    {
+        int width = _grid.Width;
+        int z0 = band * Band, rows = Math.Min(Band, _grid.Height - z0);
+        lock (_lock)
+        {
+            _grid.Data.AsSpan(z0 * width, rows * width).CopyTo(cells);
+            for (int tx = 0; tx < _tilesAcross; tx++)
             {
-                _grid.Data.AsSpan(z0 * width, rows * width).CopyTo(buffer);
-                for (int tx = 0; tx < _tilesAcross; tx++)
-                {
-                    if (_kept[tx + band * _tilesAcross] is not { } tile) continue;
-                    int x0 = tx * Band, w = Math.Min(Band, width - x0);
-                    for (int z = 0; z < rows; z++) tile.AsSpan(z * w, w).CopyTo(buffer.AsSpan(z * width + x0, w));
-                }
-                if (final)
-                {
-                    _bandsWritten = band + 1;
-                    for (int tx = 0; tx < _tilesAcross; tx++) _kept[tx + band * _tilesAcross] = null;
-                }
+                if (_kept[tx + band * _tilesAcross] is not { } tile) continue;
+                int x0 = tx * Band, w = Math.Min(Band, width - x0);
+                for (int z = 0; z < rows; z++) tile.AsSpan(z * w, w).CopyTo(cells.Slice(z * width + x0, w));
             }
-            visit(z0, buffer.AsSpan(0, rows * width));
+            if (final)
+            {
+                _bandsWritten = band + 1;
+                for (int tx = 0; tx < _tilesAcross; tx++) _kept[tx + band * _tilesAcross] = null;
+            }
         }
     }
 

@@ -172,6 +172,17 @@ public static partial class HighwayStage
 
     private static Vector2 Outward(int dir) => dir switch { 0 => new(0, 1), 1 => new(1, 0), 2 => new(0, -1), _ => new(-1, 0) };
 
+    /// <summary>The grid position of an edge neighbour, allowing the generator's one-metre tolerance.</summary>
+    internal static (int X, int Z)? AdjacentStreetTile(GridRect tile, int dir, Func<(int, int), bool> hasTile)
+    {
+        var o = Outward(dir);
+        int x = tile.X0 + (int)o.X * (tile.X1 - tile.X0), z = tile.Z0 + (int)o.Y * (tile.Z1 - tile.Z0);
+        for (int dz = -1; dz <= 1; dz++)
+            for (int dx = -1; dx <= 1; dx++)
+                if (hasTile((x + dx, z + dz))) return (x + dx, z + dz);
+        return null;
+    }
+
     /// <summary>The street shape in a street tile's name (rwg_tile_downtown_t_03 is a t).</summary>
     public static int ShapeOf(string name)
     {
@@ -198,15 +209,8 @@ public static partial class HighwayStage
             var rect = PrefabPlacer.Footprint(world, p, library);
             tiles[(rect.X0, rect.Z0)] = new Tile(rect, TownGenerator.ShapeExitsAt(shape, rotations), info.District == "gateway");
         }
-        Tile? Neighbour(Tile t, int dir)
-        {
-            var o = Outward(dir);
-            int x = t.Rect.X0 + (int)o.X * (t.Rect.X1 - t.Rect.X0), z = t.Rect.Z0 + (int)o.Y * (t.Rect.Z1 - t.Rect.Z0);
-            for (int dz = -1; dz <= 1; dz++)
-                for (int dx = -1; dx <= 1; dx++)
-                    if (tiles.TryGetValue((x + dx, z + dz), out var n)) return n;
-            return null;
-        }
+        Func<(int, int), bool> hasTile = tiles.ContainsKey;
+        Tile? Neighbour(Tile t, int dir) => AdjacentStreetTile(t.Rect, dir, hasTile) is { } pos ? tiles[pos] : null;
 
         var siteOf = new Dictionary<(int, int), TownSite>();
         foreach (var s in sites)
