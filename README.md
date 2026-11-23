@@ -39,7 +39,7 @@ The window is laid out like Microsoft Paint:
 | **Ribbon** | Tools in groups (Navigate, Terrain, Paint, Build), the **Palette** (biome colours and road surfaces), **Layers** (what the map shows), and **Validate** / **Export** / **Package**. On a short window it turns into one compact row of icons; **View > Ribbon** keeps it full or compact |
 | **Tool options** | Settings for the active tool and a one-line hint. The ∨ at the right of the ribbon hides them |
 | **Left rail** | Brush **size** and **strength** sliders |
-| **Side panel** | The **Prefabs** browser, the **Placed** list (search the prefabs in your world; double-click one to find and select it), validation **Issues** (double-click one to jump to it) and **World** info |
+| **Side panel** | The **Prefabs** browser, the **Placed** list (search the prefabs in your world; double-click one to find and select it), validation **Issues** (double-click one to jump to it) and live **World** statistics for terrain, roads, POIs and more |
 | **Status bar** | Cursor position (game coordinates, height, biome, prefab), brush size, world size, messages and zoom |
 
 **Settings > Theme** switches between **Flat**, the layout above, and **Modern**, with the menus in a slim title bar, one row of named tools and a side bar you can put on either side.

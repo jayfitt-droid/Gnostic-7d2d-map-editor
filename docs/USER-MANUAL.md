@@ -222,6 +222,16 @@ When you open a project with missing world files, the editor shows a warning.
 
 Sometimes the editor cannot read an entry in a world file, for example a POI or a spawn point. Then it leaves out that entry and shows a warning. The rest of the world opens. If `biomes.png` or `radiation.png` does not fit the world size, the editor keeps the file as it is and shows a warning in the **World** tab. The map does not show or paint that layer, and export writes the file back with no change.
 
+### Read the world statistics
+
+Open the **World** tab in the side panel. The **Land** and **Water** bar shows the percentage of the full map. **Height range** shows the lowest and highest terrain heights in metres. The biome bars show the percentage of land in each biome. The bars use the same biome colours as the map.
+
+**Road length (estimate)** gives the length of asphalt and gravel in kilometres. The editor divides the painted area by 18 m for asphalt and by 9 m for gravel. Gravel paint can include road shoulders. Changes in road width change the estimate.
+
+The tab counts POIs by difficulty tier and by the biome at the centre of each POI. The game folder supplies the tiers. A known prefab with no tier set counts as tier 0. The list shows **Unknown** for POIs with no prefab data. The tab also counts street tiles, towns, traders and spawn points. Each group of street tiles that touch at their edges counts as one town.
+
+The numbers update after each edit, undo, redo and Generate stage. If you make several edits quickly, the numbers update after a short pause.
+
 ### Save your work
 
 Click **Save** (Ctrl+S). The editor saves a project file (`.7dmap`). A project keeps all of the world and all of the Generate settings.
