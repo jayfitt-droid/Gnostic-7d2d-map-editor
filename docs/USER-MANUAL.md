@@ -58,6 +58,8 @@ The editor finds the game through Steam. If it cannot find the game, click **Set
 
 ## 3. The window
 
+The editor opens where you closed it if that screen is still connected.
+
 The window has five areas.
 
 | Area | What it holds |
