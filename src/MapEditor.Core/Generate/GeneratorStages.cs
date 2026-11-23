@@ -83,6 +83,15 @@ public sealed class GeneratorStages(World world, GeneratorSettings settings, Gen
         return new(plan, PlanTowns(cells, plan.Sites, options.Traders));
     }
 
+    /// <summary>Saves the planned sites and their seed as an edit without changing the ground.</summary>
+    public void ApplyTownPlan(EditSession session, TownSiteResult plan, int seed)
+    {
+        GeneratorEditState.Touch(session, settings);
+        settings.Towns.Seed = seed;
+        ReplaceSites(plan.Sites, session);
+        TownSiteStage.MarkBuilt(world, data.Prefabs, settings.Sites);
+    }
+
     /// <summary>Plans a preview on the given sites against the current world.</summary>
     public List<PlannedTown> PlanTowns(TownCells cells, IReadOnlyList<TownSite> sites, TraderMode traders,
         CancellationToken cancel = default) =>

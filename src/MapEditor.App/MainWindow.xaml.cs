@@ -1479,10 +1479,9 @@ public partial class MainWindow : Window
             return;
         }
         var g = _vm.Generate;
-        if (newSeed is { } seed) g.TownSeed = seed;
         var options = gen.Towns.Clone();
+        if (newSeed is { } seed) options.Seed = seed;
         var keep = gen.Sites.Where(s => s.Built || s.Pinned).ToList();
-        var library = _vm.Prefabs;
         var stages = StagesFor(world, gen);
         _vm.IsBusy = true;
         g.IsRunning = true;
@@ -1511,12 +1510,17 @@ public partial class MainWindow : Window
             g.IsRunning = false;
             _vm.IsBusy = false;
         }
-        // The sites list is replaced; built and pinned towns came through as copies.
-        gen.Sites = result.Sites;
-        TownSiteStage.MarkBuilt(world, library, gen.Sites);
+        if (!_edits.Run(world, newSeed is null ? "Plan towns" : "Re-roll towns", session =>
+        {
+            NoteGeneratorState(session, $"seed {options.Seed}");
+            stages.ApplyTownPlan(session, result, options.Seed);
+        }))
+        {
+            CloseIfWaiting();
+            return;
+        }
         g.Planned = towns;
-        MarkSettingsChanged();
-        RecordHistoryEvent($"Plan towns (seed {options.Seed})");
+        g.Refresh();
         int planned = towns.Count;
         g.TownStatus = $"Planned {planned} town{(planned == 1 ? "" : "s")} with seed {options.Seed} in {sw.Elapsed.TotalSeconds:0.0} s."
                        + (result.Shortfalls.Count > 0 ? " No room for all of: " + string.Join("; ", result.Shortfalls) + "." : "");
@@ -2732,9 +2736,9 @@ public partial class MainWindow : Window
         _vm.Generate.RefreshFeatures();
         _vm.Generate.RefreshHighways();
         _vm.Generate.RefreshWilderness();
-        if (_world is not null && _projectSettings.Generator is { Sites.Count: > 0 } gen)
+        if (_world is not null && _projectSettings.Generator is { } gen)
         {
-            TownSiteStage.MarkBuilt(_world, _vm.Prefabs, gen.Sites);
+            if (gen.Sites.Count > 0) TownSiteStage.MarkBuilt(_world, _vm.Prefabs, gen.Sites);
             _ = ReplanTownsAsync();
         }
         // Undo can bring back a copy taken before a game-folder change converted it.

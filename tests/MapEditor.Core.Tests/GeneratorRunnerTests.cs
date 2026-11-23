@@ -400,6 +400,76 @@ public sealed class GeneratorRunnerTests : IDisposable
     }
 
     [Fact]
+    public void Planning_towns_records_one_edit_and_undo_restores_the_sites_and_seed()
+    {
+        var world = Forest();
+        var settings = NewSettings();
+        var generator = new GeneratorStages(world, settings, _data);
+        var undo = new UndoStack();
+        var edits = new EditRunner(undo);
+        var sites = settings.Sites;
+        sites.Add(new TownSite { Township = "town", Seed = 10, Cells = [[2, 2]] });
+        var plan = new TownSiteResult([new TownSite { Township = "town", Seed = 20, Cells = [[4, 4]] }], []);
+        int oldSeed = settings.Towns.Seed;
+        int newSeed = oldSeed + 1;
+        var height = world.Height.Data.ToArray();
+
+        Assert.True(edits.Run(world, "Plan towns", session => generator.ApplyTownPlan(session, plan, newSeed)));
+        Assert.Equal("Plan towns", undo.UndoName);
+        Assert.Same(sites, settings.Sites);
+        Assert.Equal((4, 4), Assert.Single(Assert.Single(settings.Sites).Core));
+        Assert.Equal(newSeed, settings.Towns.Seed);
+        Assert.Equal(height, world.Height.Data);
+
+        Assert.NotNull(undo.Undo());
+        Assert.False(undo.CanUndo);
+        Assert.Equal((2, 2), Assert.Single(Assert.Single(settings.Sites).Core));
+        Assert.Equal(oldSeed, settings.Towns.Seed);
+
+        Assert.NotNull(undo.Redo());
+        Assert.Equal((4, 4), Assert.Single(Assert.Single(settings.Sites).Core));
+        Assert.Equal(newSeed, settings.Towns.Seed);
+        Assert.Equal(height, world.Height.Data);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Undo_and_redo_restore_each_town_plan_with_its_terrain(bool buildWorld)
+    {
+        var world = Forest();
+        var settings = NewSettings();
+        settings.Sites.Add(new TownSite { Township = "town", Cells = [[2, 2]] });
+        var generator = new GeneratorStages(world, settings, _data);
+        var undo = new UndoStack();
+        var edits = new EditRunner(undo);
+        var originalHeight = world.Height.Data.ToArray();
+        var cancel = TestContext.Current.CancellationToken;
+        string terrainEdit = buildWorld ? "Build World" : "Generate terrain";
+        Assert.True(edits.Run(world, terrainEdit, session => generator.Terrain(session, buildingWorld: buildWorld, cancel: cancel)));
+        Assert.Empty(settings.Sites);
+        var newHeight = world.Height.Data.ToArray();
+        Assert.False(originalHeight.AsSpan().SequenceEqual(newHeight));
+
+        var plan = new TownSiteResult([new TownSite { Township = "town", Cells = [[4, 4]] }], []);
+        Assert.True(edits.Run(world, "Plan towns", session => generator.ApplyTownPlan(session, plan, settings.Towns.Seed)));
+
+        Assert.Equal("Plan towns", undo.Undo()?.Name);
+        Assert.Empty(settings.Sites);
+        Assert.Equal(newHeight, world.Height.Data);
+        Assert.Equal(terrainEdit, undo.Undo()?.Name);
+        Assert.Equal((2, 2), Assert.Single(Assert.Single(settings.Sites).Core));
+        Assert.Equal(originalHeight, world.Height.Data);
+
+        Assert.Equal(terrainEdit, undo.Redo()?.Name);
+        Assert.Empty(settings.Sites);
+        Assert.Equal(newHeight, world.Height.Data);
+        Assert.Equal("Plan towns", undo.Redo()?.Name);
+        Assert.Equal((4, 4), Assert.Single(Assert.Single(settings.Sites).Core));
+        Assert.Equal(newHeight, world.Height.Data);
+    }
+
+    [Fact]
     public void An_area_terrain_run_preserves_towns_features_and_plan_tiles_outside_the_area()
     {
         var (world, settings, _, generator) = WithCompletedStages();
