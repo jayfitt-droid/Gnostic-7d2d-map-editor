@@ -42,7 +42,9 @@ public sealed class ProjectTests : IDisposable
         string path = Path.Combine(_dir, "a" + ProjectStore.Extension);
         ProjectStore.Save(world, path, new ProjectStore.ProjectSettings { ExportFolder = @"C:\out\Proj" });
 
-        var copy = ProjectStore.Load(path, out var settings);
+        var copy = ProjectStore.Load(path, out var settings, out var missingWorldFilesWarning);
+        Assert.Empty(copy.Warnings);
+        Assert.Null(missingWorldFilesWarning);
         Assert.Empty(WorldComparer.Compare(world, copy));
         Assert.Equal("Proj", copy.Name);
         Assert.Equal(world.Height.Data, copy.Height.Data);
@@ -51,6 +53,50 @@ public sealed class ProjectTests : IDisposable
         Assert.Equal("test", WorldXml.GetProperty(copy.MapInfo, "Description"));
         Assert.Equal([1, 2, 3], copy.ExtraFiles[WorldFiles.Level]);
         Assert.False(File.Exists(path + ".tmp"));
+    }
+
+    [Fact]
+    public void A_missing_level_file_warns_and_leaves_the_world_readable()
+    {
+        var world = MakeWorld();
+        string path = Path.Combine(_dir, "missing-level" + ProjectStore.Extension);
+        ProjectStore.Save(world, path);
+        using (var zip = ZipFile.Open(path, ZipArchiveMode.Update))
+            zip.GetEntry("extra/" + WorldFiles.Level)!.Delete();
+
+        var loaded = ProjectStore.Load(path, out _, out var warning);
+
+        Assert.Equal(world.Height.Data, loaded.Height.Data);
+        Assert.Empty(loaded.ExtraFiles);
+        Assert.Equal("The project lists the world file main.ttw, but the file is missing. The project may be damaged.",
+            Assert.Single(loaded.Warnings));
+        Assert.Equal("The project may be damaged. These world files are missing:\n\nmain.ttw\n\n"
+            + "Saving the project will not bring these files back.\n\n"
+            + "When you export the world, the editor makes a new main.ttw with a new world GUID. "
+            + "Games already started on this world will not match the exported world.", warning);
+    }
+
+    [Fact]
+    public void The_missing_files_dialog_lists_only_missing_world_files()
+    {
+        var world = MakeWorld();
+        world.ExtraFiles["a.xml"] = [1];
+        world.ExtraFiles["b.xml"] = [2];
+        string path = Path.Combine(_dir, "missing-extra" + ProjectStore.Extension);
+        ProjectStore.Save(world, path);
+        using (var zip = ZipFile.Open(path, ZipArchiveMode.Update))
+        {
+            zip.GetEntry("extra/a.xml")!.Delete();
+            zip.GetEntry("extra/b.xml")!.Delete();
+            using var history = zip.CreateEntry("history.jsonl").Open();
+            history.Write("{truncated"u8);
+        }
+
+        var loaded = ProjectStore.Load(path, out _, out var warning);
+
+        Assert.Contains("Some entries in the project history could not be read.", loaded.Warnings);
+        Assert.Equal("The project may be damaged. These world files are missing:\n\na.xml\nb.xml\n\n"
+            + "Saving the project will not bring these files back.", warning);
     }
 
     [Theory]

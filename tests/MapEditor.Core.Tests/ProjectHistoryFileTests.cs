@@ -51,7 +51,8 @@ public sealed class ProjectHistoryFileTests : IDisposable
             else stream.Write("{truncated"u8);
         }
 
-        var loaded = ProjectStore.Load(path);
+        var loaded = ProjectStore.Load(path, out _, out var missingWorldFilesWarning);
+        Assert.Null(missingWorldFilesWarning);
         Assert.Equal(500, loaded.Height[0, 0]);
         Assert.Contains(warning, loaded.Warnings);
     }
