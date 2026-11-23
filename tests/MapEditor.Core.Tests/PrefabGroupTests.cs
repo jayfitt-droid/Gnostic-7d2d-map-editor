@@ -440,6 +440,207 @@ public sealed class PrefabGroupTests
         Assert.Equal("Spawn points can't be raised or lowered. Select a prefab.", problem);
     }
 
+    [Fact]
+    public void Clipboard_round_trip_keeps_tiles_riders_spawns_and_height_offsets()
+    {
+        var source = Flat();
+        var tile = Add(source, Tile, -150, -150, y: 31, rotation: 1);
+        var poi = Add(source, Poi, -140, -120, y: 45, rotation: 3);
+        poi.ExtraAttributes.Add(new("custom", "one & two"));
+        var trader = Add(source, Trader, 20, -120, y: 38, rotation: 2);
+        var spawn = new SpawnPoint { X = 36.25f, Z = -104.5f, Y = 44, RotationY = 135 };
+        source.Spawns.Add(spawn);
+
+        var copy = RoundTrip(source, [tile, trader], [spawn]);
+        var target = Flat();
+        Array.Fill(target.Height.Data, World.MetresToHeight(60));
+        var targetLibrary = PrefabLibrary.Of([Tile, Poi with { YOffset = -3 }, Trader]);
+        var group = copy.PreparePaste(target, targetLibrary, _ => false, out int skipped);
+
+        var pasted = Paste(target, group, 0, 0);
+
+        Assert.Null(pasted.Problem);
+        Assert.Equal(0, skipped);
+        Assert.Equal(4, copy.Count);
+        var pastedTile = Assert.Single(pasted.Prefabs, p => p.Name == Tile.Name);
+        var pastedPoi = Assert.Single(pasted.Prefabs, p => p.Name == Poi.Name);
+        var pastedTrader = Assert.Single(pasted.Prefabs, p => p.Name == Trader.Name);
+        var pastedSpawn = Assert.Single(pasted.Spawns);
+        Assert.Equal((1, 3, 2), (pastedTile.Rotation, pastedPoi.Rotation, pastedTrader.Rotation));
+        Assert.Equal((10, 30), (pastedPoi.Position.X - pastedTile.Position.X, pastedPoi.Position.Z - pastedTile.Position.Z));
+        Assert.Equal((170, 30), (pastedTrader.Position.X - pastedTile.Position.X, pastedTrader.Position.Z - pastedTile.Position.Z));
+        Assert.Equal((186.25f, 45.5f), (pastedSpawn.X - pastedTile.Position.X, pastedSpawn.Z - pastedTile.Position.Z));
+        Assert.Equal((51, 63, 58, 64f, 135f),
+            (pastedTile.Position.Y, pastedPoi.Position.Y, pastedTrader.Position.Y, pastedSpawn.Y, pastedSpawn.RotationY));
+        Assert.True(pastedPoi.GroundLevel);
+        Assert.Equal(-3, pastedPoi.GroundLevelOffset);
+        Assert.Equal(poi.ExtraAttributes, pastedPoi.ExtraAttributes);
+    }
+
+    [Fact]
+    public void Clipboard_round_trip_of_a_single_spawn_preserves_its_fractional_position_and_allows_a_turn()
+    {
+        var world = Flat();
+        var spawn = new SpawnPoint { X = 11.25f, Z = -4.5f, Y = 43, RotationY = 0 };
+        world.Spawns.Add(spawn);
+        var group = RoundTrip(world, [], [spawn]).PreparePaste(world, Library, _ => false, out int skipped);
+        var (dx, dz) = group.DeltaTo(31.25, 20.5);
+
+        var pasted = Paste(world, group, dx, dz, steps: -1);
+
+        Assert.Equal(0, skipped);
+        Assert.Null(pasted.Problem);
+        Assert.Empty(pasted.Prefabs);
+        var added = Assert.Single(pasted.Spawns);
+        Assert.NotSame(spawn, added);
+        Assert.Equal((31.25f, 43f, 20.5f, 45f), (added.X, added.Y, added.Z, added.RotationY));
+    }
+
+    [Fact]
+    public void Clipboard_skips_an_unknown_tile_but_pastes_its_known_poi()
+    {
+        var source = Flat();
+        var tile = Add(source, Tile, 0, 0);
+        var poi = Add(source, Poi, 20, 30, y: 47);
+        var target = Flat();
+        var group = RoundTrip(source, [tile], []).PreparePaste(target, PrefabLibrary.Of([Poi]), _ => false, out int skipped);
+
+        var pasted = Paste(target, group, 0, 0);
+
+        Assert.Null(pasted.Problem);
+        Assert.Equal(1, skipped);
+        var added = Assert.Single(target.Prefabs);
+        Assert.Equal(poi.Name, added.Name);
+        Assert.Equal(poi.Position.Y, added.Position.Y);
+    }
+
+    [Theory]
+    [InlineData("ordinary clipboard text")]
+    [InlineData("{\"Version\":1,\"Prefabs\":[],\"Spawns\":[]}")]
+    [InlineData("Gnostic map selection\n{")]
+    [InlineData("Gnostic map selection\n{\"Version\":1,\"Prefabs\":null,\"Spawns\":[]}")]
+    [InlineData("Gnostic map selection\n{\"Version\":1,\"Prefabs\":[],\"Spawns\":[null]}")]
+    [InlineData("Gnostic map selection\n{\"Version\":1,\"Prefabs\":[],\"Spawns\":[{\"X\":3}]}")]
+    [InlineData("Gnostic map selection\n{\"Version\":1,\"Prefabs\":[],\"Spawns\":[{\"X\":1e99,\"Z\":0,\"Rotation\":0,\"HeightOffset\":0}]}")]
+    [InlineData("Gnostic map selection\n{\"Version\":2,\"Prefabs\":[],\"Spawns\":[{\"X\":0,\"Z\":0,\"Rotation\":0,\"HeightOffset\":0}]}")]
+    public void Clipboard_ignores_foreign_or_invalid_payloads(string text) => Assert.Null(PrefabClipboard.Parse(text));
+
+    [Fact]
+    public void Clipboard_ignores_oversized_payloads() =>
+        Assert.Null(PrefabClipboard.Parse("Gnostic map selection\n" + new string(' ', 2_000_000)));
+
+    [Fact]
+    public void Paste_uses_the_rotated_preview_and_one_undo_restores_a_covered_poi_and_the_ground()
+    {
+        var source = Flat();
+        var poi = Add(source, Poi, -20, -20, rotation: 1);
+        var trader = Add(source, Trader, 30, 20);
+        var spawn = new SpawnPoint { X = 35.5f, Y = 41, Z = 40, RotationY = 90 };
+        source.Spawns.Add(spawn);
+        var target = Flat();
+        var group = RoundTrip(source, [poi, trader], [spawn]).PreparePaste(target, Library, _ => false, out _);
+        var preview = group.Layout(150, 160, 1);
+        var spot = Assert.Single(preview.Prefabs, p => p.Prefab.Name == Poi.Name).Spot;
+        var covered = Add(target, Poi, spot.X, spot.Z);
+        // A low cell in the footprint must be restored even when the median stays at 40.
+        target.Height[target.WorldToGrid(spot.X), target.WorldToGrid(spot.Z)] = World.MetresToHeight(15);
+        var undo = new UndoStack();
+
+        var pasted = Paste(target, group, 150, 160, 1, flatten: true, undo: undo);
+
+        Assert.Null(pasted.Problem);
+        Assert.Equal(preview.Prefabs.Select(t => (t.Spot.X, t.Spot.Z, t.Spot.Rotation)),
+            pasted.Prefabs.Select(p => (p.Position.X, p.Position.Z, p.Rotation)));
+        Assert.Equal(2, pasted.Prefabs[0].Rotation);
+        var turnedSpawn = Assert.Single(preview.Spawns);
+        var addedSpawn = Assert.Single(target.Spawns);
+        Assert.Equal(((float)turnedSpawn.X, (float)turnedSpawn.Z, 0f), (addedSpawn.X, addedSpawn.Z, addedSpawn.RotationY));
+        Assert.DoesNotContain(covered, target.Prefabs);
+        Assert.Equal(40f, Ground(target, spot.X, spot.Z));
+        Assert.Equal("Paste selection", undo.Undo()!.Name);
+        Assert.False(undo.CanUndo);
+        Assert.Equal(covered.Position, Assert.Single(target.Prefabs).Position);
+        Assert.Empty(target.Spawns);
+        Assert.Equal(15f, Ground(target, spot.X, spot.Z));
+        Assert.NotNull(undo.Redo());
+        Assert.Equal(2, target.Prefabs.Count);
+        Assert.Single(target.Spawns);
+    }
+
+    [Fact]
+    public void A_paste_partly_outside_the_map_keeps_the_whole_destination_unchanged()
+    {
+        var source = Flat();
+        var left = Add(source, Poi, -40, 0);
+        var right = Add(source, Poi, 40, 0);
+        var target = Flat();
+        var group = RoundTrip(source, [left, right], []).PreparePaste(target, Library, _ => false, out _);
+        var undo = new UndoStack();
+
+        var pasted = Paste(target, group, 475, 0, flatten: true, undo: undo);
+
+        Assert.Contains("outside the map", pasted.Problem);
+        Assert.Empty(pasted.Prefabs);
+        Assert.Empty(target.Prefabs);
+        Assert.False(undo.CanUndo);
+    }
+
+    [Fact]
+    public void Paste_snaps_the_whole_group_to_the_nearby_street_grid()
+    {
+        var source = Flat();
+        var tile = Add(source, Tile, -150, 0);
+        var poi = Add(source, Poi, -140, 20);
+        var target = Flat();
+        Add(target, Tile, 0, 0);
+        var group = RoundTrip(source, [tile], []).PreparePaste(target, Library, _ => false, out _);
+        var (dx, dz) = group.DeltaTo(228, 79);
+
+        var pasted = Paste(target, group, dx, dz, snap: 10);
+
+        Assert.Null(pasted.Problem);
+        var addedTile = Assert.Single(pasted.Prefabs, p => p.Name == Tile.Name);
+        var addedPoi = Assert.Single(pasted.Prefabs, p => p.Name == Poi.Name);
+        Assert.Equal((150, 0), (addedTile.Position.X, addedTile.Position.Z));
+        Assert.Equal((poi.Position.X - tile.Position.X, poi.Position.Z - tile.Position.Z),
+            (addedPoi.Position.X - addedTile.Position.X, addedPoi.Position.Z - addedTile.Position.Z));
+    }
+
+    [Fact]
+    public void Clipboard_excludes_protected_bridge_pieces_and_paste_cannot_replace_a_bridge()
+    {
+        var source = Flat();
+        var tile = Add(source, Tile, 0, 0);
+        var manual = Add(source, Bridge, 10, 20);
+        var stage = Add(source, Bridge, 30, 10);
+        var copy = PrefabClipboard.Capture(source, Library, [tile, stage], [], p => p == manual || p == stage, out int skipped);
+        Assert.Equal(2, skipped);
+        Assert.Equal(1, copy.Count);
+        var target = Flat();
+        var existing = Add(target, Bridge, 0, 0);
+        var group = copy.PreparePaste(target, Library, p => p == existing, out _);
+
+        var pasted = Paste(target, group, 0, 0);
+
+        Assert.Contains("overlap a bridge", pasted.Problem);
+        Assert.Same(existing, Assert.Single(target.Prefabs));
+    }
+
+    private static PrefabClipboard RoundTrip(World world, PrefabInstance[] prefabs, SpawnPoint[] spawns)
+    {
+        var copy = PrefabClipboard.Capture(world, Library, prefabs, spawns, _ => false, out _);
+        return Assert.IsType<PrefabClipboard>(PrefabClipboard.Parse(copy.Serialize()));
+    }
+
+    private static GroupPasteResult Paste(World world, PrefabGroup group, int dx, int dz, int steps = 0,
+        bool flatten = false, int snap = 0, UndoStack? undo = null)
+    {
+        GroupPasteResult? pasted = null;
+        Assert.True(new EditRunner(undo ?? new UndoStack()).Run(world, "Paste selection",
+            s => pasted = group.Paste(dx, dz, steps, flatten, s, snap)));
+        return Assert.IsType<GroupPasteResult>(pasted);
+    }
+
     private static World Flat()
     {
         var world = new World { Name = "Group", Size = 1024, Height = new Grid<ushort>(1024, 1024) };

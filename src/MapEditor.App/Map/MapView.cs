@@ -147,6 +147,9 @@ public sealed class MapView : FrameworkElement
     public event EventHandler<ToolInputEventArgs>? ToolInput;
     public event EventHandler<ToolInputEventArgs>? LandToolInput;
 
+    /// <summary>Gives a pending tool action first use of a map gesture.</summary>
+    internal Func<ToolInputEventArgs, bool>? PreviewToolInput { get; set; }
+
     private LandPreview? _landPreview;
     public LandPreview? LandPreview
     {
@@ -165,8 +168,11 @@ public sealed class MapView : FrameworkElement
         nameof(ShowLandGrid), typeof(bool), typeof(MapView),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
 
-    private void SendToolInput(ToolInputEventArgs e) =>
-        (LandPreview is null ? ToolInput : LandToolInput)?.Invoke(this, e);
+    private void SendToolInput(ToolInputEventArgs e)
+    {
+        if (LandPreview is not null) LandToolInput?.Invoke(this, e);
+        else if (PreviewToolInput?.Invoke(e) != true) ToolInput?.Invoke(this, e);
+    }
 
     private void SendPointerToolInput(ToolPhase phase, Point mapPoint, MouseEventArgs e, int clickCount = 1, bool captureLost = false)
     {

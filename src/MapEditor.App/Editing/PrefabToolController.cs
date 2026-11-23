@@ -163,6 +163,16 @@ public sealed class PrefabToolController
 
     public bool HasSpawnSelected => _selectedSpawn is not null;
 
+    internal PrefabInstance? SelectedPrefab => _selectedSpawn is null ? _selected : null;
+    internal SpawnPoint? SelectedSpawn => _selectedSpawn;
+
+    internal void SelectPasted(PrefabInstance? prefab, SpawnPoint? spawn)
+    {
+        SelectSpawn(null);
+        Select(prefab);
+        if (spawn is not null) SelectSpawn(spawn);
+    }
+
     /// <summary>What the Select tool picks at a point: POIs, traders and street tiles (the smallest under it), not parts.</summary>
     private PrefabInstance? PickAt(World world, Point grid) =>
         WorldQuery.PrefabAt(world, world.GridToWorld((int)grid.X), world.GridToWorld((int)grid.Y), Library,

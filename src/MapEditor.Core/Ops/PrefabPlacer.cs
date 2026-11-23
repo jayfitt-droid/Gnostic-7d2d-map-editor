@@ -216,6 +216,15 @@ public static class PrefabPlacer
         return best;
     }
 
+    internal static (int X, int Z)? SnapTileCorner(World world, PrefabLibrary library, float gx, float gz,
+        IReadOnlyCollection<PrefabInstance>? ignore)
+    {
+        if (TileGridOffset(world, library, gx, gz, ignore) is not { } offset) return null;
+        int tx = (int)MathF.Floor((gx - offset.X) / StreetTileSize) * StreetTileSize + offset.X;
+        int tz = (int)MathF.Floor((gz - offset.Z) / StreetTileSize) * StreetTileSize + offset.Z;
+        return (world.GridToWorld(tx), world.GridToWorld(tz));
+    }
+
     /// <summary>
     /// The spot for <paramref name="info"/> centred on grid point (<paramref name="gx"/>, <paramref name="gz"/>).
     /// Street tiles snap to the 150 m grid of a street tile nearby (unless <paramref name="snapTiles"/> is false) and take
@@ -246,11 +255,9 @@ public static class PrefabPlacer
         rotation &= 3;
         // Towns start their 150 m grid at the corner they were drawn from, so follow the grid of the nearest street
         // tile. With none close by the tile goes where it's put: the game only reads each prefab's position.
-        if (info.IsStreetTile && snapTiles && TileGridOffset(world, library, gx, gz, ignore) is var (ox, oz))
+        if (info.IsStreetTile && snapTiles && SnapTileCorner(world, library, gx, gz, ignore) is { } corner)
         {
-            int tx = (int)MathF.Floor((gx - ox) / StreetTileSize) * StreetTileSize + ox;
-            int tz = (int)MathF.Floor((gz - oz) / StreetTileSize) * StreetTileSize + oz;
-            int x = world.GridToWorld(tx), z = world.GridToWorld(tz);
+            var (x, z) = corner;
             var cells = Footprint(world, info, x, z, rotation);
             int ground = NeighbourTileGround(world, library, info, x, z, rotation, ignore)
                          ?? RoadGround(world, cells) ?? MedianGround(world, cells);
@@ -291,7 +298,17 @@ public static class PrefabPlacer
     public static PrefabSpot SnapToTiles(World world, PrefabLibrary library, PrefabInfo info, PrefabSpot spot, int snap,
         IReadOnlyCollection<PrefabInstance>? ignore = null)
     {
-        if (info.IsStreetTile || info.IsPart || snap <= 0) return spot;
+        if (SnapToTileEdge(world, library, info, spot, snap, ignore) is not { } corner) return spot;
+        var (x, z) = corner;
+        // Same ground as SpotAt: a road that meets the POI sets its height, so snapping doesn't leave a lip.
+        var cells = Footprint(world, info, x, z, spot.Rotation);
+        return new PrefabSpot(x, PrefabY(info, RoadGround(world, cells) ?? MedianGround(world, cells)), z, spot.Rotation);
+    }
+
+    internal static (int X, int Z)? SnapToTileEdge(World world, PrefabLibrary library, PrefabInfo info, PrefabSpot spot,
+        int snap, IReadOnlyCollection<PrefabInstance>? ignore)
+    {
+        if (info.IsStreetTile || info.IsPart || snap <= 0) return null;
         var r = Footprint(world, info, spot.X, spot.Z, spot.Rotation);
         int? bestX = null, bestZ = null;
         void Try(ref int? best, int delta)
@@ -317,11 +334,7 @@ public static class PrefabPlacer
                 Try(ref bestZ, o.Z1 - r.Z1);
             }
         }
-        if (bestX is null && bestZ is null) return spot;
-        int x = spot.X + (bestX ?? 0), z = spot.Z + (bestZ ?? 0);
-        // Same ground as SpotAt: a road that meets the POI sets its height, so snapping doesn't leave a lip.
-        var cells = Footprint(world, info, x, z, spot.Rotation);
-        return new PrefabSpot(x, PrefabY(info, RoadGround(world, cells) ?? MedianGround(world, cells)), z, spot.Rotation);
+        return bestX is null && bestZ is null ? null : (spot.X + (bestX ?? 0), spot.Z + (bestZ ?? 0));
     }
 
     /// <summary>

@@ -26,6 +26,15 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
 
     /// <summary>A snapshot of the prefabs picked with the Multi-select tool.</summary>
     public IReadOnlyList<PrefabInstance> SelectedPrefabs => [.. _prefabs];
+    internal IReadOnlyList<SpawnPoint> SelectedSpawns => [.. _spawns];
+
+    internal void SelectPasted(GroupPasteResult pasted)
+    {
+        ClearSelection();
+        _prefabs.UnionWith(pasted.Prefabs);
+        _spawns.UnionWith(pasted.Spawns);
+        Refresh();
+    }
 
     public World? World { get; private set; }
 
@@ -133,7 +142,8 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
     private void PreviewMove(World world)
     {
         var (dx, dz) = DragDelta();
-        ShowSelection(world, layout: _moving!.Layout(dx, dz, _turns));
+        var layout = _moving!.Layout(dx, dz, _turns, SnapDistance(map));
+        ShowSelection(world, layout: layout with { Prefabs = layout.Prefabs.Where(t => _prefabs.Contains(t.Prefab)).ToArray() });
     }
 
     private void Drop(World world)
@@ -145,7 +155,7 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
         EndGesture();
         string? problem = null;
         if ((dx != 0 || dz != 0 || turns != 0) &&
-            edits.Step(session, s => problem = group.Apply(dx, dz, turns, vm.PrefabFlatten, replaceCovered: true, s)))
+            edits.Step(session, s => problem = group.Apply(dx, dz, turns, vm.PrefabFlatten, replaceCovered: true, s, SnapDistance(map))))
         {
             if (problem is not null) vm.Status = problem;
             else if (edits.Commit(session)) Redraw(session);
@@ -220,9 +230,16 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
         _spawns.Clear();
     }
 
+    internal static int SnapDistance(MapView map) =>
+        Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) ? 0 : (int)Math.Clamp(Math.Round(10 / map.Scale), 1, 20);
+
+    internal void ShowPastePreview(World world, GroupLayout layout) => ShowSelection(world, layout: layout);
+
+    internal void HidePastePreview() => map.MultiSelection = null;
+
     private void ShowSelection(World world, Rect? box = null, GroupLayout? layout = null)
     {
-        if (box is null && _prefabs.Count + _spawns.Count == 0)
+        if (layout is null && box is null && _prefabs.Count + _spawns.Count == 0)
         {
             map.MultiSelection = null;
             return;
@@ -230,7 +247,7 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
 
         var prefabs = layout is null
             ? _prefabs.Select(p => (Prefab: p, Spot: new PrefabSpot(p.Position.X, p.Position.Y, p.Position.Z, p.Rotation)))
-            : layout.Prefabs.Where(t => _prefabs.Contains(t.Prefab));
+            : layout.Prefabs;
         var spawns = layout is null
             ? _spawns.Select(s => (X: (double)s.X, Z: (double)s.Z, Rotation: s.RotationY))
             : layout.Spawns.Select(s => (s.X, s.Z, s.Rotation));

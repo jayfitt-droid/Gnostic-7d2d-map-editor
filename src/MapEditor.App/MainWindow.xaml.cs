@@ -44,6 +44,7 @@ public partial class MainWindow : Window
     private readonly TerrainToolController _tools;
     private readonly PrefabToolController _prefabTools;
     private readonly MultiSelectToolController _multiSelect;
+    private readonly PrefabClipboardController _clipboard;
     private readonly TownToolController _townTools;
     private readonly GenerateToolController _genTools;
     private readonly BridgeToolController _bridgeTools;
@@ -138,6 +139,7 @@ public partial class MainWindow : Window
         _multiSelect = new MultiSelectToolController(Map, _vm, _edits,
             p => _prefabTools.BridgeOf?.Invoke(p) is not null, p => _prefabTools.IsStageBridge?.Invoke(p) == true);
         Map.ToolInput += _multiSelect.OnToolInput;
+        _clipboard = new PrefabClipboardController(Map, _vm, _edits, _prefabTools, _multiSelect);
         _prefabTools.BridgePicked += (_, bridge) =>
         {
             _vm.SelectedTool = EditorTool.Bridge;
@@ -234,6 +236,7 @@ public partial class MainWindow : Window
             return;
         }
         _install = install;
+        _clipboard.Cancel();
         GameNames.Current = names; // before the lists below, which show these names
         _vm.Biomes = biomes;
         _vm.Prefabs = prefabs;
@@ -253,6 +256,7 @@ public partial class MainWindow : Window
     /// <summary>Carries on without game data: the game's vanilla biome colours, no prefabs or stamps.</summary>
     private void UseNoGameData(string folderText)
     {
+        _clipboard.Cancel();
         _install = null;
         _vm.GameFolderText = folderText;
         GameNames.Current = GameNames.Empty;
@@ -2747,6 +2751,7 @@ public partial class MainWindow : Window
 
     private void OnWorldEdited()
     {
+        _clipboard.Cancel();
         _townCells = null;
         // Edits, undo and redo move the history; Dirty compares it with the save point.
         UpdateTitle();
@@ -3235,6 +3240,7 @@ public partial class MainWindow : Window
         switch (e.PropertyName)
         {
             case nameof(MainViewModel.IsBusy):
+                if (_vm.IsBusy) _clipboard.Cancel();
                 // Commands that check IsBusy are not re-queried by WPF on their own.
                 CommandManager.InvalidateRequerySuggested();
                 UpdateIssueStepControls();
@@ -3253,6 +3259,7 @@ public partial class MainWindow : Window
                 KeepPlayerInView(centre: true);
                 break;
             case nameof(MainViewModel.SelectedTool):
+                _clipboard.Cancel();
                 if (_vm.SelectedTool == EditorTool.Prefab)
                 {
                     _vm.SidePanelTab = MainViewModel.PrefabsTab;
@@ -3308,8 +3315,8 @@ public partial class MainWindow : Window
     {
         _vm.SelectionSizeText = _vm.HasSize ? _vm.SizeText : "";
         Map.ToolActive = _vm.IsLandMode || _vm.SelectedTool != EditorTool.Select;
-        // With Select, a press on something that can be picked grabs it; anywhere else it pans.
-        Map.GrabTest = _vm.IsSelectTool ? _prefabTools.CanGrab : null;
+        // With Select, a press drops the pending paste, grabs an item, or pans empty ground.
+        Map.GrabTest = _vm.IsSelectTool ? at => _clipboard.IsPasting || _prefabTools.CanGrab(at) : null;
         Map.ShowLots = _vm.IsPrefabTool;
         Map.RoadSnapper = _vm.IsRoadTool ? _tools.SnapCursor : null;
         if (!_vm.IsPrefabTool) Map.HoverPrefab = null;
@@ -3337,7 +3344,13 @@ public partial class MainWindow : Window
         if (_vm.IsLandMode && HandleLandKey(e)) return;
         if (AltTurnsOffSnapping(e)) return;
         // Leave typing in text boxes alone.
-        if (e.Handled || Keyboard.FocusedElement is TextBox || Keyboard.Modifiers != ModifierKeys.None) return;
+        if (e.Handled || Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase or PasswordBox) return;
+        if (Keyboard.Modifiers == ModifierKeys.Control && _clipboard.HandleShortcut(e.Key))
+        {
+            e.Handled = true;
+            return;
+        }
+        if (Keyboard.Modifiers != ModifierKeys.None) return;
         if (e.Key != Key.F1 && RefuseWhileBusy())
         {
             e.Handled = true;
@@ -3411,6 +3424,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void Escape()
     {
+        if (_clipboard.Cancel()) { _vm.Status = "Paste canceled."; return; }
         if (_vm.IsSelectTool)
         {
             _prefabTools.Cancel();
@@ -3446,9 +3460,10 @@ public partial class MainWindow : Window
     private bool AltTurnsOffSnapping(KeyEventArgs e)
     {
         bool draggingPrefab = _prefabTools.IsDragging;
-        if (!(_vm.IsRoadTool || _vm.IsPrefabTool || _vm.IsTownTool || draggingPrefab) || e.Key != Key.System
+        if (!(_vm.IsRoadTool || _vm.IsPrefabTool || _vm.IsTownTool || draggingPrefab || _clipboard.IsPasting) || e.Key != Key.System
             || e.SystemKey is not (Key.LeftAlt or Key.RightAlt)) return false;
         if (_vm.IsPrefabTool || draggingPrefab) _prefabTools.SnappingChanged();
+        _clipboard.UpdatePreview();
         Map.InvalidateVisual();
         e.Handled = true;
         return true;
@@ -3457,6 +3472,7 @@ public partial class MainWindow : Window
     private void Rotate(double degrees)
     {
         // Prefabs turn a quarter at a time; positive quarter turns are counter-clockwise, so Q (-) gives +1.
+        if (_clipboard.Rotate(degrees < 0 ? 1 : -1)) return;
         if (_vm.IsPrefabTool) _prefabTools.Rotate(degrees < 0 ? 1 : -1);
         else if (_vm.IsSpawnTool) _prefabTools.RotateSpawn(degrees < 0 ? -45 : 45);
         else if (_vm.IsSelectTool && _prefabTools.HasSpawnSelected) _prefabTools.RotateSpawn(degrees < 0 ? -45 : 45);
