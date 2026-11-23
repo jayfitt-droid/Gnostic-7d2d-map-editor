@@ -191,19 +191,7 @@ public partial class MainWindow : Window
         };
         Closing += MainWindow_Closing;
 
-        // Open at the size it was closed at; fit a small screen.
-        if (_settings.WindowWidth >= MinWidth && _settings.WindowHeight >= MinHeight)
-        {
-            Width = Math.Min(_settings.WindowWidth, SystemParameters.WorkArea.Width);
-            Height = Math.Min(_settings.WindowHeight, SystemParameters.WorkArea.Height);
-        }
-        else
-        {
-            Width = Math.Min(Width, SystemParameters.WorkArea.Width);
-            Height = Math.Min(Height, SystemParameters.WorkArea.Height);
-        }
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        if (_settings.WindowMaximized) WindowState = WindowState.Maximized;
+        RestoreWindowPlacement();
     }
 
     // ---- game data ---------------------------------------------------------
@@ -1312,9 +1300,7 @@ public partial class MainWindow : Window
             _settings.SidePanelWidth = _vm.SidePanelWidth;
             _settings.ShowSidePanel = _vm.ShowSidePanel;
             _settings.SideBarOnRight = _vm.SideBarOnRight;
-            _settings.WindowMaximized = WindowState == WindowState.Maximized;
-            _settings.WindowWidth = RestoreBounds.Width;
-            _settings.WindowHeight = RestoreBounds.Height;
+            SaveWindowPlacement();
             _settings.Save();
             return;
         }
