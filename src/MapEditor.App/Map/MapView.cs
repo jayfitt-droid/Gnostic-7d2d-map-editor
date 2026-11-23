@@ -219,10 +219,10 @@ public sealed class MapView : FrameworkElement
         }
     }
 
-    private Func<Point, IReadOnlyList<BridgePreview>>? _bridgePreviews;
+    private Func<Point?, IReadOnlyList<BridgePreview>>? _bridgePreviews;
 
     /// <summary>The Bridge tool's previews for the mouse at a map point: the bridge being aimed, and the one selected.</summary>
-    public Func<Point, IReadOnlyList<BridgePreview>>? BridgePreviews
+    public Func<Point?, IReadOnlyList<BridgePreview>>? BridgePreviews
     {
         get => _bridgePreviews;
         set
@@ -551,11 +551,14 @@ public sealed class MapView : FrameworkElement
             e.Handled = true;
             return;
         }
-        if (e.ChangedButton == MouseButton.Left && _renderer is not null && (ToolActive || GrabTest?.Invoke(ScreenToMap(e.GetPosition(this))) == true))
+        var pointer = e.GetPosition(this);
+        var map = ScreenToMap(pointer);
+        if (e.ChangedButton == MouseButton.Left && _renderer is not null && (ToolActive || GrabTest?.Invoke(map) == true))
         {
             _toolDrag = true;
+            _mouseMap = map;
             CaptureMouse();
-            SendPointerToolInput(ToolPhase.Down, ScreenToMap(e.GetPosition(this)), e, e.ClickCount);
+            SendPointerToolInput(ToolPhase.Down, map, e, e.ClickCount);
             e.Handled = true;
             return;
         }
@@ -564,7 +567,7 @@ public sealed class MapView : FrameworkElement
         if (e.ChangedButton is MouseButton.Left or MouseButton.Right)
         {
             _panButton = e.ChangedButton;
-            _dragStart = e.GetPosition(this);
+            _dragStart = pointer;
             _dragOrigin = _origin;
             CaptureMouse();
             Cursor = Cursors.SizeAll;
@@ -635,7 +638,7 @@ public sealed class MapView : FrameworkElement
     protected override void OnMouseLeave(MouseEventArgs e)
     {
         _mouseMap = null;
-        if (_brushCursor is not null) InvalidateVisual();
+        if (_brushCursor is not null || _bridgePreviews is not null) InvalidateVisual();
         CursorMoved?.Invoke(this, null);
     }
 
@@ -815,8 +818,8 @@ public sealed class MapView : FrameworkElement
     /// <summary>The bridge being aimed, planned, selected or dragged: the deck's footprint split into its 9 m pieces, with a label.</summary>
     private void DrawBridgePreviews(DrawingContext dc)
     {
-        if (_bridgePreviews is not { } source || _mouseMap is not { } mouse) return;
-        foreach (var bridge in source(mouse))
+        if (_bridgePreviews is not { } source) return;
+        foreach (var bridge in source(_mouseMap))
         {
             // The ramps first, so the deck sits on top where they meet (#43).
             foreach (var ramp in bridge.Ramps)
@@ -824,14 +827,14 @@ public sealed class MapView : FrameworkElement
                 var r = new Rect(MapToScreen(ramp.MapRect.TopLeft), MapToScreen(ramp.MapRect.BottomRight));
                 dc.DrawRectangle(ramp.Warning ? RampWarnBrush : RampBrush, null, r);
                 dc.DrawRectangle(null, CursorShadowPen, r);
-                dc.DrawRectangle(null, ramp.Warning ? RampWarnPen : RampPen, r);
+                var pen = bridge.Kind == BridgePreviewKind.Selected ? CursorPen : ramp.Warning ? RampWarnPen : RampPen;
+                dc.DrawRectangle(null, pen, r);
             }
             var box = new Rect(MapToScreen(bridge.MapRect.TopLeft), MapToScreen(bridge.MapRect.BottomRight));
             var fill = bridge.Kind switch
             {
                 BridgePreviewKind.Planned => BridgePlannedBrush,
                 BridgePreviewKind.Dragging => BridgeGhostBrush,
-                BridgePreviewKind.Selected => null,
                 _ => BridgeDeckBrush,
             };
             dc.DrawRectangle(fill, null, box);

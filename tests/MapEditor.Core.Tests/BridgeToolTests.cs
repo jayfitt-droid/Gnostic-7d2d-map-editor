@@ -524,6 +524,102 @@ public sealed class BridgeToolTests : IDisposable
         Assert.Null(BridgeTool.Find([bridge], line.At(line.End + 1)));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_press_grabs_either_ramp_across_the_deck_width(bool alongZ)
+    {
+        var world = Strait();
+        var line = new BridgeLine(alongZ, 250, 100, 10);
+        var bridge = BridgeTool.Place(world, Kit, line, 34 - BridgeOp.Deck, new EditSession("Bridge", world));
+        float halfWidth = BridgeOp.Width / 2f;
+
+        Assert.Equal((bridge, BridgePart.Start), BridgeTool.HitTest(world, Library, [bridge], line.At(line.Start - 30, -halfWidth), 1));
+        Assert.Equal((bridge, BridgePart.End), BridgeTool.HitTest(world, Library, [bridge], line.At(line.End + 30, halfWidth), 1));
+        var tip = line.At(line.Start - 30 - halfWidth + 1, 0.5f);
+        Assert.NotEqual(0, world.Roads![(int)tip.X, (int)tip.Y]);
+        Assert.Equal((bridge, BridgePart.Start), BridgeTool.HitTest(world, Library, [bridge], tip, 1));
+        Assert.Null(BridgeTool.HitTest(world, Library, [bridge], line.At(line.Start - 31 - halfWidth), 1));
+        Assert.Null(BridgeTool.HitTest(world, Library, [bridge], line.At(line.Start - 31, -halfWidth), 1));
+        Assert.Null(BridgeTool.HitTest(world, Library, [bridge], line.At(line.End + 15, halfWidth + 1), 1));
+    }
+
+    [Fact]
+    public void Zooming_out_makes_the_deck_ends_easier_to_grab_and_keeps_its_middle()
+    {
+        var world = Strait();
+        var bridge = new PlacedBridge { Start = 100, Line = 250, Pieces = 20 };
+        var line = bridge.Where;
+        var nearStart = line.At(line.Start + 35);
+        var nearEnd = line.At(line.End - 35);
+
+        Assert.Equal((bridge, BridgePart.Middle), BridgeTool.HitTest(world, Library, [bridge], nearStart, 2));
+        Assert.Equal((bridge, BridgePart.Start), BridgeTool.HitTest(world, Library, [bridge], nearStart, 0.5));
+        Assert.Equal((bridge, BridgePart.End), BridgeTool.HitTest(world, Library, [bridge], nearEnd, 0.5));
+        Assert.Equal((bridge, BridgePart.Middle), BridgeTool.HitTest(world, Library, [bridge], line.At(line.Start + 90), 0.01));
+        Assert.Equal((bridge, BridgePart.Start), BridgeTool.HitTest(world, Library, [bridge], line.At(line.Start + 2), 16));
+    }
+
+    [Fact]
+    public void The_deck_wins_at_a_crossing_and_the_last_bridge_wins_at_overlapping_ramps()
+    {
+        var world = Strait();
+        var first = new PlacedBridge { Start = 100, Line = 250, Pieces = 10, StartRampLength = 30 };
+        var last = new PlacedBridge { Start = 110, Line = 250, Pieces = 10, StartRampLength = 30 };
+        var crossing = new PlacedBridge { AlongZ = true, Start = 205, Line = 90, Pieces = 10 };
+        var point = new Vector2(90, 250);
+
+        Assert.Equal((last, BridgePart.Start), BridgeTool.HitTest(world, Library, [first, last], point, 1));
+        Assert.Equal((crossing, BridgePart.Middle), BridgeTool.HitTest(world, Library, [crossing, first, last], point, 1));
+    }
+
+    [Fact]
+    public void A_narrow_ramp_allows_a_near_miss_beside_it_without_stealing_a_road_hit_or_extending_the_tip()
+    {
+        var world = Strait();
+        var first = new PlacedBridge { Start = 100, Line = 250, Pieces = 10, StartRampLength = 30 };
+        var last = new PlacedBridge { Start = 100, Line = 265, Pieces = 10, StartRampLength = 30 };
+        var beside = new Vector2(85, 253);
+
+        Assert.Null(BridgeTool.HitTest(world, Library, [last], beside, 1));
+        Assert.Equal((last, BridgePart.Start), BridgeTool.HitTest(world, Library, [last], beside, 0.25));
+        Assert.Equal((first, BridgePart.Start), BridgeTool.HitTest(world, Library, [first, last], beside, 0.25));
+        Assert.Null(BridgeTool.HitTest(world, Library, [last], new Vector2(65, 253), 0.25));
+    }
+
+    [Fact]
+    public void A_built_ramp_keeps_its_hit_area_when_the_terrain_changes()
+    {
+        var world = Strait();
+        var line = new BridgeLine(false, 250, 100, 10);
+        int y = 40 - BridgeOp.Deck;
+        var plan = new BridgePlan(Kit, line.AlongZ, line.Line, line.Start, line.Pieces, y);
+        var ramp = Assert.IsType<RampPlan>(BridgeTool.PlanRamp(world, plan, false));
+        var bridge = BridgeTool.Place(world, Kit, line, y, new EditSession("Bridge", world));
+        Assert.Equal(ramp.Length, bridge.EndRampLength);
+
+        Array.Fill(world.Height.Data, TerrainBrush.ToRaw(40));
+        Assert.Equal(30, BridgeTool.PlanRamp(world, plan, false)!.Length);
+        Assert.Equal((bridge, BridgePart.End), BridgeTool.HitTest(world, Library, [bridge], ramp.To, 1));
+        Assert.Null(BridgeTool.HitTest(world, Library, [bridge], ramp.To + Vector2.UnitX * (BridgeOp.Width / 2f + 1), 1));
+    }
+
+    [Fact]
+    public void Older_bridges_use_the_preview_for_ramps_and_bridges_without_ramps_grab_only_the_deck()
+    {
+        var world = Strait();
+        var line = new BridgeLine(false, 250, 0, 10);
+        int y = 34 - BridgeOp.Deck;
+        var withoutRamps = BridgeTool.Place(world, Kit, line, y, new EditSession("Bridge", world), ramps: false);
+        var legacy = BridgeTool.Place(world, Kit, line, y, new EditSession("Bridge", world));
+        legacy.StartRampLength = legacy.EndRampLength = null;
+        var onRamp = line.At(line.End + 15);
+
+        Assert.Null(BridgeTool.HitTest(world, Library, [withoutRamps], onRamp, 1));
+        Assert.Equal((legacy, BridgePart.End), BridgeTool.HitTest(world, Library, [legacy], onRamp, 1));
+        Assert.Null(BridgeTool.HitTest(world, Library, [legacy], line.At(line.Start - 1), 1));
+    }
+
     // ---- the stage's bridges and the tool's ----
 
     [Fact]
@@ -591,7 +687,7 @@ public sealed class BridgeToolTests : IDisposable
         var settings = new ProjectStore.ProjectSettings();
         BuildAcrossSea(world, settings.Bridges, new EditSession("A", world), 300);
         BuildAcrossSea(world, settings.Bridges, new EditSession("B", world), 500);
-        var original = settings.Bridges.Select(b => b.Clone()).ToList();
+        var original = settings.Bridges.ToList();
 
         string path = Path.Combine(_dir, "bridges" + ProjectStore.Extension);
         // Saved through a copy, as the app's save and autosave do (an early build's copy left the list out).
@@ -604,6 +700,7 @@ public sealed class BridgeToolTests : IDisposable
             var a = original[i];
             var b = loadedSettings.Bridges[i];
             Assert.Equal((a.AlongZ, a.Line, a.Start, a.Pieces, a.Y), (b.AlongZ, b.Line, b.Start, b.Pieces, b.Y));
+            Assert.Equal((a.StartRampLength, a.EndRampLength), (b.StartRampLength, b.EndRampLength));
             Assert.Equal(a.Grounds.Count, b.Grounds.Count);
             for (int g = 0; g < a.Grounds.Count; g++) Assert.Equal(a.Grounds[g], b.Grounds[g]);
             Assert.Equal(a.Prefabs.Select(p => (p.Name, p.X, p.Y, p.Z, p.Rotation)), b.Prefabs.Select(p => (p.Name, p.X, p.Y, p.Z, p.Rotation)));

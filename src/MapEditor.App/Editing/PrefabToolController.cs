@@ -63,7 +63,10 @@ public sealed class PrefabToolController
     /// <summary>The Bridge tool's bridge a prefab is a piece of, if any. Its pieces are never picked singly.</summary>
     public Func<PrefabInstance, PlacedBridge?>? BridgeOf { get; set; }
 
-    /// <summary>A click picked a piece of one of the Bridge tool's bridges: the whole bridge is wanted instead.</summary>
+    /// <summary>The Bridge tool's bridge at a map point, including its ramps, for Select when there is no prefab there.</summary>
+    public Func<Point, PlacedBridge?>? BridgeAt { get; set; }
+
+    /// <summary>A click picked one of the Bridge tool's bridges: the whole bridge is wanted instead.</summary>
     public event EventHandler<PlacedBridge>? BridgePicked;
 
     /// <summary>Whether a prefab is a piece of one of the Highways stage's bridges, which can't be changed by hand.</summary>
@@ -173,10 +176,10 @@ public sealed class PrefabToolController
     {
         if (World is not { } world) return false;
         var grid = new Point(mapPoint.X, world.Size - mapPoint.Y);
-        return SpawnNear(world, grid) is not null || PickAt(world, grid) is not null;
+        return SpawnNear(world, grid) is not null || PickAt(world, grid) is not null || BridgeAt?.Invoke(mapPoint) is not null;
     }
 
-    /// <summary>The Select tool: a press on a spawn point or prefab selects it, and dragging moves it.</summary>
+    /// <summary>The Select tool: a press selects a spawn point or prefab, or passes a bridge to the Bridge tool.</summary>
     private void SelectInput(World world, ToolInputEventArgs e, Point grid)
     {
         switch (e.Phase)
@@ -188,7 +191,11 @@ public sealed class PrefabToolController
                 break;
             case ToolPhase.Down:
                 SelectSpawn(null);
-                SelectAndGrab(world, PickAt(world, grid), grid);
+                var prefab = PickAt(world, grid);
+                if (prefab is null && BridgeAt?.Invoke(e.MapPoint) is { } bridge)
+                    BridgePicked?.Invoke(this, bridge);
+                else
+                    SelectAndGrab(world, prefab, grid);
                 break;
             case ToolPhase.Move when _spawnGrabbed && e.DragThresholdPassed:
                 DragSpawn(world, grid);

@@ -45,6 +45,12 @@ public sealed class PlacedBridge
     /// <summary>What each part changed, compressed (see <see cref="HighwayStage"/>): footings first, then each ramp.</summary>
     public List<byte[]> Grounds { get; set; } = [];
 
+    /// <summary>Length of the road at the start, in metres. Zero means no ramp; null means an older record.</summary>
+    public float? StartRampLength { get; set; }
+
+    /// <summary>Length of the road at the end, in metres. Zero means no ramp; null means an older record.</summary>
+    public float? EndRampLength { get; set; }
+
     public List<PlacedPrefab> Prefabs { get; set; } = [];
 
     [JsonIgnore] public BridgeLine Where => new(AlongZ, Line, Start, Pieces);
@@ -56,9 +62,13 @@ public sealed class PlacedBridge
     {
         AlongZ = AlongZ, Line = Line, Start = Start, Pieces = Pieces, Y = Y,
         Grounds = [.. Grounds],
+        StartRampLength = StartRampLength, EndRampLength = EndRampLength,
         Prefabs = [.. Prefabs.Select(p => p.Clone())],
     };
 }
+
+/// <summary>The part of a bridge a drag grabs: the middle to move it, or an end to resize it.</summary>
+public enum BridgePart { Middle, Start, End }
 
 /// <summary>Why a bridge's ramp ends where it does.</summary>
 public enum RampEnd
@@ -241,21 +251,26 @@ public static class BridgeTool
             AlongZ = line.AlongZ, Line = line.Line, Start = line.Start, Pieces = line.Pieces, Y = y,
             Grounds = [built.Ground],
             Prefabs = built.Prefabs,
+            StartRampLength = 0,
+            EndRampLength = 0,
         };
         if (ramps)
             foreach (bool atStart in new[] { true, false })
-                if (DrawRamp(world, plan, atStart, session) is { } ground) bridge.Grounds.Add(ground);
+                if (PlanRamp(world, plan, atStart) is { } ramp)
+                {
+                    bridge.Grounds.Add(DrawRamp(world, plan, atStart, ramp, session));
+                    if (atStart) bridge.StartRampLength = ramp.Length;
+                    else bridge.EndRampLength = ramp.Length;
+                }
         return bridge;
     }
 
     /// <summary>
     /// A short asphalt road from a deck end out along the bridge's line, drawn by the ordinary road code, with its height
-    /// held at the deck's at the end and easing down (or up) to the ground. Returns what it changed, or null when
-    /// the bridge ends at the edge of the world.
+    /// held at the deck's at the end and easing down (or up) to the ground. Returns what it changed.
     /// </summary>
-    private static byte[]? DrawRamp(World world, BridgePlan plan, bool atStart, EditSession session)
+    private static byte[] DrawRamp(World world, BridgePlan plan, bool atStart, RampPlan ramp, EditSession session)
     {
-        if (PlanRamp(world, plan, atStart) is not { } ramp) return null;
         float deck = plan.DeckTop;
         var path = new RoadPath([ramp.From, ramp.To], RoadType.Asphalt, BridgeOp.Width / 2f);
         var library = plan.Kit.Library ?? PrefabLibrary.Of([plan.Kit.Tile, plan.Kit.End, .. plan.Kit.Wrecks.Select(w => w.Info)]);
@@ -546,6 +561,62 @@ public static class BridgeTool
     /// <summary>The bridge whose deck or outline covers <paramref name="grid"/> (grid metres); the last one in the list wins.</summary>
     public static PlacedBridge? Find(IEnumerable<PlacedBridge> bridges, Vector2 grid) =>
         bridges.LastOrDefault(b => b.Where.Rect is var r && grid.X >= r.X0 && grid.X <= r.X1 && grid.Y >= r.Z0 && grid.Y <= r.Z1);
+
+    /// <summary>
+    /// The bridge and part a press at <paramref name="grid"/> grabs. Decks win over ramps, and the last bridge in
+    /// the list wins ties. When the ramp is narrow on screen, allow a near miss beside its road if no road was hit.
+    /// <paramref name="scale"/> is the number of screen DIPs per grid metre.
+    /// </summary>
+    public static (PlacedBridge Bridge, BridgePart Part)? HitTest(World world, PrefabLibrary library,
+        IReadOnlyList<PlacedBridge> bridges, Vector2 grid, double scale)
+    {
+        if (Find(bridges, grid) is { } deck)
+        {
+            var line = deck.Where;
+            float along = line.AlongZ ? grid.Y : grid.X;
+            double zone = Math.Min(Math.Max(24 / scale, 3), line.Length / 3d);
+            if (along - line.Start < zone) return (deck, BridgePart.Start);
+            if (line.End - along < zone) return (deck, BridgePart.End);
+            return (deck, BridgePart.Middle);
+        }
+
+        if (grid.X < 0 || grid.Y < 0 || grid.X > world.Size || grid.Y > world.Size) return null;
+        const float halfWidth = BridgeOp.Width / 2f;
+        double grabHalfWidth = Math.Max(halfWidth, 4 / scale);
+        (PlacedBridge Bridge, BridgePart Part)? near = null;
+        for (int i = bridges.Count - 1; i >= 0; i--)
+        {
+            var bridge = bridges[i];
+            var line = bridge.Where;
+            float across = line.AlongZ ? grid.X : grid.Y;
+            float sideways = across - line.Line;
+            if (MathF.Abs(sideways) > grabHalfWidth) continue;
+            float along = line.AlongZ ? grid.Y : grid.X;
+            bool atStart = along < line.Start;
+            float distance = atStart ? line.Start - along : along - line.End;
+            if (distance <= 0 || distance > MaxRamp + halfWidth) continue;
+            float length = RampLength(world, library, bridge, atStart);
+            if (length <= 0) continue;
+
+            // The road painter rounds the tip of the ramp with the same radius as the road.
+            float pastTip = Math.Max(0, distance - length);
+            var hit = (bridge, atStart ? BridgePart.Start : BridgePart.End);
+            if (sideways * sideways + pastTip * pastTip <= halfWidth * halfWidth)
+                return hit;
+            if (pastTip == 0) near ??= hit;
+        }
+        return near;
+    }
+
+    /// <summary>The built ramp's length, or zero if none was drawn. Older projects use the preview length.</summary>
+    public static float RampLength(World world, PrefabLibrary library, PlacedBridge bridge, bool atStart)
+    {
+        if ((atStart ? bridge.StartRampLength : bridge.EndRampLength) is { } length) return length;
+        if (bridge.Grounds.Count <= 1 || BridgeKit.From(library) is not { } kit) return 0;
+        var line = bridge.Where;
+        var plan = new BridgePlan(kit, line.AlongZ, line.Line, line.Start, line.Pieces, bridge.Y);
+        return PlanRamp(world, plan, atStart)?.Length ?? 0;
+    }
 
     /// <summary>The ends of every bridge the world has a record of: the tool's own and the Highways stage's.</summary>
     public static List<BridgeEnd> Ends(IEnumerable<PlacedBridge> bridges, IEnumerable<HighwayRoad>? stage = null)
