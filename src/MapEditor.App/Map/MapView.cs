@@ -238,6 +238,19 @@ public sealed class MapView : FrameworkElement
         }
     }
 
+    private Func<Point?, RulerOverlay?>? _rulerOverlay;
+
+    /// <summary>The ruler's measurement, including its live leg at the cursor.</summary>
+    public Func<Point?, RulerOverlay?>? RulerOverlay
+    {
+        get => _rulerOverlay;
+        set
+        {
+            _rulerOverlay = value;
+            InvalidateVisual();
+        }
+    }
+
     private Func<Point, RoadSnap?>? _roadSnapper;
 
     /// <summary>Snaps the mouse for the road tool: the rubber band runs to the snapped point, and road ends get a ring.</summary>
@@ -620,7 +633,8 @@ public sealed class MapView : FrameworkElement
         var map = ScreenToMap(p);
         if (_toolDrag) SendPointerToolInput(ToolPhase.Move, map, e);
         _mouseMap = map;
-        if (_brushCursor is not null || _roadPreview is not null || _roadSnapper is not null || _prefabGhost is not null || _bridgePreviews is not null) InvalidateVisual();
+        if (_brushCursor is not null || _roadPreview is not null || _roadSnapper is not null || _prefabGhost is not null
+            || _bridgePreviews is not null || _rulerOverlay is not null) InvalidateVisual();
         CursorMoved?.Invoke(this, map);
     }
 
@@ -644,7 +658,7 @@ public sealed class MapView : FrameworkElement
     protected override void OnMouseLeave(MouseEventArgs e)
     {
         _mouseMap = null;
-        if (_brushCursor is not null || _bridgePreviews is not null) InvalidateVisual();
+        if (_brushCursor is not null || _bridgePreviews is not null || _rulerOverlay is not null) InvalidateVisual();
         CursorMoved?.Invoke(this, null);
     }
 
@@ -732,6 +746,7 @@ public sealed class MapView : FrameworkElement
         DrawBridgePreviews(dc);
         DrawMultiSelection(dc, visible);
         DrawBrushCursor(dc);
+        DrawRuler(dc);
     }
 
     private static readonly Brush LandSea = Frozen(new SolidColorBrush(Color.FromRgb((byte)(CoastColours.DeepWater >> 16),
@@ -880,6 +895,83 @@ public sealed class MapView : FrameworkElement
             dc.DrawRoundedRectangle(BridgeLabelBackground, null, new Rect(at.X - 4, at.Y - 2, text.Width + 8, text.Height + 4), 3, 3);
             dc.DrawText(text, at);
         }
+    }
+
+    private static readonly Pen RulerLivePen = Frozen(new Pen(Brushes.White, 1.5) { DashStyle = DashStyles.Dash });
+
+    /// <summary>Draws the ruler in screen space so its strokes, markers and labels stay the same size at any zoom.</summary>
+    private void DrawRuler(DrawingContext dc)
+    {
+        if (_rulerOverlay is not { } source) return;
+        Point? pointer = _mouseMap is null ? null : ScreenToMap(Mouse.GetPosition(this));
+        if (source(pointer) is not { } ruler) return;
+
+        var points = ruler.MapPoints.Select(MapToScreen).ToArray();
+        for (int i = 1; i < points.Length; i++)
+        {
+            bool live = ruler.LastLegIsLive && i == points.Length - 1;
+            dc.DrawLine(CursorShadowPen, points[i - 1], points[i]);
+            dc.DrawLine(live ? RulerLivePen : CursorPen, points[i - 1], points[i]);
+        }
+        for (int i = 0; i < points.Length; i++)
+        {
+            bool live = ruler.LastLegIsLive && i == points.Length - 1;
+            dc.DrawEllipse(live ? null : Brushes.White, CursorShadowPen, points[i], 3.5, 3.5);
+            if (live) dc.DrawEllipse(null, CursorPen, points[i], 3.5, 3.5);
+        }
+
+        var viewport = new Rect(RenderSize);
+        var used = new List<Rect>();
+        DrawRulerLabel(dc, $"Total {ruler.Measurement.TotalLengthMetres:0.0} m", points[^1] + new Vector(0, 10), viewport, used);
+        for (int i = 0; i < ruler.Measurement.Legs.Count; i++)
+        {
+            var from = points[i];
+            var to = points[i + 1];
+            var bounds = new Rect(from, to);
+            bounds.Intersect(viewport);
+            if (bounds.IsEmpty) continue;
+            // Centre on the visible bounds so the label stays close when an end is off screen.
+            var at = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2 - 26);
+            var leg = ruler.Measurement.Legs[i];
+            DrawRulerLabel(dc, $"{leg.LengthMetres:0.0} m  /  {leg.HeightDifferenceMetres:+0.0;-0.0;0.0} m  /  {leg.SlopePercent:+0.0;-0.0;0.0}%",
+                at, viewport, used);
+        }
+    }
+
+    private void DrawRulerLabel(DrawingContext dc, string label, Point at, Rect viewport, List<Rect> used)
+    {
+        var text = new FormattedText(label, System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"), 12, Brushes.White, PixelsPerDip);
+        double width = text.Width + 8, height = text.Height + 4;
+        double bottom = Math.Max(0, viewport.Height - height);
+        var box = new Rect(Math.Clamp(at.X - width / 2, 0, Math.Max(0, viewport.Width - width)),
+            Math.Clamp(at.Y, 0, bottom), width, height);
+
+        // Short legs can share the same screen space when zoomed out. Move their labels apart in screen units.
+        if (used.Any(box.IntersectsWith))
+        {
+            double step = height + 3;
+            for (double offset = step; offset <= viewport.Height; offset += step)
+            {
+                var shifted = box;
+                shifted.Y -= offset;
+                if (shifted.Y >= 0 && !used.Any(shifted.IntersectsWith))
+                {
+                    box = shifted;
+                    break;
+                }
+                shifted.Y = box.Y + offset;
+                if (shifted.Y <= bottom && !used.Any(shifted.IntersectsWith))
+                {
+                    box = shifted;
+                    break;
+                }
+            }
+        }
+
+        used.Add(box);
+        dc.DrawRoundedRectangle(BridgeLabelBackground, null, box, 3, 3);
+        dc.DrawText(text, new Point(box.X + 4, box.Y + 2));
     }
 
     /// <summary>A ring on the road end the next click would snap to.</summary>

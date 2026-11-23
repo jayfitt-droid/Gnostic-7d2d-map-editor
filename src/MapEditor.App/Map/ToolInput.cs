@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using MapEditor.Core.GameData;
+using MapEditor.Core.Ops;
 
 namespace MapEditor.App.Map;
 
@@ -49,6 +50,9 @@ public sealed record LandPreview(ImageSource? Coast, IReadOnlyList<(Rect Bounds,
 
 /// <summary>A road being drawn: its points in map coordinates and its full width in metres.</summary>
 public sealed record RoadPreview(IReadOnlyList<Point> MapPoints, double WidthMetres, bool Asphalt);
+
+/// <summary>The ruler's points in map coordinates and the measurements between them.</summary>
+public sealed record RulerOverlay(IReadOnlyList<Point> MapPoints, RulerMeasurement Measurement, bool LastLegIsLive);
 
 /// <summary>How a <see cref="BridgePreview"/> is drawn: being aimed, planned (Enter builds it), selected, or being dragged.</summary>
 public enum BridgePreviewKind

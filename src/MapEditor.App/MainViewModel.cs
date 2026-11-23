@@ -89,6 +89,7 @@ public sealed partial class MainViewModel : ObservableObject
     [
         new(EditorTool.Select, "Select", "V", Icons.Cursor, "Click a POI, trader, street tile or spawn point to select it, drag it to move it. Q/E turn it, PgUp/PgDn raise or lower it, Del removes it. Drag empty ground to pan."),
         new(EditorTool.MultiSelect, "Multi-select", "M", Icons.MultiSelect, "Drag a box around items. Shift+drag adds items and Shift+click toggles one. Drag a selected item to move the group. Q/E turn it, PgUp/PgDn change prefab height, and Del removes it."),
+        new(EditorTool.Ruler, "Ruler", "K", Icons.Ruler, "Click to add points or drag to measure one line. Double-click or Enter finishes. Backspace removes a point. Esc clears the ruler."),
     ];
 
     public IReadOnlyList<ToolItem> TerrainTools { get; } =
@@ -142,7 +143,7 @@ public sealed partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsBrushTool), nameof(IsStampTool), nameof(IsFlattenTool), nameof(IsNoiseTool),
         nameof(HasRadius), nameof(IsBiomeTool), nameof(IsRadiationTool), nameof(IsWaterTool), nameof(IsRoadTool), nameof(IsBridgeTool),
         nameof(IsPrefabTool), nameof(IsTraderTool), nameof(IsPrefabsTool), nameof(PlacingPrefab), nameof(IsSpawnTool), nameof(IsSelectTool), nameof(IsMultiSelectTool), nameof(ShowSelectionText), nameof(IsTownTool), nameof(ReservesInfoLines), nameof(CurrentTool),
-        nameof(IsGenerateAreaTool), nameof(IsFeaturesTool), nameof(ShowFlatSelectionLine),
+        nameof(IsGenerateAreaTool), nameof(IsFeaturesTool), nameof(ShowFlatSelectionLine), nameof(ShowInlineToolHint),
         nameof(HasSize), nameof(SizeValue), nameof(SizeMin), nameof(SizeMax), nameof(SizeText),
         nameof(HasStrength), nameof(StrengthValue), nameof(StrengthMin), nameof(StrengthText), nameof(CurrentSwatch))]
     private EditorTool _selectedTool = EditorTool.Select;
@@ -171,6 +172,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsSpawnTool => SelectedTool == EditorTool.Spawn;
     public bool IsSelectTool => SelectedTool == EditorTool.Select;
     public bool IsMultiSelectTool => SelectedTool == EditorTool.MultiSelect;
+    public bool IsRulerTool => SelectedTool == EditorTool.Ruler;
 
     /// <summary>Whether the Modern hint card can show selection text.</summary>
     public bool ShowSelectionText => IsSpawnTool || IsSelectTool && !HasPrefabSelection;
@@ -800,13 +802,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _windowIsNarrow;
 
     /// <summary>The window width (DIPs) that the Modern toolbar needs to show its tool names.</summary>
-    public const double ToolNamesMinWidth = 1264;
+    public const double ToolNamesMinWidth = 1318;
 
     /// <summary>Set by the window: it is too narrow for the words on the Modern toolbar's buttons.</summary>
     [ObservableProperty] private bool _windowIsTight;
 
     /// <summary>The window width (DIPs) that the Modern toolbar needs for the words on its buttons as well.</summary>
-    public const double ActionTextMinWidth = 1534;
+    public const double ActionTextMinWidth = 1588;
 
     /// <summary>Whether the Modern toolbar's Layers, Generate, Validate, Export and Package buttons show their words.</summary>
     public bool ActionTextShown => IsModernTheme && RibbonMode switch
@@ -828,7 +830,7 @@ public sealed partial class MainViewModel : ObservableObject
     };
 
     /// <summary>The tool's hint in the Modern options row, for the tools with no options to fill it.</summary>
-    public bool ShowInlineToolHint => IsModernTheme && (IsSelectTool || IsMultiSelectTool || IsSpawnTool);
+    public bool ShowInlineToolHint => IsModernTheme && (IsSelectTool || IsMultiSelectTool || IsSpawnTool || IsRulerTool);
 
     /// <summary>The changing help text on the Modern theme's map card. Empty hides the card.</summary>
     public string HintCardText =>
@@ -843,6 +845,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool RibbonCompact { get => RibbonMode == RibbonMode.Compact; set { if (value) RibbonMode = RibbonMode.Compact; } }
 
     public double RibbonRowHeight => ToolNamesShown ? 54 : IsCompactRibbon ? 36 : 72;
+    public int NavigateColumns => IsCompactRibbon ? NavigateTools.Count : 2;
     public int TerrainColumns => IsCompactRibbon ? TerrainTools.Count : 3;
     public int PaintColumns => IsCompactRibbon ? PaintTools.Count : 2;
     public int BuildColumns => IsCompactRibbon ? BuildTools.Count : 3;
@@ -860,7 +863,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private static readonly string[] RibbonProperties =
     [
-        nameof(IsCompactRibbon), nameof(RibbonAuto), nameof(RibbonFull), nameof(RibbonCompact), nameof(RibbonRowHeight),
+        nameof(IsCompactRibbon), nameof(RibbonAuto), nameof(RibbonFull), nameof(RibbonCompact), nameof(RibbonRowHeight), nameof(NavigateColumns),
         nameof(TerrainColumns), nameof(PaintColumns), nameof(BuildColumns), nameof(CurrentSwatchSize), nameof(PaletteOrientation),
         nameof(ReservedInfoText), nameof(ShowToolHint), nameof(ToolNamesShown), nameof(ActionTextShown), nameof(ShowInlineToolHint),
     ];

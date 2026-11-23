@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private readonly TownToolController _townTools;
     private readonly GenerateToolController _genTools;
     private readonly BridgeToolController _bridgeTools;
+    private readonly RulerToolController _ruler;
     /// <summary>Cancels the generator stage that is running, if one is.</summary>
     private CancellationTokenSource? _generateCancel;
     private Task _gameDataLoad = Task.CompletedTask;
@@ -129,6 +130,7 @@ public partial class MainWindow : Window
         _townTools = new TownToolController(Map, _vm, _edits);
         _genTools = new GenerateToolController(Map, _vm);
         _bridgeTools = new BridgeToolController(Map, _vm, _edits) { Bridges = () => _projectSettings.Bridges };
+        _ruler = new RulerToolController(Map, _vm);
         // Roads snap to the ends of the Bridge tool's bridges and the Highways stage's, at deck height.
         _tools.BridgeEnds = () => _bridgeTools.Ends(_projectSettings.Generator?.PlacedRoads);
         // A click on a piece or ramp of one of the tool's bridges picks the whole bridge, in the Bridge tool.
@@ -520,6 +522,7 @@ public partial class MainWindow : Window
         _townTools.World = world;
         _genTools.World = world;
         _bridgeTools.World = world;
+        _ruler.World = world;
         _vm.SelectedTool = EditorTool.Select;
         _townTools.Refresh();
         LoadMixer();
@@ -1181,6 +1184,7 @@ public partial class MainWindow : Window
         _townTools.Refresh();
         _genTools.World = null;
         _bridgeTools.World = null;
+        _ruler.World = null;
         _vm.Generate.HasWorld = false;
         _genTools.Refresh();
         _vm.Issues.Clear();
@@ -3268,6 +3272,7 @@ public partial class MainWindow : Window
                 if (!_vm.IsRoadTool) _tools.CancelRoad();
                 if (!_vm.IsBridgeTool) _bridgeTools.Reset();
                 else _bridgeTools.Refresh();
+                if (!_vm.IsRulerTool) _ruler.Cancel();
                 if (!_vm.IsSpawnTool) Map.SpawnGhost = null;
                 // The trader starts facing north, as a new pick in the browser does.
                 if (_vm.IsTraderTool && _vm.SelectedTrader is { } trader) _vm.PrefabRotation = trader.RotationToFaceNorth & 3;
@@ -3323,7 +3328,7 @@ public partial class MainWindow : Window
         Map.BrushCursor = _vm.SelectedTool switch
         {
             EditorTool.Select or EditorTool.MultiSelect or EditorTool.Water or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town or EditorTool.Bridge
-                or EditorTool.GenerateArea or EditorTool.Features => null,
+                or EditorTool.GenerateArea or EditorTool.Features or EditorTool.Ruler => null,
             EditorTool.Road => new BrushCursor(_vm.RoadWidth),
             EditorTool.Stamp => new BrushCursor(_vm.StampSize, Square: true, _vm.StampRotation,
                 _vm.SelectedStamp is { } stamp ? StampPicture.Get(_vm.Stamps, stamp, UpdateToolState) : null),
@@ -3395,6 +3400,13 @@ public partial class MainWindow : Window
             }
         }
 
+        if (_vm.IsRulerTool &&
+            (e.Key == Key.Enter && _ruler.Finish() || e.Key == Key.Back && _ruler.RemoveLastPoint()))
+        {
+            e.Handled = true;
+            return;
+        }
+
         var tool = _vm.Tools.FirstOrDefault(t => t.Shortcut == e.Key.ToString());
         if (tool is not null)
         {
@@ -3433,6 +3445,7 @@ public partial class MainWindow : Window
         // Only the active tool's own work counts, so something left selected in another tool doesn't take an extra Esc.
         bool stopped = _vm.IsRoadTool && _tools.CancelRoad()
                        || _vm.IsBridgeTool && _bridgeTools.Cancel()
+                       || _vm.IsRulerTool && _ruler.Cancel()
                        || _vm.IsTownTool && _townTools.Cancel()
                        || _vm.IsMultiSelectTool && _multiSelect.Cancel()
                        || (_vm.IsPrefabTool || _vm.IsSpawnTool) && _prefabTools.Cancel();

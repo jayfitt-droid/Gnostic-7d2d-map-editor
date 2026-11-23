@@ -117,6 +117,9 @@
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding ActionTextShown}" Value="False">
+                                <Setter TargetName="Chrome" Property="Padding" Value="5,0" />
+                            </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
                             </Trigger>
@@ -145,6 +148,9 @@
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding ActionTextShown}" Value="False">
+                                <Setter TargetName="Chrome" Property="Padding" Value="5,0" />
+                            </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentButtonBackgroundPointerOver}" />
                             </Trigger>
@@ -622,7 +628,7 @@
                         <ListBox x:Name="NavigateGroup" Style="{StaticResource ToolGroup}" ItemsSource="{Binding NavigateTools}" SelectedValue="{Binding SelectedTool}"
                                  AutomationProperties.Name="Navigate" Height="{Binding RibbonRowHeight}" VerticalContentAlignment="Top">
                             <ListBox.ItemsPanel>
-                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" VerticalAlignment="Top" /></ItemsPanelTemplate>
+                                <ItemsPanelTemplate><UniformGrid Columns="{Binding NavigateColumns}" /></ItemsPanelTemplate>
                             </ListBox.ItemsPanel>
                         </ListBox>
                         <TextBlock Text="Navigate" Style="{StaticResource RibbonLabel}" />
