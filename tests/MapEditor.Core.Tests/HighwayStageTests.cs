@@ -1,3 +1,4 @@
+using System.Numerics;
 using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
 using MapEditor.Core.Generate;
@@ -306,5 +307,243 @@ public sealed class HighwayStageTests
         var country = roads.Where(r => r.Kind == HighwayKind.Country).ToList();
         Assert.Equal(2, country.Count);
         Assert.All(country, r => Assert.Equal((RoadType.Gravel, HighwayStage.CountryRadius), (r.Type, r.Radius)));
+    }
+
+    private const int CoastRoadZ = 555;
+
+    [Fact]
+    public void The_search_takes_a_short_turn_to_follow_an_existing_road()
+    {
+        const int size = 1280;
+        var world = new World { Name = "Coast", Size = size, Height = new Grid<ushort>(size, size), Roads = new Grid<byte>(size, size) };
+        Array.Fill(world.Height.Data, World.MetresToHeight(40));
+        for (int z = 551; z < 560; z++)
+            world.Roads.Row(z).Slice(290, 630).Fill((byte)RoadType.Asphalt);
+        var grid = new HighwayStage.PathGrid(world, Library, new HighwayOptions { Wiggle = 0 });
+
+        var route = HighwayStage.FindPath(grid, grid.CellOf(new(265, 535)), [grid.CellOf(new(905, 525))], false);
+
+        Assert.NotNull(route);
+        Assert.True(route.Count(p => (grid.Flags[p] & HighwayStage.PathGrid.Road) != 0) >= 55);
+    }
+
+    private static World CoastWithRoad(bool thirdTown = false)
+    {
+        const int size = 2048;
+        var world = new World
+        {
+            Name = "Coast", Size = size, Height = new Grid<ushort>(size, size),
+            Water = new Grid<byte>(size, size), Roads = new Grid<byte>(size, size),
+        };
+        Array.Fill(world.Height.Data, World.MetresToHeight(40));
+        for (int z = 0; z < size; z++)
+        {
+            if (z >= 475 && z < 575) continue;
+            world.Height.Row(z).Slice(380, 1280).Fill(World.MetresToHeight(z < 475 ? 25 : 85));
+            if (z < 475) world.Water.Row(z).Slice(380, 1280).Fill(30);
+        }
+        for (int z = CoastRoadZ - 8; z <= CoastRoadZ + 8; z++)
+        {
+            world.Height.Row(z).Slice(410, 1220).Fill(World.MetresToHeight(44.25f));
+            world.Roads.Row(z).Slice(410, 1220).Fill((byte)RoadType.Asphalt);
+        }
+        Tile(world, "rwg_tile_gateway_straight", 1, 3, 1);
+        Tile(world, "rwg_tile_gateway_straight", 12, 3, 1);
+        if (thirdTown) Roadside(world, 1, 1);
+        return world;
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(0.3f)]
+    public void Coastal_towns_share_one_road_through_the_narrow_strip(float wiggle)
+    {
+        const int size = 2048;
+        var world = new World { Name = "Coast", Size = size, Height = new Grid<ushort>(size, size), Water = new Grid<byte>(size, size) };
+        Array.Fill(world.Height.Data, World.MetresToHeight(40));
+        for (int z = 0; z < size; z++)
+        {
+            if (z >= 555 && z < 605) continue;
+            world.Height.Row(z).Slice(380, 1280).Fill(World.MetresToHeight(z < 555 ? 25 : 85));
+            if (z < 555) world.Water.Row(z).Slice(380, 1280).Fill(30);
+        }
+        // Two towns each have a north and a south gateway facing the strip. Both links must use the strip.
+        foreach (int x in new[] { 1, 12 })
+            foreach (int z in new[] { 3, 4 })
+                Tile(world, "rwg_tile_gateway_straight", x, z, 1);
+        Tile(world, "rwg_tile_oldwest_straight", 1, 1, 0);
+        var result = Run(world, new HighwayOptions { Seed = 46949, Wiggle = wiggle, SecondRoad = true, CausewayMax = 0 }, []);
+
+        Assert.Empty(result.Notes);
+        Assert.All(new[] { (299, 525), (299, 675), (1800, 525), (1800, 675) }, end =>
+            Assert.Contains(result.Added, p => p.Kind == HighwayKind.Highway && (AtEnd(p.Points[0], end) || AtEnd(p.Points[^1], end))));
+        int parallel = 0;
+        for (int x = 430; x < 1610; x++)
+        {
+            int bands = 0;
+            bool paved = false;
+            for (int z = 545; z <= 615; z++)
+            {
+                bool asphalt = world.Roads![x, z] == (byte)RoadType.Asphalt;
+                if (asphalt && !paved) bands++;
+                paved = asphalt;
+            }
+            Assert.True(bands > 0, $"No paved route crosses the strip at X={x}.");
+            parallel = bands > 1 ? parallel + 1 : 0;
+            Assert.True(parallel <= 100, $"Two paved routes continue beside each other at X={x}.");
+        }
+
+        static bool AtEnd(float[] point, (int X, int Z) end) => point[0] == end.X && point[1] == end.Z;
+    }
+
+    [Fact]
+    public void Highway_pieces_meet_existing_pavement_at_its_original_height()
+    {
+        var world = CoastWithRoad();
+        var result = Run(world, new HighwayOptions { Wiggle = 0 }, []);
+
+        var pieces = result.Added.Where(r => r.Kind == HighwayKind.Highway).ToList();
+        Assert.Equal(2, pieces.Count);
+        var ends = pieces.SelectMany(p => new[] { p.Points[0], p.Points[^1] }).ToList();
+        var junctions = ends.Where(p => Math.Abs(p[1] - CoastRoadZ) <= 8 && p[0] is >= 410 and < 1630).ToList();
+        Assert.Equal(2, junctions.Count);
+        ushort pavement = World.MetresToHeight(44.25f);
+        for (int z = CoastRoadZ - 8; z <= CoastRoadZ + 8; z++)
+            for (int x = 410; x < 1630; x++)
+                Assert.Equal(((byte)RoadType.Asphalt, pavement), (world.Roads![x, z], world.Height[x, z]));
+        Assert.Contains(1799 + 525 * world.Size, ConnectedPaint(world, (300, 525)));
+    }
+
+    [Fact]
+    public void Asphalt_continues_across_the_existing_gravel_shoulder_at_both_junctions()
+    {
+        var world = CoastWithRoad();
+        int shoulder = CoastRoadZ - 8;
+        world.Roads!.Row(shoulder).Slice(410, 1220).Fill((byte)RoadType.Gravel);
+        var result = Run(world, new HighwayOptions { Wiggle = 0 }, []);
+
+        var junctions = result.Added.Where(p => p.Kind == HighwayKind.Highway)
+            .SelectMany(p => new[] { p.Points[0], p.Points[^1] })
+            .Where(p => Math.Abs(p[1] - CoastRoadZ) <= 8 && p[0] is >= 410 and < 1630).ToList();
+        Assert.Equal(2, junctions.Count);
+        foreach (var point in junctions)
+        {
+            int x = (int)point[0];
+            Assert.Contains(Enumerable.Range(Math.Max(410, x - 5), 9),
+                i => i < 1630 && world.Roads[i, shoulder] == (byte)RoadType.Asphalt);
+        }
+        Assert.Equal((byte)RoadType.Gravel, world.Roads[1000, shoulder]);
+        Assert.All(world.Height.Row(shoulder).Slice(410, 1220).ToArray(), h => Assert.Equal(World.MetresToHeight(44.25f), h));
+    }
+
+    [Fact]
+    public void A_highway_ends_at_the_first_crossing_when_the_roads_already_meet()
+    {
+        var (grid, exit) = JunctionGrid();
+        grid.IndexRoad(RoadOp.Centreline([new(255, 135), new(255, 255), new(385, 255)], 0));
+        var approach = RoadOp.Centreline([new(175, 185), new(335, 185), new(335, 255)], 0);
+
+        var trimmed = HighwayStage.TrimRoadPiece(grid, approach, exit, null, country: false, joinsStart: false, joinsEnd: true);
+
+        Assert.NotNull(trimmed);
+        Assert.Equal(approach[0], trimmed[0]);
+        Assert.Equal(255, trimmed[^1].X);
+        Assert.InRange(trimmed[^1].Y, 175, 195);
+        Assert.All(trimmed, point => Assert.True(point.X <= 263));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_short_connector_is_needed_only_when_the_existing_roads_do_not_meet_nearby(bool connected)
+    {
+        var (grid, exit) = JunctionGrid();
+        grid.IndexRoad(RoadOp.Centreline([new(255, 135), new(255, 255)], 0));
+        grid.IndexRoad(RoadOp.Centreline([new(connected ? 255 : 300, 255), new(385, 255)], 0));
+        var connector = RoadOp.Centreline([new(255, 185), new(295, 205), new(335, 255)], 0);
+
+        var trimmed = HighwayStage.TrimRoadPiece(grid, connector, exit, null, country: false, joinsStart: true, joinsEnd: true);
+
+        if (connected) Assert.Null(trimmed);
+        else
+        {
+            Assert.NotNull(trimmed);
+            Assert.Equal(connector[0].X, trimmed[0].X);
+            Assert.Equal(connector[^1].Y, trimmed[^1].Y);
+        }
+    }
+
+    [Fact]
+    public void An_exit_with_a_connected_approach_does_not_get_a_second_stub()
+    {
+        var (grid, exit) = JunctionGrid();
+        grid.ProtectStreet(exit.Tile.Rect);
+        grid.Flags[grid.CellOf(exit.Point)] |= HighwayStage.PathGrid.Blocked;
+        grid.IndexRoad(RoadOp.Centreline([exit.Point, new(265, 185)], 0));
+        var approach = RoadOp.Centreline([exit.Point, new(205, 185)], 0);
+
+        Assert.Null(HighwayStage.TrimRoadPiece(grid, approach, exit, null, country: false, joinsStart: false, joinsEnd: true));
+    }
+
+    private static (HighwayStage.PathGrid Grid, HighwayStage.Exit Exit) JunctionGrid()
+    {
+        const int size = 512;
+        var world = new World { Name = "Junction", Size = size, Height = new Grid<ushort>(size, size) };
+        Array.Fill(world.Height.Data, World.MetresToHeight(40));
+        return (new HighwayStage.PathGrid(world, Library, new HighwayOptions()),
+            new HighwayStage.Exit(new HighwayStage.Tile(new GridRect(0, 110, 150, 260), 2, true), 1));
+    }
+
+    [Fact]
+    public void A_shared_stretch_connects_the_same_towns_with_one_link_per_pair()
+    {
+        var world = CoastWithRoad(thirdTown: true);
+        var result = Run(world, new HighwayOptions { Wiggle = 0 }, []);
+
+        Assert.Empty(result.Notes);
+        Assert.Contains(result.Added, p => p.Kind == HighwayKind.Highway && p.Points[^1][0] is >= 410 and < 1630);
+        Assert.Contains(result.Added, p => p.Kind == HighwayKind.Highway && p.Points[0][0] is >= 410 and < 1630);
+        var townEnds = result.Added.SelectMany(p => new[] { p.Points[0], p.Points[^1] }).ToList();
+        Assert.Single(townEnds, p => p[0] == 1800 && p[1] == 525);
+        Assert.Single(townEnds, p => p[0] == 225 && p[1] == 299);
+        var connected = ConnectedPaint(world, (300, 525));
+        Assert.Contains(1800 + 525 * world.Size, connected);
+        Assert.Contains(225 + 299 * world.Size, connected);
+    }
+
+    [Fact]
+    public void Taking_down_split_highways_restores_every_height_and_road_cell()
+    {
+        var world = CoastWithRoad();
+        var heights = (ushort[])world.Height.Data.Clone();
+        var paint = (byte[])world.Roads!.Data.Clone();
+        var roads = new List<HighwayRoad>();
+
+        Run(world, new HighwayOptions { Wiggle = 0 }, roads);
+        Assert.Equal(2, roads.Count(p => p.Kind == HighwayKind.Highway));
+        HighwayStage.TakeDown(world, roads, new EditSession("Remove highways", world));
+
+        Assert.Empty(roads);
+        Assert.Equal(heights, world.Height.Data);
+        Assert.Equal(paint, world.Roads.Data);
+    }
+
+    private static HashSet<int> ConnectedPaint(World world, (int X, int Z) start)
+    {
+        int size = world.Size, first = start.X + start.Z * size;
+        var seen = new HashSet<int> { first };
+        var queue = new Queue<int>([first]);
+        while (queue.TryDequeue(out int cell))
+        {
+            int x = cell % size, z = cell / size;
+            foreach (var (dx, dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                int nx = x + dx, nz = z + dz;
+                if ((uint)nx >= size || (uint)nz >= size) continue;
+                int next = nx + nz * size;
+                if (world.Roads!.Data[next] != (byte)RoadType.None && seen.Add(next)) queue.Enqueue(next);
+            }
+        }
+        return seen;
     }
 }
