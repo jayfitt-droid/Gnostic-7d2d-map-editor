@@ -9,6 +9,9 @@ public sealed record GroupLayout(
     IReadOnlyList<(PrefabInstance Prefab, PrefabSpot Spot)> Prefabs,
     IReadOnlyList<(SpawnPoint Spawn, double X, double Z, float Rotation)> Spawns);
 
+/// <summary>The new map objects from a paste, or the reason the drop was blocked.</summary>
+public sealed record GroupPasteResult(string? Problem, IReadOnlyList<PrefabInstance> Prefabs, IReadOnlyList<SpawnPoint> Spawns);
+
 /// <summary>Captures a map selection and its riders before any of them move.</summary>
 public sealed class PrefabGroup
 {
@@ -18,29 +21,33 @@ public sealed class PrefabGroup
     private readonly HashSet<PrefabInstance> _prefabs;
     private readonly int _selectedPrefabCount;
     private readonly SpawnPoint[] _spawns;
-    private readonly Dictionary<PrefabInstance, PrefabInstance> _riders = [];
+    private readonly IReadOnlyDictionary<PrefabInstance, PrefabInstance> _riders;
+    private readonly IReadOnlyDictionary<PrefabInstance, int>? _prefabHeightOffsets;
+    private readonly IReadOnlyDictionary<SpawnPoint, float>? _spawnHeightOffsets;
     private readonly (double X, double Z) _centre;
 
     public PrefabGroup(World world, PrefabLibrary library, IEnumerable<PrefabInstance> prefabs, IEnumerable<SpawnPoint> spawns,
         Func<PrefabInstance, bool>? isBridgePiece = null)
+        : this(world, library, prefabs, spawns, isBridgePiece, null, null, null)
+    {
+    }
+
+    internal PrefabGroup(World world, PrefabLibrary library, IEnumerable<PrefabInstance> prefabs, IEnumerable<SpawnPoint> spawns,
+        Func<PrefabInstance, bool>? isBridgePiece, IReadOnlyDictionary<PrefabInstance, PrefabInstance>? riders,
+        IReadOnlyDictionary<PrefabInstance, int>? prefabHeightOffsets, IReadOnlyDictionary<SpawnPoint, float>? spawnHeightOffsets)
     {
         _world = world;
         _library = library;
         _isBridgePiece = isBridgePiece ?? (_ => false);
         var selected = prefabs.ToHashSet();
         var selectedSpawns = spawns.ToHashSet();
-        _prefabs = world.Prefabs.Where(selected.Contains).ToHashSet();
+        _prefabs = riders is null ? world.Prefabs.Where(selected.Contains).ToHashSet() : selected;
         _selectedPrefabCount = _prefabs.Count;
-        _spawns = world.Spawns.Where(selectedSpawns.Contains).ToArray();
-
-        // A whole tile carries its POIs and parts, even if one of them was also picked or sits on a picked POI.
-        foreach (var parent in _prefabs.OrderByDescending(p => library.Find(p.Name)?.IsStreetTile == true))
-        {
-            if (_riders.ContainsKey(parent)) continue;
-            foreach (var rider in PrefabPlacer.Contents(world, library, parent))
-                _riders.TryAdd(rider, parent);
-        }
+        _spawns = riders is null ? world.Spawns.Where(selectedSpawns.Contains).ToArray() : selectedSpawns.ToArray();
+        _riders = riders ?? CaptureRiders(world, library, _prefabs);
         _prefabs.UnionWith(_riders.Keys);
+        _prefabHeightOffsets = prefabHeightOffsets;
+        _spawnHeightOffsets = spawnHeightOffsets;
 
         var footprints = _prefabs.Select(p => PrefabPlacer.Footprint(world, p, library)).ToArray();
         double half = world.Size / 2;
@@ -53,6 +60,25 @@ public sealed class PrefabGroup
                 (footprints.Select(r => r.Z0 - half).Concat(_spawns.Select(s => (double)s.Z)).Min() +
                  footprints.Select(r => r.Z1 - half).Concat(_spawns.Select(s => (double)s.Z)).Max()) / 2);
     }
+
+    private static Dictionary<PrefabInstance, PrefabInstance> CaptureRiders(World world, PrefabLibrary library,
+        IEnumerable<PrefabInstance> prefabs)
+    {
+        var riders = new Dictionary<PrefabInstance, PrefabInstance>();
+        // A whole tile carries its POIs and parts, even if one of them was also picked or sits on a picked POI.
+        foreach (var parent in prefabs.OrderByDescending(p => library.Find(p.Name)?.IsStreetTile == true))
+        {
+            if (riders.ContainsKey(parent)) continue;
+            foreach (var rider in PrefabPlacer.Contents(world, library, parent))
+                riders.TryAdd(rider, parent);
+        }
+        return riders;
+    }
+
+    internal PrefabInstance? ParentOf(PrefabInstance prefab) => _riders.GetValueOrDefault(prefab);
+
+    /// <summary>The integer delta that puts the centre of the group under a point in world metres.</summary>
+    public (int X, int Z) DeltaTo(double x, double z) => ((int)Math.Round(x - _centre.X), (int)Math.Round(z - _centre.Z));
 
     /// <summary>Finds footprints and spawn positions wholly inside the box, in grid metres with Z north.</summary>
     public static (IEnumerable<PrefabInstance> Prefabs, IEnumerable<SpawnPoint> Spawns) InBox(
@@ -76,7 +102,7 @@ public sealed class PrefabGroup
     /// Applies one horizontal delta and a turn about the group's centre. A step is 90 degrees for a group with
     /// prefabs, or 45 degrees for a spawn-only group, as in Select. Positive steps turn counter-clockwise.
     /// </summary>
-    public GroupLayout Layout(int dx, int dz, int steps)
+    public GroupLayout Layout(int dx, int dz, int steps, int snap = 0)
     {
         int turns = steps & 3;
         var (cos, sin) = (_prefabs.Count, turns) switch
@@ -112,22 +138,68 @@ public sealed class PrefabGroup
             };
             prefabs.Add((p, new PrefabSpot(x + (int)offsetX, p.Position.Y, z + (int)offsetZ, (p.Rotation + turns) & 3)));
         }
+        // Snap one root against a street tile and give the same correction to every member.
+        if (snap > 0 && (_prefabHeightOffsets is not null || dx != 0 || dz != 0 || turns != 0))
+        {
+            var (sx, sz) = SnapDelta(prefabs, snap);
+            offsetX += sx;
+            offsetZ += sz;
+            for (int i = 0; i < prefabs.Count; i++)
+            {
+                var (p, spot) = prefabs[i];
+                prefabs[i] = (p, spot with { X = spot.X + sx, Z = spot.Z + sz });
+            }
+        }
         int degrees = steps * (_prefabs.Count > 0 ? 90 : 45);
         return new GroupLayout(prefabs, _spawns.Select(s => (s,
             s.X * cos - s.Z * sin + offsetX, s.X * sin + s.Z * cos + offsetZ,
             degrees == 0 ? s.RotationY : ((s.RotationY - degrees) % 360 + 360) % 360)).ToArray());
     }
 
-    /// <summary>Moves or turns the whole group in one edit. Returns the reason if the destination is blocked.</summary>
-    public string? Apply(int dx, int dz, int steps, bool flatten, bool replaceCovered, EditSession session)
+    private (int X, int Z) SnapDelta(IEnumerable<(PrefabInstance Prefab, PrefabSpot Spot)> prefabs, int snap)
     {
-        if (dx == 0 && dz == 0 && steps % (_prefabs.Count > 0 ? 4 : 8) == 0) return null;
-        if (MovementProblem() is { } problem) return problem;
-        var layout = Layout(dx, dz, steps);
+        var ignore = _prefabHeightOffsets is null ? _prefabs : null;
+        var roots = prefabs.Where(t => !_riders.ContainsKey(t.Prefab))
+            .Select(t => (t.Spot, Info: _library.Find(t.Prefab.Name))).ToArray();
+        int half = _world.Size / 2;
+        foreach (var (spot, info) in roots)
+            if (info is { IsStreetTile: true } && PrefabPlacer.SnapTileCorner(_world, _library,
+                    spot.X + half + PrefabPlacer.StreetTileSize / 2f, spot.Z + half + PrefabPlacer.StreetTileSize / 2f, ignore)
+                is { } corner)
+                return (corner.X - spot.X, corner.Z - spot.Z);
+        foreach (var (spot, info) in roots)
+            if (info is not null && PrefabPlacer.SnapToTileEdge(_world, _library, info, spot, snap, ignore) is { } edge &&
+                (edge.X != spot.X || edge.Z != spot.Z))
+                return (edge.X - spot.X, edge.Z - spot.Z);
+        return (0, 0);
+    }
+
+    /// <summary>Moves or turns the whole group in one edit. Returns the reason if the destination is blocked.</summary>
+    public string? Apply(int dx, int dz, int steps, bool flatten, bool replaceCovered, EditSession session, int snap = 0) =>
+        Land(dx, dz, steps, flatten, replaceCovered, session, snap, null, null);
+
+    /// <summary>Inserts the clipboard group, using the same landing rules as a move.</summary>
+    public GroupPasteResult Paste(int dx, int dz, int steps, bool flatten, EditSession session, int snap = 0)
+    {
+        if (_prefabHeightOffsets is null) throw new InvalidOperationException("This group is a map selection.");
+        List<PrefabInstance> prefabs = [];
+        List<SpawnPoint> spawns = [];
+        string? problem = Land(dx, dz, steps, flatten, replaceCovered: true, session, snap, prefabs, spawns);
+        return new GroupPasteResult(problem, prefabs, spawns);
+    }
+
+    private string? Land(int dx, int dz, int steps, bool flatten, bool replaceCovered, EditSession session, int snap,
+        List<PrefabInstance>? pastedPrefabs, List<SpawnPoint>? pastedSpawns)
+    {
+        bool paste = pastedPrefabs is not null;
+        if (!paste && dx == 0 && dz == 0 && steps % (_prefabs.Count > 0 ? 4 : 8) == 0) return null;
+        if (!paste && MovementProblem() is { } problem) return problem;
+        var layout = Layout(dx, dz, steps, snap);
+        var moving = paste ? [] : _prefabs;
         double half = _world.Size / 2;
         if (layout.Spawns.Any(t => t.X + half < 0 || t.Z + half < 0 ||
                                    t.X + half >= _world.Size || t.Z + half >= _world.Size))
-            return "The selection would move a spawn point outside the map.";
+            return paste ? "The paste would put a spawn point outside the map." : "The selection would move a spawn point outside the map.";
 
         var targets = layout.Prefabs.Select(t =>
         {
@@ -136,18 +208,18 @@ public sealed class PrefabGroup
                 Cells: PrefabPlacer.Footprint(_world, info, t.Spot.X, t.Spot.Z, t.Spot.Rotation));
         }).ToArray();
         if (targets.Any(t => t.Cells != t.Cells.Clamp(_world.Size, _world.Size)))
-            return "The selection would move a prefab outside the map.";
+            return paste ? "The paste would put a prefab outside the map." : "The selection would move a prefab outside the map.";
 
         var covered = new HashSet<PrefabInstance>();
         if (replaceCovered)
             foreach (var t in targets)
-                covered.UnionWith(PrefabPlacer.Covered(_world, _library, t.Info, t.Spot, _prefabs));
+                covered.UnionWith(PrefabPlacer.Covered(_world, _library, t.Info, t.Spot, moving));
 
         PrefabInstance? turnBlocker = null;
         if (targets.Length > 0)
             foreach (var p in _world.Prefabs)
             {
-                if (_prefabs.Contains(p)) continue;
+                if (moving.Contains(p)) continue;
                 var cells = PrefabPlacer.Footprint(_world, p, _library);
                 if (!targets.Any(t => Overlaps(t.Cells, cells))) continue;
                 if (_isBridgePiece(p)) return "The selection would overlap a bridge.";
@@ -159,7 +231,7 @@ public sealed class PrefabGroup
                     turnBlocker ??= p;
             }
 
-        var ignore = new HashSet<PrefabInstance>(_prefabs);
+        var ignore = new HashSet<PrefabInstance>(moving);
         ignore.UnionWith(covered);
         foreach (var t in targets)
             if (PrefabPlacer.TileInTheWay(_world, _library, t.Info, t.Spot, ignore) is { } tile)
@@ -170,7 +242,7 @@ public sealed class PrefabGroup
         var removed = new HashSet<PrefabInstance>(covered);
         foreach (var p in covered)
             removed.UnionWith(PrefabPlacer.Contents(_world, _library, p));
-        removed.ExceptWith(_prefabs);
+        removed.ExceptWith(moving);
         if (removed.Any(_isBridgePiece))
             return "The selection would replace part of a bridge.";
 
@@ -188,17 +260,21 @@ public sealed class PrefabGroup
         var ground = roots.ToDictionary(t => t.Prefab, t => t.Info.IsStreetTile ? tileGround!.Value
             : (t.Info.IsPart ? null : PrefabPlacer.RoadGround(_world, t.Cells)) ?? PrefabPlacer.MedianGround(_world, t.Cells));
         var yDeltas = roots.ToDictionary(t => t.Prefab,
-            t => PrefabPlacer.PrefabY(t.Info, ground[t.Prefab]) - t.Prefab.Position.Y);
+            t => PrefabPlacer.PrefabY(t.Info, ground[t.Prefab]) + (_prefabHeightOffsets?.GetValueOrDefault(t.Prefab) ?? 0)
+                - t.Prefab.Position.Y);
         if (targets.Length > 0)
         {
-            TouchPrefabs(session, _prefabs.Concat(removed), targets.Select(t => t.Cells));
+            TouchPrefabs(session, moving.Concat(removed), targets.Select(t => t.Cells));
             _world.Prefabs.RemoveAll(removed.Contains);
             foreach (var t in targets)
             {
                 var root = _riders.GetValueOrDefault(t.Prefab, t.Prefab);
-                t.Prefab.Position = t.Spot.Position with { Y = t.Prefab.Position.Y + yDeltas[root] };
-                t.Prefab.Rotation = t.Spot.Rotation;
+                var prefab = paste ? t.Prefab.Clone() : t.Prefab;
+                prefab.Position = t.Spot.Position with { Y = prefab.Position.Y + yDeltas[root] };
+                prefab.Rotation = t.Spot.Rotation;
+                pastedPrefabs?.Add(prefab);
             }
+            if (pastedPrefabs is not null) _world.Prefabs.AddRange(pastedPrefabs);
         }
 
         if (flatten)
@@ -222,9 +298,19 @@ public sealed class PrefabGroup
         foreach (var (spawn, x, z, rotation) in layout.Spawns)
         {
             float wx = (float)x, wz = (float)z;
+            int gx = (int)Math.Floor(x + half), gz = (int)Math.Floor(z + half);
+            if (pastedSpawns is not null)
+            {
+                var added = SpawnHelper.Add(_world, gx, gz, rotation, session);
+                added.X = wx;
+                added.Z = wz;
+                added.Y += _spawnHeightOffsets![spawn];
+                pastedSpawns.Add(added);
+                continue;
+            }
             if (spawn.X != wx || spawn.Z != wz)
             {
-                SpawnHelper.Move(_world, spawn, (int)Math.Floor(x + half), (int)Math.Floor(z + half), session);
+                SpawnHelper.Move(_world, spawn, gx, gz, session);
                 spawn.X = wx;
                 spawn.Z = wz;
             }

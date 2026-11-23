@@ -30,6 +30,7 @@ public partial class ShortcutsWindow : Window
             ]),
             new("Prefabs",
             [
+                new(["Ctrl+C", "Ctrl+V"], "Copy the selection / paste (Select and Multi-select)"),
                 new(["Del"], "Delete the selection"),
                 new(["PgUp", "PgDn"], "Raise or lower one block"),
                 new(["Esc"], "Cancel what the tool is doing; again to go back to Select; in Select, deselect"),
