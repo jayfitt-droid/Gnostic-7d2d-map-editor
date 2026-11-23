@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
 using MapEditor.Core.Edit;
+using MapEditor.Core.GameData;
 using MapEditor.Core.Generate;
 using MapEditor.Core.Model;
 
@@ -257,16 +258,17 @@ public static class BridgeTool
         if (PlanRamp(world, plan, atStart) is not { } ramp) return null;
         float deck = plan.DeckTop;
         var path = new RoadPath([ramp.From, ramp.To], RoadType.Asphalt, BridgeOp.Width / 2f);
+        var library = plan.Kit.Library ?? PrefabLibrary.Of([plan.Kit.Tile, plan.Kit.End, .. plan.Kit.Wrecks.Select(w => w.Info)]);
         // A prefab in the way (a town's street tile, a POI): the ramp ends at its edge, level with its ground there, as the
         // highway stage's roads meet prefabs. It climbs (or drops) at one even grade on the way, the gentlest the room allows.
         if (ramp.Ends == RampEnd.Prefab)
         {
             float ground = PrefabAhead(world, plan, ramp.From, Direction(plan, atStart), ramp.Length)!.Value.Ground;
             return HighwayStage.Capture(world, path, () =>
-                RoadOp.Draw(world, path, session, (_, line) => HeldProfile(line, deck, ground, Math.Max(0, ramp.Length - HeldLevel))));
+                RoadOp.Draw(world, path, session, (_, line) => HeldProfile(line, deck, ground, Math.Max(0, ramp.Length - HeldLevel)), library));
         }
         return HighwayStage.Capture(world, path, () =>
-            RoadOp.Draw(world, path, session, (w, line) => ApproachProfile(w, line, path.Type, deck, null, ramp.Length)));
+            RoadOp.Draw(world, path, session, (w, line) => ApproachProfile(w, line, path.Type, deck, null, ramp.Length), library));
     }
 
     private static Vector2 Direction(BridgePlan plan, bool atStart) =>

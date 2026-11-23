@@ -453,8 +453,8 @@ public sealed class BridgeTests
     /// at their exits.
     /// </summary>
     [Theory]
-    [InlineData(false, "59F7033B63FABBF9CBBB91C7FFEA7E8226CCF4690955DAAA58F31B05C8392756")]
-    [InlineData(true, "6B0C74E296245AEB851F554475D23997A08FAE033311C2711868A1BD005F3846")]
+    [InlineData(false, "ECF5F88ADA53E676B22E281BA0FB95DEEF71AB99AB761B92BBF0478B55A97129")]
+    [InlineData(true, "2E84DFA138874FD8D10E19C723D6FC78878304EEFBA7129E5A5CA8DA52A640B5")]
     public void A_seeded_bridge_run_gives_the_same_world_and_records(bool wrecks, string expected)
     {
         var world = TwoIslands();

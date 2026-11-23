@@ -348,7 +348,7 @@ public sealed class TerrainToolController
             ? (w, line) => BridgeTool.ApproachProfile(w, line, road.Type, startDeck, endDeck, reach)
             : null;
         // On failure the points stay, so the road can be tried again or cancelled.
-        if (!_edits.Step(session, s => rect = RoadOp.Draw(world, road, s, profile))) return;
+        if (!_edits.Step(session, s => rect = RoadOp.Draw(world, road, s, profile, _vm.Prefabs))) return;
         _roadPoints.Clear();
         _roadDecks.Clear();
         _startHeading = null;
