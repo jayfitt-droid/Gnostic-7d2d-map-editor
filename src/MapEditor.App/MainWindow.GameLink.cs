@@ -29,7 +29,8 @@ public partial class MainWindow
                 : await _gameLink.AddWaypointAsync(x, z, waypointPrefab);
             if (!reply.Ok)
             {
-                if (reply.Error is GameLinkError.Unavailable or GameLinkError.NoReply) _vm.GameLinkConnected = false;
+                if (reply.Error is GameLinkError.Unavailable or GameLinkError.NoReply or GameLinkError.InvalidToken)
+                    _vm.GameLinkConnected = false;
                 if (CanUseGameLink(world) && SameExport()) ShowGameLinkError(reply.Error);
                 else _vm.Status = GameLinkErrorText(reply.Error);
                 return;
@@ -166,6 +167,7 @@ public partial class MainWindow
         GameLinkError.InvalidReply => "Game Link sent an invalid reply.",
         GameLinkError.BadRequest => "Game Link could not use that target.",
         GameLinkError.UnsupportedProtocol => "Install Gnostic Game Link 1.1.0 to use Game Link with this editor.",
+        GameLinkError.InvalidToken => "Game Link could not verify the session. Restart the game or install the mod that matches this editor.",
         GameLinkError.NotReady => "The game is not ready. Enter a world and try again.",
         GameLinkError.Dead => "The player is dead. Respawn and try again.",
         GameLinkError.Remote => "Game Link works in single-player or when you host the game.",

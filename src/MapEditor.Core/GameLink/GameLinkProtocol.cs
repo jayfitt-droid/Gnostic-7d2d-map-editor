@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace MapEditor.Core.GameLink;
 
 internal enum GameLinkRequestKind { Status, Teleport, Waypoint, Picture }
-internal enum GameLinkParseResult { Ok, BadRequest, UnsupportedProtocol }
+internal enum GameLinkParseResult { Ok, BadRequest, UnsupportedProtocol, InvalidToken }
 
 /// <summary>A validated request. A teleport's facing is selected from fixed protocol values.</summary>
 internal readonly struct GameLinkRequest(
@@ -28,7 +29,8 @@ internal static class GameLinkProtocol
 {
     public const int Version = 2;
     public const int Port = 7790;
-    public const int MaxRequestBytes = 128;
+    public const int MaxRequestBytes = 160;
+    public const int SessionTokenLength = 32;
     public const int ReadTimeoutMilliseconds = 2000;
     internal const float PictureVerticalFov = 50f;
     internal const float PictureMinimumAspect = 1.6f;
@@ -38,40 +40,87 @@ internal static class GameLinkProtocol
     public static readonly string RequestPrefix = RequestName + " " + VersionText + " ";
     private static readonly string[] CompassFacings = new[] { "n", "ne", "e", "se", "s", "sw", "w", "nw" };
 
+    public static string SessionTokenPath =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "7DaysToDie", "GnosticGameLink", "session-token");
+
+    public static string CreateSessionToken()
+    {
+        byte[] bytes = new byte[SessionTokenLength / 2];
+        using var random = RandomNumberGenerator.Create();
+        random.GetBytes(bytes);
+        return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
+    }
+
+    public static bool IsSessionToken(string token) =>
+        token.Length == SessionTokenLength && token.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
+
     public static bool IsPrefabName(string name) =>
         name.Length is >= 1 and <= 64 &&
         name.All(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_' or '-');
 
     /// <summary>Reads one line, including its terminator in the byte limit.</summary>
-    public static GameLinkParseResult ReadRequest(Stream stream, out GameLinkRequest request)
+    public static GameLinkParseResult ReadRequest(Stream stream, string sessionToken, out GameLinkRequest request)
     {
         request = default;
         byte[] buffer = new byte[MaxRequestBytes];
         var elapsed = Stopwatch.StartNew();
         int length = 0;
-        while (length < buffer.Length)
+        try
         {
-            int remaining = ReadTimeoutMilliseconds - (int)elapsed.ElapsedMilliseconds;
-            if (remaining <= 0)
-                break;
-            if (stream.CanTimeout)
-                stream.ReadTimeout = remaining;
-
-            int count = stream.Read(buffer, length, buffer.Length - length);
-            if (count == 0)
-                break;
-
-            int newline = Array.IndexOf(buffer, (byte)'\n', length, count);
-            if (newline >= 0)
+            while (length < buffer.Length)
             {
-                int end = newline > 0 && buffer[newline - 1] == '\r' ? newline - 1 : newline;
-                return ParseRequest(buffer, end, out request);
-            }
+                int remaining = ReadTimeoutMilliseconds - (int)elapsed.ElapsedMilliseconds;
+                if (remaining <= 0)
+                    break;
+                if (stream.CanTimeout)
+                    stream.ReadTimeout = remaining;
 
-            length += count;
+                int count = stream.Read(buffer, length, buffer.Length - length);
+                if (count == 0)
+                    break;
+
+                int newline = Array.IndexOf(buffer, (byte)'\n', length, count);
+                if (newline >= 0)
+                {
+                    int end = newline > 0 && buffer[newline - 1] == '\r' ? newline - 1 : newline;
+                    return HasSessionToken(buffer, end, sessionToken)
+                        ? ParseRequest(buffer, end, out request)
+                        : GameLinkParseResult.InvalidToken;
+                }
+
+                length += count;
+            }
+        }
+        catch (IOException)
+        {
+            // A timed-out or interrupted read may still contain the token field.
         }
 
-        return GameLinkParseResult.BadRequest;
+        return HasSessionToken(buffer, length, sessionToken)
+            ? GameLinkParseResult.BadRequest
+            : GameLinkParseResult.InvalidToken;
+    }
+
+    private static bool HasSessionToken(byte[] buffer, int length, string sessionToken)
+    {
+        // Locate the third field without validating the request name, version or command.
+        int firstSpace = Array.IndexOf(buffer, (byte)' ', 0, length);
+        if (firstSpace < 0)
+            return false;
+        int secondSpace = Array.IndexOf(buffer, (byte)' ', firstSpace + 1, length - firstSpace - 1);
+        if (secondSpace < 0)
+            return false;
+        int start = secondSpace + 1;
+        int end = Array.IndexOf(buffer, (byte)' ', start, length - start);
+        if ((end < 0 ? length : end) - start != SessionTokenLength)
+            return false;
+
+        // Compare every character without returning early on a mismatch (also on .NET Framework).
+        int difference = 0;
+        for (int i = 0; i < SessionTokenLength; i++)
+            difference |= buffer[start + i] ^ sessionToken[i];
+        return difference == 0;
     }
 
     private static GameLinkParseResult ParseRequest(byte[] buffer, int length, out GameLinkRequest request)
@@ -83,7 +132,7 @@ internal static class GameLinkProtocol
                 return GameLinkParseResult.BadRequest;
 
         string[] parts = Encoding.ASCII.GetString(buffer, 0, length).Split(' ');
-        if (parts.Length < 3 || parts[0] != RequestName || parts[2].Length == 0)
+        if (parts.Length < 4 || parts[0] != RequestName || parts[3].Length == 0)
             return GameLinkParseResult.BadRequest;
         if (parts[1] != VersionText)
         {
@@ -92,34 +141,34 @@ internal static class GameLinkProtocol
                 : GameLinkParseResult.BadRequest;
         }
 
-        if (parts.Length == 3 && parts[2] == "STATUS")
+        if (parts.Length == 4 && parts[3] == "STATUS")
         {
             request = new(GameLinkRequestKind.Status);
             return GameLinkParseResult.Ok;
         }
 
-        if (parts[2] == "PICTURE" && parts.Length == 9 &&
-            TryCoordinate(parts[3], out int camX) && TryCoordinate(parts[4], out int camY) &&
-            TryCoordinate(parts[5], out int camZ) && TryCoordinate(parts[6], out int lookX) &&
-            TryCoordinate(parts[7], out int lookY) && TryCoordinate(parts[8], out int lookZ))
+        if (parts[3] == "PICTURE" && parts.Length == 10 &&
+            TryCoordinate(parts[4], out int camX) && TryCoordinate(parts[5], out int camY) &&
+            TryCoordinate(parts[6], out int camZ) && TryCoordinate(parts[7], out int lookX) &&
+            TryCoordinate(parts[8], out int lookY) && TryCoordinate(parts[9], out int lookZ))
         {
             request = new(GameLinkRequestKind.Picture, camX, camZ, y: camY, lookX: lookX, lookY: lookY, lookZ: lookZ);
             return GameLinkParseResult.Ok;
         }
 
-        if (parts.Length != 6 || !TryCoordinate(parts[3], out int x) || !TryCoordinate(parts[4], out int z))
+        if (parts.Length != 7 || !TryCoordinate(parts[4], out int x) || !TryCoordinate(parts[5], out int z))
             return GameLinkParseResult.BadRequest;
 
-        switch (parts[2])
+        switch (parts[3])
         {
             case "TELEPORT":
-                string facing = parts[5];
+                string facing = parts[6];
                 if (facing != "-" && Array.IndexOf(CompassFacings, facing) < 0)
                     return GameLinkParseResult.BadRequest;
                 request = new(GameLinkRequestKind.Teleport, x, z, facing == "-" ? null : facing);
                 return GameLinkParseResult.Ok;
             case "WAYPOINT":
-                string name = parts[5];
+                string name = parts[6];
                 if (!IsPrefabName(name))
                     return GameLinkParseResult.BadRequest;
                 request = new(GameLinkRequestKind.Waypoint, x, z, prefabName: name);

@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using MapEditor.Core.GameData;
 using MapEditor.Core.Model;
 
 namespace MapEditor.Core.GameLink;
@@ -13,6 +14,7 @@ public enum GameLinkError
 {
     None, Unavailable, NoReply, InvalidReply, BadRequest, UnsupportedProtocol, NotReady, Dead, Remote,
     OffMap, Busy, Failed, PoiNotFound, AlreadySet, PictureFailed, PictureRenderTimeout,
+    InvalidToken,
 }
 
 /// <summary>The local player's game coordinates and clockwise heading from north, in degrees.</summary>
@@ -36,13 +38,15 @@ public sealed class GameLinkClient
     internal static readonly Regex PictureName = new(@"\Agnostic-[0-9]{8}-[0-9]{6}-[0-9]{3}\.png\z");
     private readonly int _port;
     private readonly TimeSpan _replyTimeout;
+    private readonly string _sessionTokenPath;
 
-    public GameLinkClient() : this(GameLinkProtocol.Port, TimeSpan.FromSeconds(5)) { }
+    public GameLinkClient() : this(GameLinkProtocol.Port, TimeSpan.FromSeconds(5), GameInstall.GameLinkSessionTokenPath) { }
 
-    internal GameLinkClient(int port, TimeSpan replyTimeout)
+    internal GameLinkClient(int port, TimeSpan replyTimeout, string sessionTokenPath)
     {
         _port = port;
         _replyTimeout = replyTimeout;
+        _sessionTokenPath = sessionTokenPath;
     }
 
     public Task<GameLinkReply> GetStatusAsync(CancellationToken cancel = default) =>
@@ -87,8 +91,12 @@ public sealed class GameLinkClient
         replyDeadline.CancelAfter(kind == GameLinkRequestKind.Picture ? PictureReplyTimeout : _replyTimeout);
         try
         {
+            string? sessionToken = await ReadSessionTokenAsync(replyDeadline.Token).ConfigureAwait(false);
+            if (sessionToken is null)
+                return new(GameLinkError.InvalidToken);
+
             using NetworkStream stream = client.GetStream();
-            byte[] line = Encoding.UTF8.GetBytes(GameLinkProtocol.RequestPrefix + request + "\n");
+            byte[] line = Encoding.UTF8.GetBytes(GameLinkProtocol.RequestPrefix + sessionToken + " " + request + "\n");
             await stream.WriteAsync(line, replyDeadline.Token).ConfigureAwait(false);
             return await ReadReplyAsync(stream, kind, replyDeadline.Token).ConfigureAwait(false);
         }
@@ -96,6 +104,23 @@ public sealed class GameLinkClient
         {
             cancel.ThrowIfCancellationRequested();
             return new(GameLinkError.NoReply);
+        }
+    }
+
+    private async Task<string?> ReadSessionTokenAsync(CancellationToken cancel)
+    {
+        try
+        {
+            using var file = new FileStream(_sessionTokenPath, FileMode.Open, FileAccess.Read,
+                FileShare.Read | FileShare.Delete, bufferSize: 4096, useAsync: true);
+            byte[] bytes = new byte[GameLinkProtocol.SessionTokenLength + 1];
+            int length = await file.ReadAtLeastAsync(bytes, bytes.Length, false, cancel).ConfigureAwait(false);
+            string token = Encoding.ASCII.GetString(bytes, 0, length);
+            return GameLinkProtocol.IsSessionToken(token) ? token : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
         }
     }
 
@@ -191,6 +216,7 @@ public sealed class GameLinkClient
     {
         "bad_request" => GameLinkError.BadRequest,
         "unsupported_protocol" => GameLinkError.UnsupportedProtocol,
+        "invalid_token" => GameLinkError.InvalidToken,
         "not_ready" => GameLinkError.NotReady,
         "dead" => GameLinkError.Dead,
         "remote" => GameLinkError.Remote,

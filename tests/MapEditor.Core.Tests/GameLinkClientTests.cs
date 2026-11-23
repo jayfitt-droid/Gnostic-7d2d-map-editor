@@ -7,12 +7,20 @@ using MapEditor.Core.Model;
 
 namespace MapEditor.Core.Tests;
 
-public class GameLinkClientTests
+public class GameLinkClientTests : IDisposable
 {
+    private const string SessionToken = "0123456789abcdef0123456789abcdef";
+    private const string Prefix = "GNOSTICLINK 2 " + SessionToken + " ";
+    private readonly string _tokenPath = Path.Combine(AppContext.BaseDirectory, $"game-link-{Guid.NewGuid():N}.token");
+
+    public GameLinkClientTests() => File.WriteAllText(_tokenPath, SessionToken);
+
+    public void Dispose() => File.Delete(_tokenPath);
+
     [Fact]
     public async Task StatusReadsAReadyPlayerAndUnicodeWorld()
     {
-        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 2 STATUS",
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), Prefix + "STATUS",
             """{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"Île \u0022Test\u0022","hosting":true,"player":""",
             """{"x":-412.25,"z":1880,"yaw":135}}""" + "\r\n");
 
@@ -27,7 +35,7 @@ public class GameLinkClientTests
     [InlineData("remote", GameLinkState.Remote)]
     public async Task StatusReadsOtherStatesWithoutAPlayer(string state, GameLinkState expected)
     {
-        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 2 STATUS",
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), Prefix + "STATUS",
             $$"""{"ok":true,"protocol":2,"mod":"1.1.0","state":"{{state}}","world":"","hosting":false}""" + "\n");
 
         Assert.True(reply.Ok);
@@ -43,7 +51,7 @@ public class GameLinkClientTests
     public async Task TeleportSendsCoordinatesAndFacing(Facing? facing, string token)
     {
         var reply = await ExchangeAsync((client, cancel) => client.TeleportAsync(-412, 1880, facing, cancel),
-            "GNOSTICLINK 2 TELEPORT -412 1880 " + token, """{"ok":true}""" + "\n");
+            Prefix + "TELEPORT -412 1880 " + token, """{"ok":true}""" + "\n");
         Assert.True(reply.Ok);
     }
 
@@ -51,7 +59,7 @@ public class GameLinkClientTests
     public async Task WaypointPreservesNameAndReadsTheTemporaryMessage()
     {
         var reply = await ExchangeAsync((client, cancel) => client.AddWaypointAsync(-412, 1880, "Farm_16-west", cancel),
-            "GNOSTICLINK 2 WAYPOINT -412 1880 Farm_16-west",
+            Prefix + "WAYPOINT -412 1880 Farm_16-west",
             """{"ok":true,"message":"Temporary waypoint added. The game does not save it."}""" + "\n");
         Assert.True(reply.Ok);
         Assert.Equal("Temporary waypoint added. The game does not save it.", reply.Message);
@@ -59,6 +67,7 @@ public class GameLinkClientTests
 
     [Theory]
     [InlineData("bad_request", GameLinkError.BadRequest)]
+    [InlineData("invalid_token", GameLinkError.InvalidToken)]
     [InlineData("unsupported_protocol", GameLinkError.UnsupportedProtocol)]
     [InlineData("not_ready", GameLinkError.NotReady)]
     [InlineData("dead", GameLinkError.Dead)]
@@ -73,7 +82,7 @@ public class GameLinkClientTests
     public async Task ReadsTheModsErrors(string code, GameLinkError expected)
     {
         var reply = await ExchangeAsync((client, cancel) => client.AddWaypointAsync(0, 0, "farm_16", cancel),
-            "GNOSTICLINK 2 WAYPOINT 0 0 farm_16",
+            Prefix + "WAYPOINT 0 0 farm_16",
             $$"""{"ok":false,"error":"{{code}}","message":"Test error."}""" + "\n");
         Assert.Equal(expected, reply.Error);
         Assert.Equal("Test error.", reply.Message);
@@ -89,7 +98,7 @@ public class GameLinkClientTests
     public async Task PictureSendsCoordinatesAndAcceptsOnlyGeneratedNames(string? file, bool valid)
     {
         var reply = await ExchangeAsync((client, cancel) => client.TakePictureAsync(new(-10, 90, -20), new(30, 40, 50), cancel),
-            "GNOSTICLINK 2 PICTURE -10 90 -20 30 40 50", JsonSerializer.Serialize(new { ok = true, file }) + "\n");
+            Prefix + "PICTURE -10 90 -20 30 40 50", JsonSerializer.Serialize(new { ok = true, file }) + "\n");
         Assert.Equal(valid ? GameLinkError.None : GameLinkError.InvalidReply, reply.Error);
         Assert.Equal(valid ? file : null, reply.FileName);
     }
@@ -100,7 +109,7 @@ public class GameLinkClientTests
         using var server = new TcpListener(IPAddress.Loopback, 0);
         server.Start();
         var cancel = TestContext.Current.CancellationToken;
-        var client = new GameLinkClient(((IPEndPoint)server.LocalEndpoint).Port, TimeSpan.FromMilliseconds(100));
+        var client = new GameLinkClient(((IPEndPoint)server.LocalEndpoint).Port, TimeSpan.FromMilliseconds(100), _tokenPath);
         var response = client.TakePictureAsync(new(0, 80, -30), new(0, 50, 0), cancel);
         using var accepted = await server.AcceptTcpClientAsync(cancel);
         await Task.Delay(250, cancel);
@@ -120,14 +129,14 @@ public class GameLinkClientTests
         GameLinkError.InvalidReply)]
     public async Task RejectsInvalidStatusReplies(string line, GameLinkError error)
     {
-        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 2 STATUS", line);
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), Prefix + "STATUS", line);
         Assert.Equal(error, reply.Error);
     }
 
     [Fact]
     public async Task RejectsAReplyAboveTheByteLimit()
     {
-        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 2 STATUS",
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), Prefix + "STATUS",
             new string(' ', 4096) + "{}\n");
         Assert.Equal(GameLinkError.InvalidReply, reply.Error);
     }
@@ -148,8 +157,54 @@ public class GameLinkClientTests
     {
         using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-        var client = new GameLinkClient(((IPEndPoint)socket.LocalEndPoint!).Port, TimeSpan.FromSeconds(3));
+        var client = new GameLinkClient(((IPEndPoint)socket.LocalEndPoint!).Port, TimeSpan.FromSeconds(3), _tokenPath);
         Assert.Equal(GameLinkError.Unavailable, (await client.GetStatusAsync(TestContext.Current.CancellationToken)).Error);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(SessionToken + "\n")]
+    [InlineData("0123456789ABCDEF0123456789ABCDEF")]
+    public async Task SendsNoRequestWhenTheTokenFileIsMissingOrInvalid(string? contents)
+    {
+        if (contents is null)
+            File.Delete(_tokenPath);
+        else
+            File.WriteAllText(_tokenPath, contents);
+
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        server.Start();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        var response = ClientFor(server).GetStatusAsync(deadline.Token);
+        using var accepted = await server.AcceptTcpClientAsync(deadline.Token);
+        Assert.Equal(GameLinkError.InvalidToken, (await response).Error);
+        Assert.Equal(0, await accepted.GetStream().ReadAsync(new byte[1], deadline.Token));
+    }
+
+    [Fact]
+    public async Task ReadsTheNewTokenOnTheNextRequest()
+    {
+        const string nextToken = "abcdef0123456789abcdef0123456789";
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        server.Start();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        var client = ClientFor(server);
+
+        await CheckRequestAsync(Prefix + "STATUS");
+        File.WriteAllText(_tokenPath, nextToken);
+        await CheckRequestAsync("GNOSTICLINK 2 " + nextToken + " STATUS");
+
+        async Task CheckRequestAsync(string expected)
+        {
+            var response = client.GetStatusAsync(deadline.Token);
+            using var accepted = await server.AcceptTcpClientAsync(deadline.Token);
+            using var reader = new StreamReader(accepted.GetStream());
+            Assert.Equal(expected, await reader.ReadLineAsync(deadline.Token));
+            accepted.Close();
+            Assert.Equal(GameLinkError.NoReply, (await response).Error);
+        }
     }
 
     [Fact]
@@ -158,13 +213,13 @@ public class GameLinkClientTests
         using var server = new TcpListener(IPAddress.Loopback, 0);
         server.Start();
         var cancel = TestContext.Current.CancellationToken;
-        var client = new GameLinkClient(((IPEndPoint)server.LocalEndpoint).Port, TimeSpan.FromMilliseconds(500));
+        var client = new GameLinkClient(((IPEndPoint)server.LocalEndpoint).Port, TimeSpan.FromMilliseconds(500), _tokenPath);
         Task<GameLinkReply> response = client.GetStatusAsync(cancel);
         using var accepted = await server.AcceptTcpClientAsync(cancel);
         Assert.Equal(GameLinkError.NoReply, (await response).Error);
     }
 
-    private static async Task<GameLinkReply> ExchangeAsync(
+    private async Task<GameLinkReply> ExchangeAsync(
         Func<GameLinkClient, CancellationToken, Task<GameLinkReply>> request, string expectedRequest, params string[] replyParts)
     {
         using var server = new TcpListener(IPAddress.Loopback, 0);
@@ -183,6 +238,6 @@ public class GameLinkClientTests
         return await response;
     }
 
-    private static GameLinkClient ClientFor(TcpListener server) =>
-        new(((IPEndPoint)server.LocalEndpoint).Port, TimeSpan.FromSeconds(3));
+    private GameLinkClient ClientFor(TcpListener server) =>
+        new(((IPEndPoint)server.LocalEndpoint).Port, TimeSpan.FromSeconds(3), _tokenPath);
 }
