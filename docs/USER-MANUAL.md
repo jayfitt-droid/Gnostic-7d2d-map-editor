@@ -328,6 +328,8 @@ The road snaps as you draw:
 
 To remove a road, hold **Shift** and drag over it.
 
+When you grade a road, the ground beside it slopes gently. The slope is wider where the ground is steep.
+
 Roads make their flat parts level to whole metres. Prefabs also sit at whole metres, so a POI next to a road meets it with no step.
 
 ### Bridges
