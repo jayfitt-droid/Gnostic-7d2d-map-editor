@@ -1,5 +1,6 @@
 using System.Numerics;
 using MapEditor.Core.Edit;
+using MapEditor.Core.GameData;
 using MapEditor.Core.Model;
 
 namespace MapEditor.Core.Ops;
@@ -10,10 +11,16 @@ namespace MapEditor.Core.Ops;
 /// </summary>
 public sealed record RoadPath(IReadOnlyList<Vector2> Points, RoadType Type, float Radius, bool Grade = true)
 {
-    /// <summary>Distance over which graded terrain blends back into the original ground.</summary>
+    /// <summary>Minimum distance over which graded terrain blends back into the original ground.</summary>
     public float BlendDistance => BlendFor(Type);
 
     internal static float BlendFor(RoadType type) => type == RoadType.Asphalt ? 10f : 6f;
+
+    /// <summary>Farthest from the centreline that painting or bank grading can reach.</summary>
+    internal float MaxReach => Radius + (Grade ? MaxBlendDistance : 0);
+
+    // Gravel needs up to 31 m to ease a 14 m rise at 1:2.
+    internal float MaxBlendDistance => Type == RoadType.Asphalt ? 40f : 32f;
 
     /// <summary>Asphalt roads this wide get a 1 m gravel shoulder at the edge, as RWG highways do.</summary>
     public bool HasShoulder => Type == RoadType.Asphalt && Radius >= 4f;
@@ -273,86 +280,215 @@ public static class RoadOp
 
     /// <summary>Draws the road into <see cref="World.Roads"/> (and grades the terrain if asked). Returns the changed area.</summary>
     /// <param name="profile">The road's height at each centreline point; the editor's own (<see cref="HeightProfile"/>) when null.</param>
-    public static GridRect Draw(World world, RoadPath road, EditSession session, Func<World, List<Vector2>, float[]>? profile = null)
+    /// <param name="library">The dimensions of placed prefabs. Unknown prefabs use their anchor cell.</param>
+    public static GridRect Draw(World world, RoadPath road, EditSession session, Func<World, List<Vector2>, float[]>? profile = null,
+        PrefabLibrary? library = null)
     {
         if (road.Points.Count < 2 || road.Radius <= 0) return GridRect.Empty;
         world.Roads ??= new Grid<byte>(world.Size, world.Size);
         var line = Centreline(road.Points, CornerRounding(road.Type));
-        return Draw(world, road, line, profile?.Invoke(world, line) ?? HeightProfile(world, line, road.Type), session);
+        return Draw(world, road, line, profile?.Invoke(world, line) ?? HeightProfile(world, line, road.Type), session, library);
     }
 
     /// <summary>Draws a road along a centreline already made (<see cref="Centreline"/>) at the given heights.</summary>
-    public static GridRect Draw(World world, RoadPath road, List<Vector2> line, float[] profile, EditSession session) =>
-        Draw(world, road, line, profile, session, null);
+    public static GridRect Draw(World world, RoadPath road, List<Vector2> line, float[] profile, EditSession session,
+        PrefabLibrary? library = null) =>
+        Draw(world, road, line, profile, session, library, null);
 
     /// <summary>Draws a road with optional paint and grading limits for each cell, indexed as x + z * world size.</summary>
     internal static GridRect Draw(World world, RoadPath road, List<Vector2> line, float[] profile, EditSession session,
-        Func<int, (bool Paint, bool Grade)>? cellEdits)
+        PrefabLibrary? library, Func<int, (bool Paint, bool Grade)>? cellEdits)
     {
         if (line.Count < 2 || road.Radius <= 0) return GridRect.Empty;
         world.Roads ??= new Grid<byte>(world.Size, world.Size);
-        float reach = road.Radius + (road.Grade ? road.BlendDistance : 0);
-
-        // For every pixel near the road, the distance to the nearest point on the centreline and the road
-        // height there. Segments overlap at joins, so the nearest one wins.
-        var nearest = new Dictionary<int, (float Distance, float Height)>();
-        var bounds = GridRect.Empty;
-        int size = world.Size;
-        for (int i = 0; i < line.Count - 1; i++)
+        const int tileSize = 16;
+        int size = world.Size, tilesAcross = (size + tileSize - 1) / tileSize;
+        float reach = road.MaxReach;
+        var tiles = new Dictionary<int, List<int>>();
+        var searchBounds = GridRect.Empty;
+        var segments = new (Vector2 Start, Vector2 Offset, float InverseLengthSq)[line.Count - 1];
+        for (int i = 0; i < segments.Length; i++)
         {
             var a = line[i];
             var b = line[i + 1];
-            var rect = new GridRect(
-                (int)MathF.Floor(MathF.Min(a.X, b.X) - reach), (int)MathF.Floor(MathF.Min(a.Y, b.Y) - reach),
-                (int)MathF.Ceiling(MathF.Max(a.X, b.X) + reach) + 1, (int)MathF.Ceiling(MathF.Max(a.Y, b.Y) + reach) + 1).Clamp(size, size);
-            if (rect.IsEmpty) continue;
-            bounds = bounds.Union(rect);
             var ab = b - a;
-            float lengthSq = Math.Max(ab.LengthSquared(), 1e-6f);
-            for (int z = rect.Z0; z < rect.Z1; z++)
-                for (int x = rect.X0; x < rect.X1; x++)
-                {
-                    var p = new Vector2(x + 0.5f, z + 0.5f);
-                    float t = Math.Clamp(Vector2.Dot(p - a, ab) / lengthSq, 0, 1);
-                    float d = Vector2.Distance(p, a + ab * t);
-                    if (d >= reach) continue;
-                    int key = x + z * size;
-                    if (nearest.TryGetValue(key, out var seen) && seen.Distance <= d) continue;
-                    nearest[key] = (d, profile[i] + (profile[i + 1] - profile[i]) * t);
-                }
+            segments[i] = (a, ab, 1 / Math.Max(ab.LengthSquared(), 1e-6f));
+            var area = SegmentBounds(a, b, reach);
+            searchBounds = searchBounds.Union(area);
+            foreach (int tile in TilesIn(area))
+            {
+                if (!tiles.TryGetValue(tile, out var candidates)) tiles[tile] = candidates = [];
+                candidates.Add(i);
+            }
         }
-        if (bounds.IsEmpty) return GridRect.Empty;
 
-        // Snapshot per segment so a long diagonal road does not copy the whole box around it.
-        for (int i = 0; i < line.Count - 1; i++)
+        var footprints = new Dictionary<int, List<(GridRect Rect, bool Bridge)>>();
+        library ??= PrefabLibrary.Empty;
+        foreach (var prefab in world.Prefabs)
         {
-            var rect = new GridRect(
-                (int)MathF.Floor(MathF.Min(line[i].X, line[i + 1].X) - reach), (int)MathF.Floor(MathF.Min(line[i].Y, line[i + 1].Y) - reach),
-                (int)MathF.Ceiling(MathF.Max(line[i].X, line[i + 1].X) + reach) + 1, (int)MathF.Ceiling(MathF.Max(line[i].Y, line[i + 1].Y) + reach) + 1);
-            session.Touch(world.Roads, rect);
-            if (road.Grade) session.Touch(world.Height, rect);
+            bool bridge = library.Find(prefab.Name) is { IsBridge: true };
+            if (!road.Grade && !bridge) continue;
+            var rect = PrefabPlacer.Footprint(world, prefab, library);
+            foreach (int tile in TilesIn(Intersect(searchBounds, rect)))
+            {
+                if (!tiles.ContainsKey(tile)) continue;
+                if (!footprints.TryGetValue(tile, out var occupied)) footprints[tile] = occupied = [];
+                occupied.Add((rect, bridge));
+            }
         }
 
+        Span<float> distances = stackalloc float[tileSize * tileSize];
+        Span<float> roadHeights = stackalloc float[tileSize * tileSize];
+        Span<bool> protectedCells = stackalloc bool[tileSize * tileSize];
+        Span<bool> bridgeDeck = stackalloc bool[tileSize * tileSize];
         var roads = world.Roads.Data;
         var height = world.Height.Data;
         float core = road.HasShoulder ? road.Radius - 1 : road.Radius;
-        foreach (var (key, (d, roadHeight)) in nearest)
+        float radiusSq = road.Radius * road.Radius, coreSq = core * core;
+        float minimum = road.BlendDistance, maximum = road.MaxBlendDistance;
+        var bounds = GridRect.Empty;
+        foreach (var (tile, candidates) in tiles)
         {
-            var (paint, grade) = cellEdits?.Invoke(key) ?? (true, true);
-            // Asphalt keeps its ground too: a gravel road beside or across a highway doesn't regrade it (#34).
-            bool keepGround = road.Type != RoadType.Asphalt && roads[key] == (byte)RoadType.Asphalt;
-            if (paint && d <= road.Radius)
+            int x0 = tile % tilesAcross * tileSize, z0 = tile / tilesAcross * tileSize;
+            var rect = new GridRect(x0, z0, x0 + tileSize, z0 + tileSize).Clamp(size, size);
+            int width = rect.X1 - x0;
+            float tileReach = road.Grade
+                ? road.Radius + BankWidth(MaxHeightDifference(world.Height, rect, profile, candidates), minimum, maximum)
+                : reach;
+            float reachSq = tileReach * tileReach;
+
+            // The nearest segment determines each cell's road height. A tile's largest possible
+            // height difference bounds the search while preserving that choice.
+            distances.Fill(reachSq);
+            foreach (int i in candidates)
             {
-                var type = d <= core ? road.Type : RoadType.Gravel;
-                // Asphalt wins where roads meet, so a gravel road joining a highway does not cut through it.
-                if (roads[key] != (byte)RoadType.Asphalt || type == RoadType.Asphalt) roads[key] = (byte)type;
+                var (a, ab, inverseLengthSq) = segments[i];
+                var area = Intersect(rect, SegmentBounds(a, line[i + 1], tileReach));
+                float startHeight = profile[i], rise = profile[i + 1] - startHeight;
+                for (int z = area.Z0; z < area.Z1; z++)
+                    for (int x = area.X0; x < area.X1; x++)
+                    {
+                        var p = new Vector2(x + 0.5f, z + 0.5f);
+                        float t = Math.Clamp(Vector2.Dot(p - a, ab) * inverseLengthSq, 0, 1);
+                        float d = Vector2.DistanceSquared(p, a + ab * t);
+                        int cell = x - x0 + (z - z0) * width;
+                        if (d >= distances[cell]) continue;
+                        distances[cell] = d;
+                        roadHeights[cell] = startHeight + rise * t;
+                    }
             }
-            if (!road.Grade || !grade || keepGround) continue;
-            float blend = Math.Clamp((d - road.Radius) / road.BlendDistance, 0, 1);
-            float ground = World.HeightToMetres(height[key]);
-            height[key] = TerrainBrush.ToRaw(roadHeight + (ground - roadHeight) * blend * blend);
+
+            protectedCells.Clear();
+            bridgeDeck.Clear();
+            if (footprints.TryGetValue(tile, out var occupied))
+                foreach (var (footprint, bridge) in occupied)
+                {
+                    var area = Intersect(rect, footprint);
+                    for (int z = area.Z0; z < area.Z1; z++)
+                    {
+                        int start = area.X0 - x0 + (z - z0) * width, length = area.X1 - area.X0;
+                        protectedCells.Slice(start, length).Fill(true);
+                        if (bridge) bridgeDeck.Slice(start, length).Fill(true);
+                    }
+                }
+
+            bool touchedRoads = false, touchedHeight = false;
+            for (int z = z0; z < rect.Z1; z++)
+                for (int x = x0; x < rect.X1; x++)
+                {
+                    int cell = x - x0 + (z - z0) * width;
+                    float distanceSq = distances[cell];
+                    if (distanceSq >= reachSq) continue;
+                    int key = x + z * size;
+                    var (paint, grade) = cellEdits?.Invoke(key) ?? (true, true);
+                    var existing = (RoadType)roads[key];
+                    bool onRoad = distanceSq <= radiusSq;
+                    // The prefab carries the road on its deck. Paint the approach up to the deck edge.
+                    if (paint && onRoad && !bridgeDeck[cell])
+                    {
+                        var type = distanceSq <= coreSq ? road.Type : RoadType.Gravel;
+                        // Asphalt wins where roads meet, so gravel joining a highway does not cut through it.
+                        if (existing != type && (existing != RoadType.Asphalt || type == RoadType.Asphalt))
+                        {
+                            if (!touchedRoads) session.Touch(world.Roads, rect);
+                            touchedRoads = true;
+                            roads[key] = (byte)type;
+                        }
+                    }
+                    // Keep existing road pixels in the bank and keep asphalt under a gravel road (#34).
+                    if (!road.Grade || !grade || protectedCells[cell] || (!onRoad && existing is RoadType.Gravel or RoadType.Asphalt)
+                        || (road.Type != RoadType.Asphalt && existing == RoadType.Asphalt)) continue;
+                    float roadHeight = roadHeights[cell];
+                    float delta = World.HeightToMetres(height[key]) - roadHeight;
+                    float bankHeight = onRoad ? 0 : BankHeight(MathF.Sqrt(distanceSq) - road.Radius, delta, minimum, maximum);
+                    if (bankHeight == delta) continue;
+                    ushort raw = TerrainBrush.ToRaw(roadHeight + bankHeight);
+                    if (raw == height[key]) continue;
+                    if (!touchedHeight) session.Touch(world.Height, rect);
+                    touchedHeight = true;
+                    height[key] = raw;
+                }
+            if (touchedRoads || touchedHeight) bounds = bounds.Union(rect);
         }
         return bounds;
+
+        IEnumerable<int> TilesIn(GridRect area)
+        {
+            var rect = area.Clamp(size, size);
+            if (rect.IsEmpty) yield break;
+            for (int tz = rect.Z0 / tileSize; tz <= (rect.Z1 - 1) / tileSize; tz++)
+                for (int tx = rect.X0 / tileSize; tx <= (rect.X1 - 1) / tileSize; tx++)
+                    yield return tx + tz * tilesAcross;
+        }
+    }
+
+    // A cell is sampled at its centre (x + 0.5, z + 0.5).
+    private static GridRect SegmentBounds(Vector2 a, Vector2 b, float reach) =>
+        new((int)MathF.Ceiling(MathF.Min(a.X, b.X) - reach - 0.5f), (int)MathF.Ceiling(MathF.Min(a.Y, b.Y) - reach - 0.5f),
+            (int)MathF.Floor(MathF.Max(a.X, b.X) + reach - 0.5f) + 1, (int)MathF.Floor(MathF.Max(a.Y, b.Y) + reach - 0.5f) + 1);
+
+    private static GridRect Intersect(GridRect a, GridRect b) =>
+        new(Math.Max(a.X0, b.X0), Math.Max(a.Z0, b.Z0), Math.Min(a.X1, b.X1), Math.Min(a.Z1, b.Z1));
+
+    private static float MaxHeightDifference(Grid<ushort> ground, GridRect rect, float[] profile, List<int> candidates)
+    {
+        ushort low = ushort.MaxValue, high = 0;
+        for (int z = rect.Z0; z < rect.Z1; z++)
+            foreach (ushort raw in ground.Row(z)[rect.X0..rect.X1])
+            {
+                low = Math.Min(low, raw);
+                high = Math.Max(high, raw);
+            }
+        float roadLow = float.PositiveInfinity, roadHigh = float.NegativeInfinity;
+        foreach (int i in candidates)
+        {
+            roadLow = Math.Min(roadLow, Math.Min(profile[i], profile[i + 1]));
+            roadHigh = Math.Max(roadHigh, Math.Max(profile[i], profile[i + 1]));
+        }
+        return Math.Max(roadHigh - World.HeightToMetres(low), World.HeightToMetres(high) - roadLow);
+    }
+
+    private static float BankWidth(float rise, float minimum, float maximum) =>
+        Math.Clamp(2 * rise + minimum / 2, minimum, maximum);
+
+    /// <summary>
+    /// Height above the road at one bank cell. The width uses the difference between that cell's
+    /// original ground and the nearest centreline height. The grade rises linearly near the shoulder,
+    /// holds at up to 1:2, and falls linearly to zero at the outer edge. The two eased portions take
+    /// half the minimum width out of the effective run, so the width grows to twice the rise plus
+    /// that half-width until it reaches the cap.
+    /// </summary>
+    private static float BankHeight(float distance, float delta, float minimum, float maximum)
+    {
+        float width = BankWidth(MathF.Abs(delta), minimum, maximum);
+        if (distance >= width) return delta;
+
+        float start = 0.9f * minimum, end = 0.1f * minimum;
+        float slope = delta / (width - minimum / 2);
+        if (distance < start) return slope * distance * (distance / (2 * start));
+        float left = width - distance;
+        if (left < end) return delta - slope * left * (left / (2 * end));
+        return slope * (distance - start / 2);
     }
 
     /// <summary>Removes road pixels under the brush tip; the terrain is left as it is.</summary>

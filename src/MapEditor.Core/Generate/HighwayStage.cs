@@ -1044,7 +1044,7 @@ public static class HighwayStage
                     || (Vector2.DistanceSquared(centre, end) <= radius * radius && endTiles.Any(r => r.Contains(x, z)));
                 return (paint, false);
             }
-            road.Ground = Capture(world, path, line, () => RoadOp.Draw(world, path, line, profile, session, CellEdits));
+            road.Ground = Capture(world, path, line, () => RoadOp.Draw(world, path, line, profile, session, library, CellEdits));
             added.Add(road);
             progress?.Report(0.8 + 0.2 * (i + 1) / order.Count);
         }
@@ -1404,7 +1404,7 @@ public static class HighwayStage
 
     private static byte[] Capture(World world, RoadPath road, List<Vector2> line, Action draw)
     {
-        float reach = road.Radius + road.BlendDistance + 2;
+        float reach = road.MaxReach + 2;
         return Capture(world, line.Select(p => new GridRect((int)(p.X - reach), (int)(p.Y - reach), (int)(p.X + reach) + 1, (int)(p.Y + reach) + 1)), draw);
     }
 

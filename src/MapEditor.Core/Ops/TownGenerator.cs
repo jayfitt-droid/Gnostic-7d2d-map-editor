@@ -1351,7 +1351,7 @@ public static class TownGenerator
         foreach (var t in plan.Tiles) PrefabPlacer.Flatten(world, t.Cells, plan.Ground, plan.Blend, session);
         world.Prefabs.AddRange(plan.Prefabs);
 
-        foreach (var road in plan.Roads) changed = changed.Union(RoadOp.Draw(world, road, session));
+        foreach (var road in plan.Roads) changed = changed.Union(RoadOp.Draw(world, road, session, library: library));
         return changed;
     }
 

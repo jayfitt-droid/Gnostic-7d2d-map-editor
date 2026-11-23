@@ -820,7 +820,8 @@ public static class WildernessStage
             HighwayStage.RoundOffCorners(points, true);
             var path = new RoadPath(points, RoadType.Gravel, radius);
             var road = new HighwayRoad { Kind = HighwayKind.Country, Type = RoadType.Gravel, Radius = radius, Points = [.. points.Select(v => new[] { v.X, v.Y })] };
-            road.Ground = HighwayStage.Capture(world, path, () => RoadOp.Draw(world, path, ctx.Session, (wd, line) => HighwayStage.RwgProfile(wd, line, true, grid)));
+            road.Ground = HighwayStage.Capture(world, path, () =>
+                RoadOp.Draw(world, path, ctx.Session, (wd, line) => HighwayStage.RwgProfile(wd, line, true, grid), ctx.Library));
             poi.Road = road;
             poi.RoadOrder = ctx.NextOrder++;
             foreach (int c in cells) grid.Flags[c] |= HighwayStage.PathGrid.Road;

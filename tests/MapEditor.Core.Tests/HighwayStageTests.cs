@@ -228,6 +228,34 @@ public sealed class HighwayStageTests
         Assert.Equal(0, Asphalt(world));
     }
 
+    [Fact]
+    public void Take_down_restores_every_cell_of_a_wide_bank()
+    {
+        const int size = 1024, centre = 675, acrossOldCapture = 704;
+        var world = new World
+        {
+            Name = "Banks", Size = size, Height = new Grid<ushort>(size, size), Roads = new Grid<byte>(size, size),
+        };
+        for (int z = 0; z < size; z++)
+            world.Height.Row(z).Fill(TerrainBrush.ToRaw(60 + Math.Clamp((z - centre) * 0.75f, -14, 14)));
+        Tile(world, "rwg_tile_gateway_straight", 1, 4, 1);
+        Tile(world, "rwg_tile_gateway_straight", 5, 4, 1);
+        world.Roads[20, 20] = (byte)RoadType.Gravel;
+        var groundBefore = (ushort[])world.Height.Data.Clone();
+        var roadsBefore = (byte[])world.Roads.Data.Clone();
+        var roads = new List<HighwayRoad>();
+
+        Run(world, new HighwayOptions { Wiggle = 0, JoinUp = false }, roads);
+        Assert.Single(roads);
+        Assert.False(world.Height.Row(acrossOldCapture).SequenceEqual(groundBefore.AsSpan(acrossOldCapture * size, size)));
+        Assert.True(Asphalt(world) > 0);
+
+        HighwayStage.TakeDown(world, roads, new EditSession("Down", world));
+        Assert.Empty(roads);
+        Assert.Equal(groundBefore, world.Height.Data);
+        Assert.Equal(roadsBefore, world.Roads.Data);
+    }
+
     /// <summary>Two towns either side of a north-south strip of water <paramref name="width"/> m wide, the full height of the map.</summary>
     private static World Across(int width)
     {
