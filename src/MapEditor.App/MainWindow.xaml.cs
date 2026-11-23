@@ -130,8 +130,9 @@ public partial class MainWindow : Window
         _bridgeTools = new BridgeToolController(Map, _vm, _edits) { Bridges = () => _projectSettings.Bridges };
         // Roads snap to the ends of the Bridge tool's bridges and the Highways stage's, at deck height.
         _tools.BridgeEnds = () => _bridgeTools.Ends(_projectSettings.Generator?.PlacedRoads);
-        // A click on a piece of one of the tool's bridges picks the whole bridge, in the Bridge tool.
+        // A click on a piece or ramp of one of the tool's bridges picks the whole bridge, in the Bridge tool.
         _prefabTools.BridgeOf = p => BridgeTool.Owner(_projectSettings.Bridges, p);
+        _prefabTools.BridgeAt = _bridgeTools.BridgeAt;
         // The Highways stage's bridge pieces stay as it built them: they can be selected, not moved or deleted.
         _prefabTools.IsStageBridge = p => BridgeTool.StageOwner(_projectSettings.Generator?.PlacedRoads, p) is not null;
         _multiSelect = new MultiSelectToolController(Map, _vm, _edits,

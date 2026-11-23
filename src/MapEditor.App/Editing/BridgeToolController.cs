@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Windows;
+using System.Windows.Input;
 using MapEditor.App.Map;
 using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
@@ -16,14 +17,6 @@ namespace MapEditor.App.Editing;
 /// </summary>
 public sealed class BridgeToolController
 {
-    private enum Drag
-    {
-        None,
-        Move,
-        Start,
-        End,
-    }
-
     private readonly MapView _map;
     private readonly MainViewModel _vm;
     private readonly EditRunner _edits;
@@ -35,9 +28,11 @@ public sealed class BridgeToolController
 
     // The selected bridge and a drag of it.
     private PlacedBridge? _selected;
-    private Drag _drag;
+    private BridgePreview? _selectedPreview;
+    private BridgePart? _drag;
     private Vector2 _dragFrom;
     private BridgeLine? _dragLine;
+    private Cursor? _cursor;
 
     private bool _settingDeck;
 
@@ -47,6 +42,7 @@ public sealed class BridgeToolController
         _vm = vm;
         _edits = edits;
         _map.ToolInput += OnToolInput;
+        _map.CursorMoved += OnCursorMoved;
     }
 
     private World? _world;
@@ -67,8 +63,9 @@ public sealed class BridgeToolController
         _first = null;
         _plan = null;
         _selected = null;
-        _drag = Drag.None;
+        _drag = null;
         _dragLine = null;
+        SetCursor(null);
         Refresh();
     }
 
@@ -76,13 +73,19 @@ public sealed class BridgeToolController
     public Func<List<PlacedBridge>>? Bridges { get; set; }
 
     /// <summary>True while a bridge is being dragged (so undo and save wait).</summary>
-    public bool IsDragging => _drag != Drag.None;
+    public bool IsDragging => _drag is not null;
 
     private List<PlacedBridge> List => Bridges?.Invoke() ?? [];
 
     private int Size => World?.Size ?? 0;
 
     private static Vector2 ToGrid(World world, Point map) => new((float)map.X, (float)(world.Size - map.Y));
+
+    /// <summary>The bridge the Select tool can pick at a map point, including its ramps.</summary>
+    public PlacedBridge? BridgeAt(Point map) => World is { } world ? HitAt(world, ToGrid(world, map))?.Bridge : null;
+
+    private (PlacedBridge Bridge, BridgePart Part)? HitAt(World world, Vector2 grid) =>
+        BridgeTool.HitTest(world, _vm.Prefabs, List, grid, _map.Scale);
 
     private void OnToolInput(object? sender, ToolInputEventArgs e)
     {
@@ -93,14 +96,34 @@ public sealed class BridgeToolController
             case ToolPhase.Down when !_vm.IsBusy:
                 Press(world, grid);
                 break;
-            case ToolPhase.Move when _drag != Drag.None && e.DragThresholdPassed:
+            case ToolPhase.Move when IsDragging && e.DragThresholdPassed:
                 _dragLine = DraggedLine(world, grid);
                 _map.InvalidateVisual();
                 break;
-            case ToolPhase.Up when _drag != Drag.None:
+            case ToolPhase.Up when IsDragging:
                 Release(world, grid, e.DragThresholdPassed);
                 break;
         }
+    }
+
+    private void OnCursorMoved(object? sender, Point? map)
+    {
+        if (World is not { } world || _vm.SelectedTool != EditorTool.Bridge || IsDragging || _map.IsPanning) return;
+        var hit = map is { } point && (_first is null || _plan is not null) && !_vm.IsBusy
+            ? HitAt(world, ToGrid(world, point))
+            : null;
+        SetCursor(hit is { } target ? GrabCursor(target.Bridge, target.Part) : null);
+    }
+
+    private static Cursor GrabCursor(PlacedBridge bridge, BridgePart part) => part == BridgePart.Middle
+        ? Cursors.Hand
+        : bridge.AlongZ ? Cursors.SizeNS : Cursors.SizeWE;
+
+    private void SetCursor(Cursor? cursor)
+    {
+        if (_map.IsPanning) return;
+        if (cursor is not null || (_cursor is not null && _map.Cursor == _cursor)) _map.Cursor = cursor;
+        _cursor = cursor;
     }
 
     private void Press(World world, Vector2 grid)
@@ -122,14 +145,15 @@ public sealed class BridgeToolController
             return;
         }
 
-        // Otherwise a click on one of the project's bridges selects it, and a press on one that is selected grabs it.
-        if (BridgeTool.Find(List, grid) is { } hit)
+        // Clicking the deck or a ramp selects the bridge and starts a drag if the pointer moves.
+        if (HitAt(world, grid) is { } hit)
         {
             _first = null;
             _plan = null;
-            _selected = hit;
-            _drag = ZoneAt(hit, grid);
+            _selected = hit.Bridge;
+            _drag = hit.Part;
             _dragFrom = grid;
+            SetCursor(GrabCursor(hit.Bridge, hit.Part));
             Refresh();
             return;
         }
@@ -138,18 +162,8 @@ public sealed class BridgeToolController
         _selected = null;
         _plan = null;
         _first = grid;
+        SetCursor(null);
         Refresh();
-    }
-
-    /// <summary>The part of a bridge a press at <paramref name="grid"/> grabs: an end to resize it, else the middle to move it.</summary>
-    private Drag ZoneAt(PlacedBridge bridge, Vector2 grid)
-    {
-        var line = bridge.Where;
-        float along = line.AlongZ ? grid.Y : grid.X;
-        float zone = Math.Clamp(12 / (float)_map.Scale, 3, line.Length / 3f);
-        if (along - line.Start < zone) return Drag.Start;
-        if (line.End - along < zone) return Drag.End;
-        return Drag.Move;
     }
 
     private BridgeLine? DraggedLine(World world, Vector2 grid)
@@ -157,11 +171,12 @@ public sealed class BridgeToolController
         if (_selected is not { } bridge) return null;
         var line = bridge.Where;
         float now = line.AlongZ ? grid.Y : grid.X, then = line.AlongZ ? _dragFrom.Y : _dragFrom.X;
+        float delta = now - then;
         return _drag switch
         {
-            Drag.Move => BridgeTool.Move(line, (int)MathF.Round(now - then), world.Size),
-            Drag.Start => BridgeTool.DragEnd(line, startEnd: true, now, world.Size),
-            Drag.End => BridgeTool.DragEnd(line, startEnd: false, now, world.Size),
+            BridgePart.Middle => BridgeTool.Move(line, (int)MathF.Round(delta), world.Size),
+            BridgePart.Start => BridgeTool.DragEnd(line, startEnd: true, line.Start + delta, world.Size),
+            BridgePart.End => BridgeTool.DragEnd(line, startEnd: false, line.End + delta, world.Size),
             _ => null,
         };
     }
@@ -171,10 +186,10 @@ public sealed class BridgeToolController
         // Work out where it was dragged to before the drag is dropped: DraggedLine reads the drag's kind.
         var drag = _drag;
         var target = moved ? DraggedLine(world, grid) : null;
-        _drag = Drag.None;
+        _drag = null;
         _dragLine = null;
         if (_selected is { } bridge && target is { } line && line != bridge.Where)
-            Rebuild(world, bridge, line, bridge.Y, drag == Drag.Move ? "Move bridge" : "Resize bridge");
+            Rebuild(world, bridge, line, bridge.Y, drag == BridgePart.Middle ? "Move bridge" : "Resize bridge");
         Refresh();
     }
 
@@ -242,9 +257,9 @@ public sealed class BridgeToolController
     /// <summary>Esc: drops the plan or drag, else the selection. Returns whether there was anything to drop.</summary>
     public bool Cancel()
     {
-        if (_drag != Drag.None)
+        if (IsDragging)
         {
-            _drag = Drag.None;
+            _drag = null;
             _dragLine = null;
         }
         else if (_first is not null || _plan is not null)
@@ -319,13 +334,15 @@ public sealed class BridgeToolController
     /// <summary>Brings the map, the deck box and the text up to date with the plan and selection.</summary>
     public void Refresh()
     {
-        if (World is null || _vm.SelectedTool != EditorTool.Bridge)
+        if (World is not { } world || _vm.SelectedTool != EditorTool.Bridge)
         {
+            _selectedPreview = null;
             _map.BridgePreviews = null;
             _vm.HasBridge = false;
             return;
         }
         if (_selected is not null && !List.Contains(_selected)) _selected = null;
+        _selectedPreview = _selected is { } bridge ? SelectionPreview(world, bridge) : null;
         _map.BridgePreviews = Previews;
 
         int? level = _plan is not null ? _planY + BridgeOp.Deck : _selected?.DeckLevel;
@@ -341,27 +358,37 @@ public sealed class BridgeToolController
             : _first is not null
                 ? "Click where the bridge ends. It locks to north-south or east-west and whole 9 m pieces."
                 : _selected is { } sel
-                    ? $"Selected: {BridgeTool.Describe(sel.Where, sel.DeckLevel)}. Drag to move it, drag an end to resize it, Del takes it down."
+                    ? $"Selected: {BridgeTool.Describe(sel.Where, sel.DeckLevel)}. Drag the middle to move it. Drag a ramp or deck end to resize it. Del takes it down."
                     : "Click where the bridge starts, or click a bridge to select it.";
         _map.InvalidateVisual();
     }
 
-    private IReadOnlyList<BridgePreview> Previews(Point mouse)
+    private IReadOnlyList<BridgePreview> Previews(Point? mouse)
     {
         if (World is not { } world) return [];
         var list = new List<BridgePreview>();
-        if (_selected is { } sel)
-            list.Add(Preview(world, sel.Where, BridgePreviewKind.Selected, ""));
-        if (_drag != Drag.None && _dragLine is { } ghost && _selected is { } moving)
+        if (_selectedPreview is { } selected) list.Add(selected);
+        if (IsDragging && _dragLine is { } ghost && _selected is { } moving)
             list.Add(WithRamps(world, ghost, BridgePreviewKind.Dragging, moving.Y));
         else if (_plan is { } plan)
             list.Add(WithRamps(world, plan, BridgePreviewKind.Planned, _planY));
-        else if (_first is { } first && BridgeTool.Snap(first, ToGrid(world, mouse), world.Size) is { } aim)
+        else if (_first is { } first && mouse is { } point && BridgeTool.Snap(first, ToGrid(world, point), world.Size) is { } aim)
             list.Add(WithRamps(world, aim, BridgePreviewKind.Aiming, BridgeTool.AutoY(world, aim)));
         return list;
     }
 
     private static string Label(BridgeLine line, int deck) => $"{line.Pieces} pieces, {line.Length} m, deck {deck} m";
+
+    private BridgePreview SelectionPreview(World world, PlacedBridge bridge)
+    {
+        var line = bridge.Where;
+        var ramps = new List<RampPreview>();
+        float start = BridgeTool.RampLength(world, _vm.Prefabs, bridge, atStart: true);
+        float end = BridgeTool.RampLength(world, _vm.Prefabs, bridge, atStart: false);
+        if (start > 0) ramps.Add(new RampPreview(RampRect(world, line, line.Start, line.Start - start), false));
+        if (end > 0) ramps.Add(new RampPreview(RampRect(world, line, line.End, line.End + end), false));
+        return Preview(world, line, BridgePreviewKind.Selected, "") with { Ramps = ramps };
+    }
 
     /// <summary>
     /// A bridge's preview with the ramps it would get, worked out as building them would (<see cref="BridgeTool.PlanRamp"/>),
@@ -383,7 +410,8 @@ public sealed class BridgeToolController
                 continue;
             }
             bool warn = ramp.Steep || ramp.Ends == RampEnd.Longest;
-            ramps.Add(new RampPreview(RampRect(world, ramp), warn));
+            ramps.Add(new RampPreview(RampRect(world, line, atStart ? line.Start : line.End,
+                line.AlongZ ? ramp.To.Y : ramp.To.X), warn));
             string text = $"{side} {ramp.Length:0} m {ramp.Grade * 100:0}%";
             if (ramp.Ends == RampEnd.Prefab) text += $" to {GameNames.Current.Poi(ramp.Prefab!)}";
             else if (ramp.Ends == RampEnd.Longest) text += " (doesn't reach the ground)";
@@ -393,14 +421,13 @@ public sealed class BridgeToolController
     }
 
     /// <summary>The road a ramp would pave, in map coordinates (y down), as wide as the deck.</summary>
-    private static Rect RampRect(World world, RampPlan ramp)
+    private static Rect RampRect(World world, BridgeLine line, float from, float to)
     {
         float half = BridgeOp.Width / 2f;
-        double x0 = Math.Min(ramp.From.X, ramp.To.X), x1 = Math.Max(ramp.From.X, ramp.To.X);
-        double z0 = Math.Min(ramp.From.Y, ramp.To.Y), z1 = Math.Max(ramp.From.Y, ramp.To.Y);
-        if (x1 - x0 < z1 - z0) { x0 -= half; x1 += half; }
-        else { z0 -= half; z1 += half; }
-        return new Rect(x0, world.Size - z1, x1 - x0, z1 - z0);
+        float low = Math.Min(from, to), length = Math.Abs(from - to);
+        return line.AlongZ
+            ? new Rect(line.Line - half, world.Size - Math.Max(from, to), BridgeOp.Width, length)
+            : new Rect(low, world.Size - line.Line - half, length, BridgeOp.Width);
     }
 
     private static BridgePreview Preview(World world, BridgeLine line, BridgePreviewKind kind, string label)
