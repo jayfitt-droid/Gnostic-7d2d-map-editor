@@ -574,6 +574,8 @@ This stage connects the towns with asphalt highways. It uses the towns that are 
 
 The game's rules connect each town exit to the nearest of its three nearest towns. Big cities get ring roads. Towns that have no exits get gravel roads.
 
+A highway joins an existing road when both roads go the same way. The highway uses that part of the road.
+
 Roads leave room for their shoulders and for the ground to slope back to the nearby terrain. They meet street tiles at the street exits.
 
 **Settings:**
@@ -585,7 +587,7 @@ Roads leave room for their shoulders and for the ground to slope back to the nea
 - **Longest bridge** (under **More settings**): the maximum length of water that a bridge crosses, in metres.
 - **Shortcut bridges** (shows under **Bridge islands** when you tick it): the editor first connects all the islands. Then it adds a direct bridge between two islands if the route between them crosses three or more bridges.
 - **Car wrecks on bridges** (shows under **Bridge islands** when you tick it): puts a car wreck on the deck about every 100 to 150 m. On by default.
-- **Allow a second road** (under **More settings**): the game can connect two towns with two highways side by side. Off: one highway connects two towns.
+- **Allow a second road** (under **More settings**): two highways can connect the same pair of towns. Off: one highway connects two towns.
 
 The bottom of each bridge is 5 m above the water, so boats can go under it. The editor puts a footing under each row of pillars. The footing stays under the water.
 
