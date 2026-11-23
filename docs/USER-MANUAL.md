@@ -530,7 +530,7 @@ This stage plans towns and cities, and then builds them. It uses the game's town
 
 **Plan, then build:**
 
-1. Click **Plan towns**. The editor selects the town sites and shows each planned town on the map. The world does not change yet. This is one undo step. Undo puts back the previous town sites. Redo puts back the new town sites.
+1. Click **Plan towns**. The editor selects the town sites and shows each planned town on the map. The planned towns stay on the map on every tab, until you build or clear them. The world does not change yet. This is one undo step. Undo puts back the previous town sites. Redo puts back the new town sites.
 2. Look at the plan on the map. If you do not like it, click **Re-roll** to plan again with a new seed.
 3. Click **Build**. The editor builds all the planned towns: streets, districts, POIs, traders and flat ground. This is one undo step.
 
