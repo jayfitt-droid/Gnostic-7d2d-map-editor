@@ -531,6 +531,7 @@
                 <MenuItem Header="_Settings">
                     <MenuItem Header="_Game Folder..." Click="GameFolder_Click" />
                     <MenuItem Header="_Autosave Every 5 Minutes" IsCheckable="True" IsChecked="{Binding Autosave}" />
+                    <MenuItem x:Name="CheckUpdatesAtStartItem" Header="_Check for updates at start" IsCheckable="True" Click="CheckUpdatesAtStart_Click" />
                     <MenuItem Header="_Theme">
                         <MenuItem x:Name="ThemeFlatItem" Header="_Flat" Tag="Flat" IsCheckable="True" Click="Theme_Click" />
                         <MenuItem x:Name="ThemeModernItem" Header="_Modern" Tag="Modern" IsCheckable="True" Click="Theme_Click" />

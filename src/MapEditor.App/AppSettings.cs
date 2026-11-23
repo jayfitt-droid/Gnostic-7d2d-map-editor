@@ -70,6 +70,9 @@ public sealed class AppSettings
     /// <summary>Names of the starter town presets already offered, so a deleted starter doesn't come back.</summary>
     public List<string> OfferedTownPresets { get; set; } = [];
 
+    /// <summary>Checks for updates when the editor starts.</summary>
+    public bool CheckForUpdatesAtStart { get; set; } = true;
+
     /// <summary>Overrides the release feed for update checks (see Updates).</summary>
     public string? UpdateUrl { get; set; }
 
