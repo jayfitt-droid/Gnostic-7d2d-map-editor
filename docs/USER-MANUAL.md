@@ -535,7 +535,7 @@ This stage plans towns and cities, and then builds them. It uses the game's town
 - **One trader per town**:
   - Off: the game's rules. Each biome gets its own trader, 2 to 4 times, in the biggest towns of that biome.
   - On: each town gets one trader.
-- **Let towns cross biome borders** (under **More settings**):
+- **Let towns cross biome borders**:
   - Off: the game's rules. All street tiles of a town are in one biome.
   - On: a town can be on two biomes. Each lot gets POIs and traders for the biome under it.
 - **Spacing and biomes** (under **More settings**):
