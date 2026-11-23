@@ -27,6 +27,8 @@ public enum EditorTool
     Features,
     /// <summary>Selects and edits a group of items on the map.</summary>
     MultiSelect,
+    /// <summary>Measures distance and height on the map.</summary>
+    Ruler,
 }
 
 /// <summary>

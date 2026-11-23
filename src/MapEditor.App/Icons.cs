@@ -46,6 +46,7 @@ public static class Icons
     public static Geometry Reroll { get; } = Make("M21,4 V10 H15 M21,10 A9,9 0 1 0 21,15");
     public static Geometry Trash { get; } = Make("M3,6 H21 M9,6 V3 H15 V6 M5,6 L6,21 H18 L19,6 M10,10 V17 M14,10 V17");
     public static Geometry MultiSelect { get; } = Make("M3,7 V3 H7 M10,3 H14 M17,3 H21 V7 M21,10 V13 M3,10 V14 M3,17 V21 H7 M10,21 H12 M10,8 V17 L13,15 L16,21 L18,20 L15,14 H20 Z");
+    public static Geometry Ruler { get; } = Make("M2,16 L16,2 L22,8 L8,22 Z M6,12 L9,15 M9,9 L11,11 M12,6 L15,9");
     public static Geometry Selection { get; } = Make("M3,3 H7 M10,3 H14 M17,3 H21 V7 M21,10 V14 M21,17 V21 H17 M14,21 H10 M7,21 H3 V17 M3,14 V10 M3,7 V3");
     public static Geometry WorldSize { get; } = Make("M3,3 H21 V21 H3 Z M3,9 H21 M9,3 V21");
     public static Geometry Panel { get; } = Make("M3,3 H21 V21 H3 Z M15,3 V21");
