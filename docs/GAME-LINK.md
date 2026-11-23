@@ -113,7 +113,7 @@ The game hides the HUD and holds the camera in place for at least four seconds. 
 
 The capture uses a 50-degree vertical field of view and widens it for camera aspect ratios below 1.6. The game restores the camera and HUD before replying. Teleport near the camera first so the game loads the chunks you want to see.
 
-The reply gives the file name. The mod writes the PNG to `%APPDATA%\7DaysToDie\GnosticGameLink\Pictures`. The name has the form `gnostic-yyyyMMdd-HHmmss-fff.png` and uses UTC. Accept only that exact form when copying the file.
+The reply gives the file name. The mod writes the PNG to `%APPDATA%\7DaysToDie\GnosticGameLink\Pictures`. The name has the form `gnostic-yyyyMMdd-HHmmss-fff.png` and uses UTC. The editor accepts only this name format. It deletes the game's copy after it copies the picture to the project folder. If the editor cannot delete the game's copy, the picture stays in both folders.
 
 ```json
 {"ok":true,"file":"gnostic-20261123-123456-789.png"}

@@ -153,6 +153,8 @@ The camera faces the front of a POI if there is room. The game waits for the are
 
 The editor saves the PNG in a folder next to the `.7dmap` file. For `My World.7dmap`, the folder is `My World pictures`. The status bar shows where the editor saved the picture.
 
+After the editor saves the picture, it deletes the game's copy. If the editor cannot delete the game's copy, the picture stays in both folders.
+
 - To take a picture of each selected POI, use the **Multi-select** tool. Right-click the map and click **Take pictures of selection**.
 - To take a picture of each issue, click **Validate**. In the **Issues** tab, click **Take pictures...**. An issue with no place on the map counts as a failed picture.
 
