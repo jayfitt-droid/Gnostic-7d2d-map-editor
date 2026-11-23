@@ -327,6 +327,37 @@ public sealed class HighwayStageTests
         Assert.True(route.Count(p => (grid.Flags[p] & HighwayStage.PathGrid.Road) != 0) >= 55);
     }
 
+    /// <summary>A driveway laid during the wilderness stage is cheap for the next gravel road, as roads in the world are.</summary>
+    [Fact]
+    public void A_gravel_search_follows_a_road_laid_after_the_grid_was_made()
+    {
+        const int size = 1280;
+        var world = new World { Name = "Flat", Size = size, Height = new Grid<ushort>(size, size), Roads = new Grid<byte>(size, size) };
+        Array.Fill(world.Height.Data, World.MetresToHeight(40));
+        const int w = size / HighwayStage.Step;
+        static int Cell(int x, int z) => x + z * w;
+        // A wall across the straight line, with ways of the same length round each end. The laid road takes one of
+        // them, so only its discount decides which way the search goes.
+        var Laid = (int side) => Enumerable.Range(0, 22).Select(i => Cell(20 + i, 50 + side * i))
+            .Concat(Enumerable.Range(42, 17).Select(x => Cell(x, 50 + side * 21)))
+            .Concat(Enumerable.Range(0, 22).Select(i => Cell(59 + i, 50 + side * (21 - i))))
+            .ToList();
+
+        foreach (int side in new[] { 1, -1 })
+        {
+            var grid = new HighwayStage.PathGrid(world, Library, new HighwayOptions { Wiggle = 0 });
+            Assert.Equal(w, grid.Width);
+            for (int z = 30; z <= 70; z++) grid.Flags[Cell(50, z)] |= HighwayStage.PathGrid.Blocked;
+            var laid = Laid(side);
+            grid.MarkLaidRoad(laid);
+
+            var route = HighwayStage.FindPath(grid, Cell(20, 50), [Cell(80, 50)], country: true);
+
+            Assert.NotNull(route);
+            Assert.True(route.Count(laid.Contains) >= 40, $"side {side}: {route.Count(laid.Contains)} of {route.Count} cells on the laid road");
+        }
+    }
+
     private static World CoastWithRoad(bool thirdTown = false)
     {
         const int size = 2048;
