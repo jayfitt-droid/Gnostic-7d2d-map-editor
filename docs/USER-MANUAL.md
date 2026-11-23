@@ -572,9 +572,11 @@ This stage connects the towns with asphalt highways. It uses the towns that are 
 
 The game's rules connect each town exit to the nearest of its three nearest towns. Big cities get ring roads. Towns that have no exits get gravel roads.
 
+Roads leave room for their shoulders and for the ground to slope back to the nearby terrain. They meet street tiles at the street exits.
+
 **Settings:**
 
-- **Route wiggle** (under **More settings**): how much the seed bends the routes, in %. The default is 15%. Set 0 to get the game's exact routes.
+- **Route wiggle** (under **More settings**): how much the seed bends the routes, in %. The default is 15%. Set 0 to turn off these bends.
 - **Longest causeway** (under **More settings**): the longest crossing over water, in metres. The default is 120 m. A highway goes around wider water.
 - **Join every town**: after the game's rules, the editor connects a group of towns that has no road to the other towns.
 - **Bridge islands** (with **Join every town**): the editor connects towns on different islands with bridges. It uses the game's bridge sections, `rwg_bridge_tile_01` and `rwg_bridge_end_01`. Each bridge goes straight north–south or east–west. A highway goes from each town to the bridge.
