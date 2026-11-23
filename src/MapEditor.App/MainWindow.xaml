@@ -988,8 +988,6 @@
                                    Visibility="{Binding IsTownTool, Converter={StaticResource BoolToVisibility}}" />
                         <TextBlock Text="{Binding PlacementText}" Style="{StaticResource HintText}" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                    Visibility="{Binding IsPrefabTool, Converter={StaticResource BoolToVisibility}}" />
-                        <TextBlock Text="{Binding FlatSelectionText}" Style="{StaticResource HintText}" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                   Visibility="{Binding ShowFlatSelectionLine, Converter={StaticResource BoolToVisibility}}" />
                     </Grid>
                     <TextBlock x:Name="ToolHintLine" Text="{Binding CurrentTool.Hint}" Style="{StaticResource HintText}" Margin="0,4,0,0"
                                Visibility="{Binding ShowToolHint, Converter={StaticResource BoolToVisibility}}" />
@@ -1078,7 +1076,7 @@
                     <Border Style="{StaticResource RibbonDivider}" Margin="10,4" />
                     <Path Data="{x:Static local:Icons.Selection}" Style="{StaticResource IconPath}" Width="14" Height="14"
                           Stroke="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{Binding SelectionSizeText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90" />
+                    <TextBlock Text="{Binding StatusSelectionText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90" />
                     <Border Style="{StaticResource RibbonDivider}" Margin="10,4" />
                     <Path Data="{x:Static local:Icons.WorldSize}" Style="{StaticResource IconPath}" Width="14" Height="14"
                           Stroke="{DynamicResource TextFillColorSecondaryBrush}" />

@@ -3276,6 +3276,7 @@ public partial class MainWindow : Window
                 break;
             case nameof(MainViewModel.SelectedTool):
                 _clipboard.Cancel();
+                if (_vm.IsWorldMode && !_vm.IsModernTheme) Map.PreservePositionOnNextLayout();
                 if (_vm.SelectedTool == EditorTool.Prefab)
                 {
                     _vm.SidePanelTab = MainViewModel.PrefabsTab;

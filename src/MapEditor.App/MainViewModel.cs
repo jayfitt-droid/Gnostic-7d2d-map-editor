@@ -144,7 +144,7 @@ public sealed partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsBrushTool), nameof(IsStampTool), nameof(IsFlattenTool), nameof(IsNoiseTool),
         nameof(HasRadius), nameof(IsBiomeTool), nameof(IsRadiationTool), nameof(IsWaterTool), nameof(IsRoadTool), nameof(IsBridgeTool),
         nameof(IsPrefabTool), nameof(IsTraderTool), nameof(IsPrefabsTool), nameof(PlacingPrefab), nameof(IsSpawnTool), nameof(IsSelectTool), nameof(IsMultiSelectTool), nameof(ShowSelectionText), nameof(IsTownTool), nameof(ReservesInfoLines), nameof(CurrentTool),
-        nameof(IsGenerateAreaTool), nameof(IsFeaturesTool), nameof(ShowFlatSelectionLine), nameof(ShowInlineToolHint),
+        nameof(IsGenerateAreaTool), nameof(IsFeaturesTool), nameof(StatusSelectionText), nameof(ShowInlineToolHint),
         nameof(HasSize), nameof(SizeValue), nameof(SizeMin), nameof(SizeMax), nameof(SizeText),
         nameof(HasStrength), nameof(StrengthValue), nameof(StrengthMin), nameof(StrengthText), nameof(CurrentSwatch))]
     private EditorTool _selectedTool = EditorTool.Select;
@@ -177,11 +177,6 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>Whether the Modern hint card can show selection text.</summary>
     public bool ShowSelectionText => IsSpawnTool || IsSelectTool && !HasPrefabSelection;
-
-    public bool ShowFlatSelectionLine => IsSelectTool || IsSpawnTool;
-
-    /// <summary>Keep room for the two lines of spawn details even when the Flat selection strip is empty.</summary>
-    public string FlatSelectionText => HasPrefabSelection || SelectionText.Length == 0 ? "\n" : SelectionText;
 
     public bool IsTownTool => SelectedTool == EditorTool.Town;
 
@@ -318,7 +313,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>Describes the selected prefab or spawn on the map.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FlatSelectionText))]
+    [NotifyPropertyChangedFor(nameof(StatusSelectionText))]
     private string _selectionText = "";
 
     /// <summary>Describes the prefab being placed or dragged.</summary>
@@ -329,7 +324,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _selectedMapPrefabName = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowPrefabCard), nameof(ShowSelectionText), nameof(FlatSelectionText))]
+    [NotifyPropertyChangedFor(nameof(ShowPrefabCard), nameof(ShowSelectionText), nameof(StatusSelectionText))]
     private bool _hasPrefabSelection;
 
     /// <summary>
@@ -914,8 +909,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty, NotifyPropertyChangedFor(nameof(SideBarTitle))] private int _sidePanelTab;
 
     [ObservableProperty] private string _worldSizeText = "";
-    [ObservableProperty] private string _selectionSizeText = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(StatusSelectionText))] private string _selectionSizeText = "";
     [ObservableProperty] private string _zoomPercentText = "";
+
+    /// <summary>Shows spawn details on one line in the status bar, or the size for tools that have one.</summary>
+    public string StatusSelectionText => ShowSelectionText && SelectionText.StartsWith("Spawn at ", StringComparison.Ordinal)
+        ? SelectionText.Replace("\nFacing ", ", facing ").Replace(" (Q and E turn it)", "")
+        : SelectionSizeText;
 
     /// <summary>log2 of the map scale (DIPs per metre), for the zoom slider.</summary>
     [ObservableProperty] private double _zoomLog;
