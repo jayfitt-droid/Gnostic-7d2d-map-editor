@@ -78,6 +78,10 @@ public sealed class AppSettings
     public double WindowHeight { get; set; }
     public bool WindowMaximized { get; set; }
 
+    /// <summary>The main window's normal position in desktop pixels; null before a position has been saved.</summary>
+    public double? WindowLeft { get; set; }
+    public double? WindowTop { get; set; }
+
     public static AppSettings Load()
     {
         AppSettings settings;
