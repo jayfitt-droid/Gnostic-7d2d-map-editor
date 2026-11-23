@@ -50,6 +50,19 @@ public static partial class HighwayStage
         public bool[] LegacyRoad { get; }
         public bool HasRoads { get; private set; }
 
+        /// <summary>
+        /// Marks the cells of a road laid after the grid was made (a wilderness driveway) as road, so later gravel
+        /// searches end on it and take its discount.
+        /// </summary>
+        public void MarkLaidRoad(IEnumerable<int> cells)
+        {
+            foreach (int cell in cells)
+            {
+                Flags[cell] |= Road;
+                LegacyRoad[cell] = true;
+            }
+        }
+
         public Vector2 RoadPoint(int cell) => _roadPoints[cell];
         public bool HasRoadEnd(Vector2 point) => _roadEnds.Contains(point);
 

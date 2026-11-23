@@ -824,7 +824,7 @@ public static class WildernessStage
                 RoadOp.Draw(world, path, ctx.Session, (wd, line) => HighwayStage.RwgProfile(wd, line, true, grid), ctx.Library));
             poi.Road = road;
             poi.RoadOrder = ctx.NextOrder++;
-            foreach (int c in cells) grid.Flags[c] |= HighwayStage.PathGrid.Road;
+            grid.MarkLaidRoad(cells);
             anyRoad = true;
             UpdateDistance(grid, nearest, cells);
         }
