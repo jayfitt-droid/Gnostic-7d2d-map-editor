@@ -1,3 +1,4 @@
+using System.Collections;
 using System.IO.Compression;
 using System.Numerics;
 using System.Text.Json.Serialization;
@@ -122,6 +123,10 @@ public static class HighwayStage
 
     /// <summary>RWG's highway: 4 lanes, half-width 9 m; country road: 2 lanes, 4.5 m.</summary>
     public const float HighwayRadius = 9, CountryRadius = 4.5f;
+
+    private static float RoadReach(bool country) => country
+        ? CountryRadius + RoadPath.BlendFor(RoadType.Gravel)
+        : HighwayRadius + RoadPath.BlendFor(RoadType.Asphalt);
 
     /// <summary>Straight run out of a town exit before the route may turn, so the road meets the street square.</summary>
     private const float Lead = 30;
@@ -268,6 +273,7 @@ public static class HighwayStage
 
         /// <summary><see cref="NoJoin"/>: a bridge's ramps, where no other road may join a highway.</summary>
         public const byte Blocked = 1, Water = 2, Road = 4, Prefab = 8, NoJoin = 16;
+        public const byte HighwayClearance = 32, CountryClearance = 64;
 
         /// <summary>How far round a bridge no road may join a highway, so none drops off its ramps.</summary>
         public const int BridgeRamp = 80;
@@ -284,6 +290,8 @@ public static class HighwayStage
         public float[] Hold { get; }
 
         private readonly World _world;
+        private const int StreetBucket = PrefabPlacer.StreetTileSize;
+        private readonly Dictionary<(int X, int Z), List<GridRect>> _streets = [];
 
         public PathGrid(World world, PrefabLibrary library, HighwayOptions options)
         {
@@ -385,6 +393,66 @@ public static class HighwayStage
 
         public int CellOf(Vector2 p) =>
             Math.Clamp((int)(p.X / Step), 0, Width - 1) + Math.Clamp((int)(p.Y / Step), 0, Width - 1) * Width;
+
+        /// <summary>Indexes street tiles for the final centreline check and marks cells too close to route through.</summary>
+        public void ProtectStreet(GridRect rect)
+        {
+            if (rect.IsEmpty) return;
+            for (int z = rect.Z0 / StreetBucket; z <= (rect.Z1 - 1) / StreetBucket; z++)
+                for (int x = rect.X0 / StreetBucket; x <= (rect.X1 - 1) / StreetBucket; x++)
+                {
+                    if (!_streets.TryGetValue((x, z), out var tiles)) _streets[(x, z)] = tiles = [];
+                    tiles.Add(rect);
+                }
+
+            float highway = RoadReach(false), country = RoadReach(true);
+            int pad = (int)MathF.Ceiling(highway);
+            for (int cz = Math.Max(0, (rect.Z0 - pad) / Step); cz <= Math.Min(Width - 1, (rect.Z1 + pad) / Step); cz++)
+                for (int cx = Math.Max(0, (rect.X0 - pad) / Step); cx <= Math.Min(Width - 1, (rect.X1 + pad) / Step); cx++)
+                {
+                    int cell = cx + cz * Width;
+                    var p = Centre(cell);
+                    float distance = Math.Max(Math.Max(rect.X0 - p.X, p.X - rect.X1), Math.Max(rect.Z0 - p.Y, p.Y - rect.Z1));
+                    if (distance < highway) Flags[cell] |= HighwayClearance;
+                    if (distance < country) Flags[cell] |= CountryClearance;
+                }
+        }
+
+        /// <summary>Checks the drawn segments, since smoothing can move a route inside the clearance of its path cells.</summary>
+        public bool ClearsStreets(List<Vector2> line, bool country, Exit from, Exit? to)
+        {
+            float reach = RoadReach(country);
+            float radius = country ? CountryRadius : HighwayRadius;
+            for (int i = 1; i < line.Count; i++)
+            {
+                var a = line[i - 1];
+                var b = line[i];
+                var lo = Vector2.Min(a, b) - new Vector2(reach);
+                var hi = Vector2.Max(a, b) + new Vector2(reach);
+                for (int z = Math.Max(0, (int)lo.Y / StreetBucket); z <= (int)hi.Y / StreetBucket; z++)
+                    for (int x = Math.Max(0, (int)lo.X / StreetBucket); x <= (int)hi.X / StreetBucket; x++)
+                    {
+                        if (!_streets.TryGetValue((x, z), out var tiles)) continue;
+                        foreach (var tile in tiles)
+                        {
+                            if (lo.X >= tile.X1 || hi.X <= tile.X0 || lo.Y >= tile.Z1 || hi.Y <= tile.Z0) continue;
+                            if (!AtExit(from, tile, a, b) && (to is null || !AtExit(to, tile, a, b))) return false;
+                        }
+                    }
+            }
+            return true;
+
+            bool AtExit(Exit exit, GridRect tile, Vector2 a, Vector2 b)
+            {
+                if (exit.Tile.Rect != tile) return false;
+                var outward = Outward(exit.Dir);
+                var across = new Vector2(-outward.Y, outward.X);
+                a -= exit.Point;
+                b -= exit.Point;
+                return Vector2.Dot(a, outward) >= 0 && Vector2.Dot(b, outward) >= 0
+                    && MathF.Abs(Vector2.Dot(a, across)) <= radius && MathF.Abs(Vector2.Dot(b, across)) <= radius;
+            }
+        }
 
         /// <summary>
         /// The ground held at a point (grid metres), or NaN: between the centres of four held cells, blended
@@ -504,9 +572,11 @@ public static class HighwayStage
     /// within 2 km of the ends. Extras: the seeded wiggle, half cost along roads already there, four times over water.
     /// Returns the cells, start first, or null.
     /// </summary>
-    internal static List<int>? FindPath(PathGrid grid, int start, IReadOnlyList<int> goals, bool country)
+    internal static List<int>? FindPath(PathGrid grid, int start, IReadOnlyList<int> goals, bool country, bool clearStreets = false)
     {
         if (goals.Count == 0) return null;
+        byte clearance = !clearStreets ? (byte)0 : country ? PathGrid.CountryClearance : PathGrid.HighwayClearance;
+        if ((grid.Flags[start] & clearance) != 0) return null;
         int w = grid.Width;
         var s = Scratches.Value;
         if (s is null || s.G.Length != w * w) Scratches.Value = s = new Scratch(w * w);
@@ -527,7 +597,7 @@ public static class HighwayStage
             foreach (int g in goals) best = MathF.Min(best, Diagonal(c, g, w));
             return best * 1.4f;
         }
-        bool Blocked(int c) => (grid.Flags[c] & PathGrid.Blocked) != 0;
+        bool Blocked(int c) => (grid.Flags[c] & (PathGrid.Blocked | clearance)) != 0;
 
         var open = new PriorityQueue<int, float>();
         s.G[start] = 0;
@@ -557,6 +627,7 @@ public static class HighwayStage
                 int nb = nx + nz * w;
                 if (s.Closed[nb] == stamp) continue;
                 bool goal = goalSet.Contains(nb);
+                if (goal && (grid.Flags[nb] & clearance) != 0) continue;
                 if (!goal && Blocked(nb)) continue;
                 bool diagonal = dx != 0 && dz != 0;
                 // A diagonal step may not cut past a blocked cell.
@@ -583,28 +654,70 @@ public static class HighwayStage
 
     private sealed class Planned(HighwayKind kind, List<Vector2> points, Town? from, Town? to)
     {
+        public Planned(HighwayKind kind, RoadRoute road, Town? from, Town? to) : this(kind, road.Points, from, to)
+        {
+            Line = road.Line;
+            Cells = road.Cells;
+        }
+
         public HighwayKind Kind { get; } = kind;
         public List<Vector2> Points { get; } = points;
+        public List<Vector2> Line { get; } = [];
         public Town? From { get; } = from;
         public Town? To { get; } = to;
-        public List<int> Cells { get; init; } = [];
+        public List<int> Cells { get; } = [];
         public bool Country => Kind == HighwayKind.Country;
         public BridgePlan? Bridge { get; init; }
     }
 
-    /// <summary>A route between two exits (or an exit and a road point), as control points and its length.</summary>
-    private static (List<Vector2> Points, List<int> Cells, float Length)? Route(PathGrid grid, Exit from, IReadOnlyList<Exit> to, bool country, out Exit? reached)
+    private sealed record RoadRoute(List<Vector2> Points, List<Vector2> Line, List<int> Cells, float Length);
+
+    /// <summary>A route between two town exits.</summary>
+    private static RoadRoute? Route(PathGrid grid, Exit from, IReadOnlyList<Exit> to, bool country, out Exit? reached)
     {
-        reached = null;
         var goals = to.Select(e => grid.CellOf(e.LeadPoint)).ToList();
-        if (FindPath(grid, grid.CellOf(from.LeadPoint), goals, country) is not { } cells) return null;
-        int end = goals.IndexOf(cells[^1]);
-        reached = to[end];
-        var points = new List<Vector2> { from.Point, from.LeadPoint };
-        points.AddRange(Inner(grid, cells, from.LeadPoint, reached.LeadPoint));
-        points.Add(reached.LeadPoint);
-        points.Add(reached.Point);
-        return (points, cells, Length(points));
+        var route = FindRoad(grid, from, goals, country, cell =>
+        {
+            var exit = to[goals.IndexOf(cell)];
+            return (exit.LeadPoint, exit.Point, exit);
+        });
+        reached = route is null ? null : to[goals.IndexOf(route.Cells[^1])];
+        return route;
+    }
+
+    /// <summary>Keeps the usual route if it clears the tiles. Otherwise reroutes with room for its paint and grading.</summary>
+    private static RoadRoute? FindRoad(PathGrid grid, Exit from, IReadOnlyList<int> goals, bool country,
+        Func<int, (Vector2 Lead, Vector2 End, Exit? Exit)> finish)
+    {
+        int start = grid.CellOf(from.LeadPoint);
+        if (FindPath(grid, start, goals, country) is not { } cells) return null;
+        if (BuildRoute(cells, round: true) is { } usual) return usual;
+
+        var remaining = goals.Distinct().ToList();
+        while (FindPath(grid, start, remaining, country, clearStreets: true) is { } clearCells)
+        {
+            // Keep the path cells near the ends if a wider curve would cut back toward a tile.
+            if ((BuildRoute(clearCells, round: true) ?? BuildRoute(clearCells, round: false)) is { } clear) return clear;
+            remaining.Remove(clearCells[^1]);
+        }
+        return null;
+
+        RoadRoute? BuildRoute(List<int> route, bool round)
+        {
+            var (lead, end, exit) = finish(route[^1]);
+            var points = new List<Vector2> { from.Point, from.LeadPoint };
+            points.AddRange(round ? Inner(grid, route, from.LeadPoint, lead) : route.Select(grid.Centre));
+            points.Add(lead);
+            if (lead != end) points.Add(end);
+            float length = Length(points);
+            var type = country ? RoadType.Gravel : RoadType.Asphalt;
+            if (round) RoundOffCorners(points, country);
+            var line = RoadOp.Centreline(points, round ? RoadOp.CornerRounding(type) : Step);
+            if (grid.ClearsStreets(line, country, from, exit)) return new RoadRoute(points, line, route, length);
+            if (round) return null;
+            line = RoadOp.Centreline(points, 0);
+            return grid.ClearsStreets(line, country, from, exit) ? new RoadRoute(points, line, route, length) : null;
+        }
     }
 
     /// <summary>The route's cell centres, leaving out those within 40 m of its ends (Path.CreatePath).</summary>
@@ -679,7 +792,7 @@ public static class HighwayStage
                             float cost = r.Length;
                             if (town.Links.GetValueOrDefault(other) > 0) cost *= town.Tiles.Count <= 1 || other.Tiles.Count <= 1 ? 4 : 1.6f;
                             if (results[bi] is not { } had || cost < had.Item4)
-                                results[bi] = (new Planned(HighwayKind.Highway, r.Points, town, other) { Cells = r.Cells }, from, reached, cost);
+                                results[bi] = (new Planned(HighwayKind.Highway, r, town, other), from, reached, cost);
                         }
                     });
                     foreach (var r in results)
@@ -706,10 +819,10 @@ public static class HighwayStage
                 {
                     var a = town.Exits.Where(e => e.Tile == ring[i]).ToList();
                     var b2 = town.Exits.Where(e => e.Tile == ring[(i + 1) % ring.Count]).ToList();
-                    (List<Vector2> Points, List<int> Cells, float Length)? bestRing = null;
+                    RoadRoute? bestRing = null;
                     foreach (var from in a)
-                        if (Route(grid, from, b2, false, out _) is { } r && (bestRing is null || r.Length < bestRing.Value.Length)) bestRing = r;
-                    if (bestRing is { } br) Commit(new Planned(HighwayKind.Ring, br.Points, null, null) { Cells = br.Cells });
+                        if (Route(grid, from, b2, false, out _) is { } r && (bestRing is null || r.Length < bestRing.Length)) bestRing = r;
+                    if (bestRing is { } br) Commit(new Planned(HighwayKind.Ring, br, null, null));
                 }
             }
             progress?.Report(0.6 * (ti + 1) / Math.Max(1, gatewayTowns.Count));
@@ -736,18 +849,18 @@ public static class HighwayStage
                 goals.Add(c);
                 if (goals.Count >= 6) break;
             }
-            if (FindPath(grid, grid.CellOf(start), goals, true) is not { } cells)
+            if (FindRoad(grid, exit, goals, true, cell =>
+                {
+                    var point = grid.Centre(cell);
+                    return (point, point, null);
+                }) is not { } route)
             {
                 unjoined++;
                 continue;
             }
-            var end = grid.Centre(cells[^1]);
-            var points = new List<Vector2> { exit.Point, start };
-            points.AddRange(Inner(grid, cells, start, end));
-            points.Add(end);
             exit.Used = true;
-            var owner = planned.Where(p => !p.Country).FirstOrDefault(p => p.Cells.Contains(cells[^1]));
-            var p = new Planned(HighwayKind.Country, points, exit.Tile.Town, owner?.From) { Cells = cells };
+            var owner = planned.Where(p => !p.Country).FirstOrDefault(p => p.Cells.Contains(route.Cells[^1]));
+            var p = new Planned(HighwayKind.Country, route, exit.Tile.Town, owner?.From);
             Commit(p);
         }
         if (unjoined > 0) notes.Add($"{unjoined} town exit{(unjoined == 1 ? "" : "s")} found no way to a highway.");
@@ -767,12 +880,12 @@ public static class HighwayStage
                              select (a, b)).Take(1).ToList();
                 if (pairs.Count == 0) break;
                 var (ta, tb) = pairs[0];
-                (List<Vector2> Points, List<int> Cells, float Length, Exit From, Exit To)? bestJoin = null;
+                (RoadRoute Road, Exit From, Exit To)? bestJoin = null;
                 foreach (var from in ta.Exits.OrderBy(e => e.Used).ThenBy(e => Vector2.DistanceSquared(e.Point, tb.Centre)).Take(2))
                 {
                     var targets = tb.Exits.OrderBy(e => e.Used).ThenBy(e => Vector2.DistanceSquared(e.Point, from.Point)).Take(3).ToList();
-                    if (Route(grid, from, targets, false, out var reached) is { } r && reached is not null && (bestJoin is null || r.Length < bestJoin.Value.Length))
-                        bestJoin = (r.Points, r.Cells, r.Length, from, reached);
+                    if (Route(grid, from, targets, false, out var reached) is { } r && reached is not null && (bestJoin is null || r.Length < bestJoin.Value.Road.Length))
+                        bestJoin = (r, from, reached);
                 }
                 if (bestJoin is not { } j)
                 {
@@ -787,7 +900,7 @@ public static class HighwayStage
                 }
                 j.From.Used = true;
                 j.To.Used = true;
-                Commit(new Planned(HighwayKind.JoinUp, j.Points, ta, tb) { Cells = j.Cells });
+                Commit(new Planned(HighwayKind.JoinUp, j.Road, ta, tb));
             }
             if (kit is not null && options.BridgeShortcuts)
             {
@@ -881,6 +994,17 @@ public static class HighwayStage
         }
         var grid = new PathGrid(world, library, options);
         foreach (var area in keepClear ?? []) grid.KeepClear(area);
+        int size = world.Size;
+        var streetCells = new BitArray(world.Height.Data.Length);
+        foreach (var prefab in world.Prefabs)
+        {
+            if (library.Find(prefab.Name) is not { IsStreetTile: true } info) continue;
+            var rect = PrefabPlacer.Footprint(world, info, prefab.Position.X, prefab.Position.Z, prefab.Rotation).Clamp(size, size);
+            grid.ProtectStreet(rect);
+            for (int z = rect.Z0; z < rect.Z1; z++)
+                for (int x = rect.X0; x < rect.X1; x++)
+                    streetCells[x + z * size] = true;
+        }
         BridgeKit? kit = null;
         if (options.Bridges)
         {
@@ -895,16 +1019,32 @@ public static class HighwayStage
             added.Add(BridgeOp.Build(world, options.DeckWrecks ? p.Bridge! with { WreckSeed = options.Seed } : p.Bridge!, session));
         // Highways first, then country roads, so asphalt is down where gravel meets it.
         var order = planned.Where(p => !p.Country && p.Bridge is null).Concat(planned.Where(p => p.Country)).ToList();
+        var exits = towns.SelectMany(t => t.Exits).ToLookup(e => e.Point, e => e.Tile.Rect);
         for (int i = 0; i < order.Count; i++)
         {
             cancel.ThrowIfCancellationRequested();
             var p = order[i];
-            RoundOffCorners(p.Points, p.Country);
             var type = p.Country ? RoadType.Gravel : RoadType.Asphalt;
             float radius = p.Country ? CountryRadius : HighwayRadius;
             var path = new RoadPath(p.Points, type, radius);
             var road = new HighwayRoad { Kind = p.Kind, Type = type, Radius = radius, Points = [.. p.Points.Select(v => new[] { v.X, v.Y })] };
-            road.Ground = Capture(world, path, () => RoadOp.Draw(world, path, session, (w, line) => RwgProfile(w, line, p.Country, grid)));
+            var line = p.Line;
+            var profile = RwgProfile(world, line, p.Country, grid);
+            var start = line[0];
+            var end = line[^1];
+            var startTiles = exits[start];
+            var endTiles = exits[end];
+            // Keep the tile's ground and only paint the road's end cap at its street opening.
+            (bool Paint, bool Grade) CellEdits(int index)
+            {
+                if (!streetCells[index]) return (true, true);
+                int x = index % size, z = index / size;
+                var centre = new Vector2(x + 0.5f, z + 0.5f);
+                bool paint = (Vector2.DistanceSquared(centre, start) <= radius * radius && startTiles.Any(r => r.Contains(x, z)))
+                    || (Vector2.DistanceSquared(centre, end) <= radius * radius && endTiles.Any(r => r.Contains(x, z)));
+                return (paint, false);
+            }
+            road.Ground = Capture(world, path, line, () => RoadOp.Draw(world, path, line, profile, session, CellEdits));
             added.Add(road);
             progress?.Report(0.8 + 0.2 * (i + 1) / order.Count);
         }
@@ -1059,8 +1199,8 @@ public static class HighwayStage
             return
             [
                 new Planned(HighwayKind.Bridge, [EndPoint(true), EndPoint(false)], ta, tb) { Bridge = plan },
-                new Planned(HighwayKind.JoinUp, approachA.Value.Points, null, null) { Cells = approachA.Value.Cells },
-                new Planned(HighwayKind.JoinUp, approachB.Value.Points, null, null) { Cells = approachB.Value.Cells },
+                new Planned(HighwayKind.JoinUp, approachA.Value.Road, null, null),
+                new Planned(HighwayKind.JoinUp, approachB.Value.Road, null, null),
             ];
         }
         return null;
@@ -1240,17 +1380,13 @@ public static class HighwayStage
     }
 
     /// <summary>A road from the town's nearest open exit to a bridge end, the last stretch straight onto it.</summary>
-    private static (List<Vector2> Points, List<int> Cells, Exit Exit)? Approach(PathGrid grid, Town town, Vector2 end, Vector2 lead)
+    private static (RoadRoute Road, Exit Exit)? Approach(PathGrid grid, Town town, Vector2 end, Vector2 lead)
     {
         foreach (var exit in town.Exits.OrderBy(e => e.Used).ThenBy(e => Vector2.DistanceSquared(e.Point, lead)).Take(3))
         {
-            if (FindPath(grid, grid.CellOf(exit.LeadPoint), [grid.CellOf(lead)], false) is not { } cells) continue;
-            var points = new List<Vector2> { exit.Point, exit.LeadPoint };
-            points.AddRange(Inner(grid, cells, exit.LeadPoint, lead));
-            points.Add(lead);
-            points.Add(end);
+            if (FindRoad(grid, exit, [grid.CellOf(lead)], false, _ => (lead, end, null)) is not { } road) continue;
             exit.Used = true;
-            return (points, cells, exit);
+            return (road, exit);
         }
         return null;
     }
@@ -1263,9 +1399,11 @@ public static class HighwayStage
     /// Runs <paramref name="draw"/> and returns what it changed, compressed: as row runs, every height cell that
     /// differs afterwards with the change that undoes it, and every road cell with its value before.
     /// </summary>
-    internal static byte[] Capture(World world, RoadPath road, Action draw)
+    internal static byte[] Capture(World world, RoadPath road, Action draw) =>
+        Capture(world, road, RoadOp.Centreline(road.Points, RoadOp.CornerRounding(road.Type)), draw);
+
+    private static byte[] Capture(World world, RoadPath road, List<Vector2> line, Action draw)
     {
-        var line = RoadOp.Centreline(road.Points, RoadOp.CornerRounding(road.Type));
         float reach = road.Radius + road.BlendDistance + 2;
         return Capture(world, line.Select(p => new GridRect((int)(p.X - reach), (int)(p.Y - reach), (int)(p.X + reach) + 1, (int)(p.Y + reach) + 1)), draw);
     }

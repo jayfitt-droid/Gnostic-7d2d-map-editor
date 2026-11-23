@@ -11,7 +11,9 @@ namespace MapEditor.Core.Ops;
 public sealed record RoadPath(IReadOnlyList<Vector2> Points, RoadType Type, float Radius, bool Grade = true)
 {
     /// <summary>Distance over which graded terrain blends back into the original ground.</summary>
-    public float BlendDistance => Type == RoadType.Asphalt ? 10f : 6f;
+    public float BlendDistance => BlendFor(Type);
+
+    internal static float BlendFor(RoadType type) => type == RoadType.Asphalt ? 10f : 6f;
 
     /// <summary>Asphalt roads this wide get a 1 m gravel shoulder at the edge, as RWG highways do.</summary>
     public bool HasShoulder => Type == RoadType.Asphalt && Radius >= 4f;
@@ -280,7 +282,12 @@ public static class RoadOp
     }
 
     /// <summary>Draws a road along a centreline already made (<see cref="Centreline"/>) at the given heights.</summary>
-    public static GridRect Draw(World world, RoadPath road, List<Vector2> line, float[] profile, EditSession session)
+    public static GridRect Draw(World world, RoadPath road, List<Vector2> line, float[] profile, EditSession session) =>
+        Draw(world, road, line, profile, session, null);
+
+    /// <summary>Draws a road with optional paint and grading limits for each cell, indexed as x + z * world size.</summary>
+    internal static GridRect Draw(World world, RoadPath road, List<Vector2> line, float[] profile, EditSession session,
+        Func<int, (bool Paint, bool Grade)>? cellEdits)
     {
         if (line.Count < 2 || road.Radius <= 0) return GridRect.Empty;
         world.Roads ??= new Grid<byte>(world.Size, world.Size);
@@ -331,15 +338,16 @@ public static class RoadOp
         float core = road.HasShoulder ? road.Radius - 1 : road.Radius;
         foreach (var (key, (d, roadHeight)) in nearest)
         {
+            var (paint, grade) = cellEdits?.Invoke(key) ?? (true, true);
             // Asphalt keeps its ground too: a gravel road beside or across a highway doesn't regrade it (#34).
             bool keepGround = road.Type != RoadType.Asphalt && roads[key] == (byte)RoadType.Asphalt;
-            if (d <= road.Radius)
+            if (paint && d <= road.Radius)
             {
                 var type = d <= core ? road.Type : RoadType.Gravel;
                 // Asphalt wins where roads meet, so a gravel road joining a highway does not cut through it.
                 if (roads[key] != (byte)RoadType.Asphalt || type == RoadType.Asphalt) roads[key] = (byte)type;
             }
-            if (!road.Grade || keepGround) continue;
+            if (!road.Grade || !grade || keepGround) continue;
             float blend = Math.Clamp((d - road.Radius) / road.BlendDistance, 0, 1);
             float ground = World.HeightToMetres(height[key]);
             height[key] = TerrainBrush.ToRaw(roadHeight + (ground - roadHeight) * blend * blend);

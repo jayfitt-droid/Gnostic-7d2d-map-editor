@@ -449,12 +449,12 @@ public sealed class BridgeTests
 
     /// <summary>
     /// Pins a seeded stage-4 run with bridges and shortcuts: world, prefabs and bridge records must not drift. With the wrecks
-    /// on it differs from off by the wrecks alone. Both were re-pinned when approach roads began to run straight for
-    /// <c>ApproachRun</c> (the road's control points moved).
+    /// on it differs from off by the wrecks alone. The approach roads leave room around street tiles and meet them
+    /// at their exits.
     /// </summary>
     [Theory]
-    [InlineData(false, "054C9C0B2760F844C0F9977EF3E9A9E2FE05FBAEA3F32781996BE49BC934D970")]
-    [InlineData(true, "1375FF4097E763F28A4C11B92E94BD44E5D93759AB1FB1FD3D84547D888CF871")]
+    [InlineData(false, "59F7033B63FABBF9CBBB91C7FFEA7E8226CCF4690955DAAA58F31B05C8392756")]
+    [InlineData(true, "6B0C74E296245AEB851F554475D23997A08FAE033311C2711868A1BD005F3846")]
     public void A_seeded_bridge_run_gives_the_same_world_and_records(bool wrecks, string expected)
     {
         var world = TwoIslands();
