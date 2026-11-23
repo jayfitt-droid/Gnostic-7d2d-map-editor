@@ -115,6 +115,59 @@ public sealed class PrefabGroupTests
         Assert.Equal((20f, 15.5f, 90f), (spawn.X, spawn.Z, spawn.RotationY));
     }
 
+    [Fact]
+    public void Rotation_refuses_to_overlap_an_unselected_poi()
+    {
+        var world = Flat();
+        var a = Add(world, Poi, 0, 0);
+        var b = Add(world, Trader, 30, 11);
+        var blocker = Add(world, Poi, 34, -12); // Only its edge overlaps the turned footprint.
+        var before = world.Prefabs.Select(p => (p.Position, p.Rotation)).ToArray();
+        var group = new PrefabGroup(world, Library, [a, b], []);
+        var undo = new UndoStack();
+        string? problem = null;
+
+        Assert.True(new EditRunner(undo).Run(world, "Rotate selection",
+            s => problem = group.Apply(0, 0, 1, true, false, s)));
+
+        Assert.Equal("The selection would turn onto cabin.", problem);
+        Assert.Equal([a, b, blocker], world.Prefabs);
+        Assert.Equal(before, world.Prefabs.Select(p => (p.Position, p.Rotation)));
+        Assert.False(undo.CanUndo);
+    }
+
+    [Fact]
+    public void Rotation_carries_a_poi_on_its_selected_tile()
+    {
+        var world = Flat();
+        var tile = Add(world, Tile, 0, 0);
+        var rider = Add(world, Poi, 10, 20);
+        var group = new PrefabGroup(world, Library, [tile], []);
+
+        Assert.True(new EditRunner(new UndoStack()).Run(world, "Rotate selection",
+            s => Assert.Null(group.Apply(0, 0, 1, false, false, s))));
+
+        Assert.Equal([tile, rider], world.Prefabs);
+        Assert.Equal((110, 10, 1), (rider.Position.X, rider.Position.Z, rider.Rotation));
+        Assert.Equal(1, tile.Rotation);
+    }
+
+    [Fact]
+    public void Rotation_allows_a_poi_to_turn_on_an_unselected_tile()
+    {
+        var world = Flat();
+        var tile = Add(world, Tile, 0, 0);
+        var poi = Add(world, Poi, 20, 20);
+        var group = new PrefabGroup(world, Library, [poi], []);
+
+        Assert.True(new EditRunner(new UndoStack()).Run(world, "Rotate selection",
+            s => Assert.Null(group.Apply(0, 0, 1, false, false, s))));
+
+        Assert.Equal([tile, poi], world.Prefabs);
+        Assert.Equal((15, 25, 1), (poi.Position.X, poi.Position.Z, poi.Rotation));
+        Assert.Equal((0, 0, 0), (tile.Position.X, tile.Position.Z, tile.Rotation));
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(-1)]
