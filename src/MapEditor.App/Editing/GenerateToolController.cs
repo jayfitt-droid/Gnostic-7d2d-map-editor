@@ -91,28 +91,33 @@ public sealed class GenerateToolController
             (tiles.X1 - tiles.X0) * TerrainStage.TileSize, (tiles.Z1 - tiles.Z0) * TerrainStage.TileSize);
 
     /// <summary>
-    /// Shows the area to generate while the Generate panel is open or one of its tools is in use.
+    /// Shows the planned towns on every tab and with every tool, until they are built, cleared or undone. Also shows
+    /// the area to generate and the picked feature while the Generate panel is open or one of its tools is in use.
     /// </summary>
     public void Refresh()
     {
-        bool show = World is not null && (_vm.ShowSidePanel && _vm.SidePanelTab == MainViewModel.GenerateTab
-                                          || _vm.SelectedTool is EditorTool.GenerateArea or EditorTool.Features);
-        if (!show || World is not { } world)
+        if (World is not { } world)
         {
             _map.TerrainTiles = null;
             _map.TownPreviews = [];
             return;
         }
-        Rect? area = !G.WholeMap && G.Area is { } a ? MapRect(world, a) : null;
-        _map.TerrainTiles = new TerrainTileOverlay(area, _drag);
+        bool show = _vm.ShowSidePanel && _vm.SidePanelTab == MainViewModel.GenerateTab
+                    || _vm.SelectedTool is EditorTool.GenerateArea or EditorTool.Features;
         var previews = G.Planned.Select(t => Preview(world, t)).ToList();
-        // The picked feature (a whole long river) gets a box round each of its stamps.
-        if (G.SelectedFeature is { } picked)
-            foreach (var f in G.Settings.PlacedFeatures.Where(f => f == picked || picked.Chain != 0 && f.Chain == picked.Chain))
-            {
-                var cells = f.Cells.Aggregate(GridRect.Empty, (r, c) => r.Union(new GridRect(c[0], c[1], c[0] + 1, c[1] + 1))).Scale(TownSiteStage.Cell);
-                previews.Add(new TownPreview(new Rect(cells.X0, world.Size - cells.Z1, cells.X1 - cells.X0, cells.Z1 - cells.Z0), [], [], [], [], []));
-            }
+        if (show)
+        {
+            Rect? area = !G.WholeMap && G.Area is { } a ? MapRect(world, a) : null;
+            _map.TerrainTiles = new TerrainTileOverlay(area, _drag);
+            // The picked feature (a whole long river) gets a box round each of its stamps.
+            if (G.SelectedFeature is { } picked)
+                foreach (var f in G.Settings.PlacedFeatures.Where(f => f == picked || picked.Chain != 0 && f.Chain == picked.Chain))
+                {
+                    var cells = f.Cells.Aggregate(GridRect.Empty, (r, c) => r.Union(new GridRect(c[0], c[1], c[0] + 1, c[1] + 1))).Scale(TownSiteStage.Cell);
+                    previews.Add(new TownPreview(new Rect(cells.X0, world.Size - cells.Z1, cells.X1 - cells.X0, cells.Z1 - cells.Z0), [], [], [], [], []));
+                }
+        }
+        else _map.TerrainTiles = null;
         _map.TownPreviews = previews;
     }
 
