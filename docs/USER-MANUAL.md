@@ -316,10 +316,15 @@ With the **Select** tool:
 - Press **Q** or **E** to turn it.
 - Press **PgUp** or **PgDn** to make it one block higher or lower.
 - Press **Del** to remove it.
+- Press **Ctrl+C** to copy a selected prefab or spawn point.
 - Click a bridge deck or ramp to select the bridge and switch to the **Bridge** tool. See [Bridges](#bridges).
 - Drag empty ground to move the map.
 
 To replace a selected prefab, select a different prefab in the **Prefabs** tab. The info card shows it as the replacement. Click **Replace**, or click **Back** (Esc) to cancel.
+
+To paste, press **Ctrl+V** and move the pointer over the map. Press **Q** or **E** to turn the preview. Click to put the copy on the map, or press **Esc** to cancel.
+
+You can paste into a different project or editor window. The editor skips prefabs missing from the prefab library. The status bar shows how many items it put on the map and how many prefabs it skipped.
 
 Click **☆** next to a prefab to make it a favourite. **Favourites** in the category list shows your favourites.
 
@@ -334,6 +339,8 @@ Click **Multi-select** next to **Select**, or press **M**.
 - The editor stops a move or turn if any part of a prefab would go outside the map. The editor also stops a turn if a prefab would overlap a POI outside the selection.
 - A drop replaces covered prefabs. The editor stops the drop if a selected street tile partly overlaps another street tile, or if the group overlaps a bridge. Bridges made with the Bridge tool or Highways stay in place.
 - Each group edit takes one undo step. The map shows the selection.
+- Press **Ctrl+C** to copy the group, then press **Ctrl+V** to paste it. The copy keeps the spacing, directions and height offsets of the items. The editor skips pieces of bridges made with the **Bridge** tool or the **Highways** stage.
+- Turn and put the group on the map as in **Select**. Hold **Alt** to put it on the map without snapping to street tiles. The same map edge and overlap rules apply as for a group move. A paste takes one undo step and selects the new items.
 
 ### Roads
 
@@ -783,6 +790,7 @@ Press **F1** in the editor to see this list.
 | Right drag | Move the map with any tool |
 | Right-click | Open the map menu (**Copy teleport command**) |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
+| Ctrl+C, Ctrl+V | Copy or paste items in Select and Multi-select |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E | New, open, save, save project as, export |
 | Ctrl+F | Search the prefabs. If the **Placed** tab is open, search the prefabs in your world |
 | Ctrl+Alt+Left | Teleport to the previous issue when **Enable in-game shortcuts** is on in the **Issues** tab |

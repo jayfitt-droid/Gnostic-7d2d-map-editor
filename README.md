@@ -100,6 +100,7 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 | Right drag | Pan with any tool |
 | Right-click | Map menu: copy a teleport command for that spot, for the game's console |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
+| Ctrl+C, Ctrl+V | Copy or paste items in Select and Multi-select |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+E | New, open, save, save project as, export |
 | Ctrl+F | Search the Prefabs browser, or the Placed list when it's open |
 | F7, F1 | Validate, show shortcuts |
