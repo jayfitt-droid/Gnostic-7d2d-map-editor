@@ -168,6 +168,7 @@ public partial class MainWindow : Window
         _chosenTheme = _settings.UsesModernTheme ? AppSettings.ModernTheme : AppSettings.FlatTheme;
         TickChosenTheme();
         if (_settings.UsesModernTheme) UseModernLayout();
+        CheckUpdatesAtStartItem.IsChecked = _settings.CheckForUpdatesAtStart;
 
         Loaded += async (_, _) =>
         {
@@ -187,7 +188,7 @@ public partial class MainWindow : Window
             if (args.Length > 1 && Directory.Exists(args[1])) await OpenWorldAsync(args[1]);
             else if (args.Length > 1 && File.Exists(args[1])) await OpenProjectAsync(args[1]);
             else await OfferRecoveryAsync();
-            await CheckUpdatesQuietlyAsync();
+            if (_settings.CheckForUpdatesAtStart) await CheckUpdatesAtStartupAsync();
         };
         Closing += MainWindow_Closing;
 
@@ -3151,6 +3152,11 @@ public partial class MainWindow : Window
         if (ThemedMessageBox.Show(this, result.Message + "\n\nInstall it now? The editor restarts.", "Check for Updates",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
+        await InstallUpdateAsync(result);
+    }
+
+    private async Task InstallUpdateAsync(Updates.Result result)
+    {
         if (!await ConfirmDiscardAsync()) return;
         _vm.Status = "Downloading the update...";
         _vm.IsBusy = true;
@@ -3171,11 +3177,46 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>A quiet check at start-up; only says something when there is an update.</summary>
-    private async Task CheckUpdatesQuietlyAsync()
+    private void CheckUpdatesAtStart_Click(object sender, RoutedEventArgs e)
     {
-        var result = await Updates.CheckAsync(_settings);
-        if (result.Update is not null) _vm.Status = result.Message + " Use Help > Check for Updates to install it.";
+        _settings.CheckForUpdatesAtStart = CheckUpdatesAtStartItem.IsChecked;
+        if (!_settings.Save()) _vm.Status = "Couldn't save the update setting. Details are in crash.log.";
+    }
+
+    /// <summary>Offers an update after start-up work has finished.</summary>
+    private async Task CheckUpdatesAtStartupAsync()
+    {
+        Updates.Result result;
+        try
+        {
+            result = await Updates.CheckAsync(_settings);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            App.LogError(ex);
+            return;
+        }
+        if (result.Update is null) return;
+
+        await _gameDataLoad;
+        while (_vm.IsBusy)
+        {
+            // A project can also be opened while the update check is in progress.
+            var idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void OnIdle(object? sender, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(MainViewModel.IsBusy) && !_vm.IsBusy) idle.TrySetResult();
+            }
+            _vm.PropertyChanged += OnIdle;
+            try { await idle.Task; }
+            finally { _vm.PropertyChanged -= OnIdle; }
+        }
+        if (!IsVisible || _closeWhenIdle || _confirmingClose || !_settings.CheckForUpdatesAtStart) return;
+
+        _vm.Status = result.Message + " Use Help > Check for Updates to install it.";
+        if (ThemedMessageBox.Show(this, result.Message + "\n\nInstall it now? The editor restarts.", "Check for Updates",
+                MessageBoxButton.YesNo, MessageBoxImage.Question, labels: ["Install", "Later"]) == MessageBoxResult.Yes)
+            await InstallUpdateAsync(result);
     }
 
     private void About_Click(object sender, RoutedEventArgs e)
