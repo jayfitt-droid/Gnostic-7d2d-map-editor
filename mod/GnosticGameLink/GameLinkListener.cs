@@ -28,7 +28,28 @@ internal sealed class GameLinkListener : IDisposable
     {
         listener.ExclusiveAddressUse = true;
         listener.Start(backlog: 1);
-        new Thread(Listen) { IsBackground = true, Name = "Gnostic Game Link" }.Start();
+        string sessionToken = GameLinkProtocol.CreateSessionToken();
+        PublishSessionToken(sessionToken);
+        new Thread(() => Listen(sessionToken)) { IsBackground = true, Name = "Gnostic Game Link" }.Start();
+    }
+
+    private static void PublishSessionToken(string sessionToken)
+    {
+        string path = GameLinkProtocol.SessionTokenPath;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        string temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temporaryPath, sessionToken, Encoding.ASCII);
+            if (File.Exists(path))
+                File.Replace(temporaryPath, path, null);
+            else
+                File.Move(temporaryPath, path);
+        }
+        finally
+        {
+            File.Delete(temporaryPath);
+        }
     }
 
     /// <summary>Takes at most one request on Unity's main thread.</summary>
@@ -79,7 +100,7 @@ internal sealed class GameLinkListener : IDisposable
         }
     }
 
-    private void Listen()
+    private void Listen(string sessionToken)
     {
         while (!stopped)
         {
@@ -110,20 +131,20 @@ internal sealed class GameLinkListener : IDisposable
                     client = accepted;
                 }
 
-                Serve(accepted);
+                Serve(accepted, sessionToken);
                 lock (gate)
                     client = null;
             }
         }
     }
 
-    private void Serve(TcpClient connection)
+    private void Serve(TcpClient connection, string sessionToken)
     {
         try
         {
             using NetworkStream stream = connection.GetStream();
             stream.WriteTimeout = GameLinkProtocol.ReadTimeoutMilliseconds;
-            string reply = ReadAndDispatch(stream);
+            string reply = ReadAndDispatch(stream, sessionToken);
             byte[] bytes = Utf8.GetBytes(reply + "\n");
             stream.Write(bytes, 0, bytes.Length);
         }
@@ -133,22 +154,14 @@ internal sealed class GameLinkListener : IDisposable
         }
     }
 
-    private string ReadAndDispatch(NetworkStream stream)
+    private string ReadAndDispatch(NetworkStream stream, string sessionToken)
     {
-        GameLinkParseResult result;
-        GameLinkRequest request;
-        try
-        {
-            result = GameLinkProtocol.ReadRequest(stream, out request);
-        }
-        catch (IOException)
-        {
-            return GameLinkReply.Error("bad_request", "The request could not be read within two seconds.");
-        }
-
+        GameLinkParseResult result = GameLinkProtocol.ReadRequest(stream, sessionToken, out var request);
         return result switch
         {
             GameLinkParseResult.Ok => Dispatch(request),
+            GameLinkParseResult.InvalidToken =>
+                GameLinkReply.Error("invalid_token", "Game Link could not verify the session token. Restart the game or install the mod that matches the editor."),
             GameLinkParseResult.UnsupportedProtocol =>
                 GameLinkReply.Error("unsupported_protocol", $"Use Game Link protocol {GameLinkProtocol.Version}."),
             _ => GameLinkReply.Error("bad_request", "The request is invalid.")

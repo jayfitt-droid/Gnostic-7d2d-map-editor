@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
+using MapEditor.Core.GameLink;
 
 namespace MapEditor.Core.GameData;
 
@@ -29,6 +30,9 @@ public sealed partial class GameInstall
     /// <summary>Where Gnostic Game Link writes its pictures for the current user.</summary>
     public static string GameLinkPicturesDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7DaysToDie", "GnosticGameLink", "Pictures");
+
+    /// <summary>Where Gnostic Game Link writes the current game's session token.</summary>
+    public static string GameLinkSessionTokenPath => GameLinkProtocol.SessionTokenPath;
 
     /// <summary>
     /// The current user's own prefabs (where the game's prefab editor saves). The game searches it before mods

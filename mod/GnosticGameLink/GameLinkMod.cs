@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using MapEditor.Core.GameLink;
 using UnityEngine;
 
@@ -25,6 +26,12 @@ public sealed class GameLinkMod : IModApi
         {
             listener.Dispose();
             Log.Warning($"[Gnostic Game Link] Could not listen on 127.0.0.1:{GameLinkProtocol.Port}: {ex.Message}");
+            return;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
+        {
+            listener.Dispose();
+            Log.Warning($"[Gnostic Game Link] Could not create the session token: {ex.Message}");
             return;
         }
 

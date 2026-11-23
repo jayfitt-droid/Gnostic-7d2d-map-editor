@@ -9,6 +9,10 @@
     ./test-link.ps1 Waypoint -X -412 -Z 1880 -PrefabName farm_16 -Count 2
 .EXAMPLE
     ./test-link.ps1 Picture -X -412 -Y 115 -Z 1820 -LookX -412 -LookY 65 -LookZ 1880
+.EXAMPLE
+    ./test-link.ps1 -CheckLoopback
+.EXAMPLE
+    ./test-link.ps1 Status -NoToken
 #>
 param(
     [ValidateSet('Status', 'Teleport', 'Waypoint', 'Picture')]
@@ -28,10 +32,23 @@ param(
     [int]$Y,
     [int]$LookX,
     [int]$LookY,
-    [int]$LookZ
+    [int]$LookZ,
+    [switch]$CheckLoopback,
+    [switch]$NoToken
 )
 
 $ErrorActionPreference = 'Stop'
+$port = 7790
+if ($CheckLoopback) {
+    $listeners = @([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
+        Where-Object { $_.Port -eq $port })
+    if ($listeners.Count -ne 1 -or -not $listeners[0].Address.Equals([Net.IPAddress]::Loopback)) {
+        throw "Expected only 127.0.0.1:${port}. Found $($listeners -join ', ')."
+    }
+    "Game Link listens only on 127.0.0.1:$port."
+    return
+}
+
 if ($Request -ne 'Status' -and (-not $PSBoundParameters.ContainsKey('X') -or -not $PSBoundParameters.ContainsKey('Z'))) {
     throw 'Specify -X and -Z in game coordinates.'
 }
@@ -48,32 +65,41 @@ if ($Request -eq 'Picture') {
 
 $culture = [Globalization.CultureInfo]::InvariantCulture
 $coordinates = $X.ToString($culture) + ' ' + $Z.ToString($culture)
-$line = switch ($Request) {
-    'Status' { 'GNOSTICLINK 2 STATUS' }
-    'Teleport' { "GNOSTICLINK 2 TELEPORT $coordinates $($Facing.ToLowerInvariant())" }
-    'Waypoint' { "GNOSTICLINK 2 WAYPOINT $coordinates $PrefabName" }
+$command = switch ($Request) {
+    'Status' { 'STATUS' }
+    'Teleport' { "TELEPORT $coordinates $($Facing.ToLowerInvariant())" }
+    'Waypoint' { "WAYPOINT $coordinates $PrefabName" }
     'Picture' {
-        [string]::Format($culture, 'GNOSTICLINK 2 PICTURE {0} {1} {2} {3} {4} {5}',
+        [string]::Format($culture, 'PICTURE {0} {1} {2} {3} {4} {5}',
             [object[]]@($X, $Y, $Z, $LookX, $LookY, $LookZ))
     }
 }
 $utf8 = [Text.UTF8Encoding]::new($false, $true)
-$bytes = $utf8.GetBytes($line + "`n")
+$tokenPath = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '7DaysToDie/GnosticGameLink/session-token'
 
 if ($DelaySeconds -gt 0) {
     Start-Sleep -Seconds $DelaySeconds
 }
 for ($i = 0; $i -lt $Count; $i++) {
+    $prefix = 'GNOSTICLINK 2 '
+    if (-not $NoToken) {
+        $token = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($tokenPath))
+        if ($token -cnotmatch '\A[0-9a-f]{32}\z') {
+            throw 'Invalid Game Link token file. Restart the game.'
+        }
+        $prefix += "$token "
+    }
+    $bytes = $utf8.GetBytes($prefix + $command + "`n")
     $client = [Net.Sockets.TcpClient]::new()
     try {
         try {
-            $connect = $client.ConnectAsync([Net.IPAddress]::Loopback, 7790)
+            $connect = $client.ConnectAsync([Net.IPAddress]::Loopback, $port)
             if (-not $connect.Wait(1000)) {
                 throw 'Connection timed out.'
             }
         }
         catch {
-            throw "Could not connect to Game Link at 127.0.0.1:7790. $($_.Exception.GetBaseException().Message)"
+            throw "Could not connect to Game Link at 127.0.0.1:${port}. $($_.Exception.GetBaseException().Message)"
         }
 
         $stream = $client.GetStream()
