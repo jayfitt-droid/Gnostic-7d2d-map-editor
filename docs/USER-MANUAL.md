@@ -322,7 +322,7 @@ Lake, river and water stamps always fill with water. For the other stamps, tick 
 
 With the **Select** tool:
 
-- Click an item to select it. A click does not move the item. The info card shows its picture, tier and details.
+- Click an item to select it. A click does not move the item. For a POI, the info card shows its picture, tier and details.
 - Drag the item to move it.
 - Press **Q** or **E** to turn it.
 - Press **PgUp** or **PgDn** to make it one block higher or lower.
@@ -330,6 +330,8 @@ With the **Select** tool:
 - Press **Ctrl+C** to copy a selected prefab or spawn point.
 - Click a bridge deck or ramp to select the bridge and switch to the **Bridge** tool. See [Bridges](#bridges).
 - Drag empty ground to move the map.
+
+When you select a spawn point with **Select** or **Spawn points**, the status bar shows its position and the direction it faces.
 
 To replace a selected prefab, select a different prefab in the **Prefabs** tab. The info card shows it as the replacement. Click **Replace**, or click **Back** (Esc) to cancel.
 
