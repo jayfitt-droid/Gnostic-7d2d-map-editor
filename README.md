@@ -86,6 +86,7 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 | Key | Action |
 |---|---|
 | V, R, L, F, S, N, T | Select, Raise, Lower, Flatten, Smooth, Roughen, Stamp |
+| K | Ruler (distance, height change, and slope) |
 | B, D, W | Paint biome, Paint radiation, Water fill |
 | O, U, I, A, G, H | Road, Bridge, Prefabs, Trader, Town, Spawn points |
 | [ and ] | Smaller or larger brush |
@@ -93,7 +94,7 @@ A world opened from a folder saves straight back to that folder with Ctrl+S, as 
 | Ctrl+click | Sample height (Flatten) or water level (Water) |
 | Shift+drag | Erase roads or radiation |
 | Alt+click | Place a road point, POI, trader or street tile without snapping |
-| Enter, Backspace | Finish, or undo a point (roads, towns) |
+| Enter, Backspace | Finish, or undo a point (roads, towns, ruler) |
 | Esc | Cancel what the tool is doing; press again to go back to Select; in Select, clear the selection |
 | Del, PgUp, PgDn | Delete the selected prefab, or raise or lower it one block |
 | Wheel, + and -, Home | Zoom, fit to window |

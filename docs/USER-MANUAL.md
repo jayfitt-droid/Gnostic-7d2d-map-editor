@@ -270,6 +270,7 @@ Click a tool on the ribbon, or press its key.
 |---|---|---|
 | **Select** | V | Selects a POI, trader, street tile or spawn point. See [Select and move items](#select-and-move-items). |
 | **Multi-select** | M | Selects and edits a group of items on the map. See [Multi-select](#multi-select). |
+| **Ruler** | K | Measures distance, height change, and slope. See [Ruler](#ruler). |
 
 ### Terrain
 
@@ -341,6 +342,20 @@ Click **Multi-select** next to **Select**, or press **M**.
 - Each group edit takes one undo step. The map shows the selection.
 - Press **Ctrl+C** to copy the group, then press **Ctrl+V** to paste it. The copy keeps the spacing, directions and height offsets of the items. The editor skips pieces of bridges made with the **Bridge** tool or the **Highways** stage.
 - Turn and put the group on the map as in **Select**. Hold **Alt** to put it on the map without snapping to street tiles. The same map edge and overlap rules apply as for a group move. A paste takes one undo step and selects the new items.
+
+#### Ruler
+
+Click **Ruler** in the toolbar, or press **K**.
+
+1. Click the map to add each point. Move the pointer to see the next part of the path.
+2. Double-click the last point or press **Enter** to finish. The path stays on the map until you click again or press **Esc**.
+
+To measure one straight line, press and hold the left mouse button. Drag to the end point, then release the button.
+Press **Backspace** to remove the last point. Press **Esc** to clear the ruler. Press **Esc** again to go back to **Select**.
+
+Each line shows its horizontal length, the height change, and the slope, in that order.
+The ruler takes the height at each point from the nearest terrain cell. The slope is the height change divided by the horizontal length, as a percentage.
+**Total** shows the sum of the horizontal lengths. The ruler does not change the map.
 
 ### Roads
 
@@ -775,6 +790,7 @@ Press **F1** in the editor to see this list.
 | Key | Action |
 |---|---|
 | V, M, R, L, F, S, N, T | Select, Multi-select, Raise, Lower, Flatten, Smooth, Roughen, Stamp |
+| K | Ruler |
 | B, D, W | Paint biome, Paint radiation, Water fill |
 | O, U, I, A, G, H | Road, Bridge, Prefabs, Trader, Town, Spawn points |
 | [ and ] | Smaller or larger brush |
@@ -784,7 +800,8 @@ Press **F1** in the editor to see this list.
 | Alt+click | Put a road point, POI, trader or street tile without snapping |
 | Alt+drag | Draw a town off the shared street-tile grid |
 | Enter, Backspace | Finish, or remove the last point (roads, towns) |
-| Esc | Cancel what the tool is doing (a road, bridge or town, or a prefab to put). Press it again to go back to **Select**. In **Select**, clear the selection. |
+| Enter, Backspace (Ruler) | Finish the path, or remove its last point |
+| Esc | Cancel what the tool is doing or clear the ruler. Press it again to go back to **Select**. In **Select**, clear the selection. |
 | Del, PgUp, PgDn | Remove the selected prefab, or move it one block higher or lower |
 | Wheel, + and -, Home | Zoom, see the whole map |
 | Right drag | Move the map with any tool |
