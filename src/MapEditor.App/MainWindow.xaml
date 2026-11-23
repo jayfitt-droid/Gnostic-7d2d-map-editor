@@ -1721,6 +1721,10 @@
 
                                             <CheckBox Content="One trader per town" Margin="0,8,0,0" IsChecked="{Binding Generate.OneTraderPerTown}"
                                                       ToolTip="Off: the game's way, each biome's own trader, 2 to 4 of each in that biome's biggest towns. On: every town gets one trader." />
+                                            <CheckBox Margin="0,8,0,0" IsChecked="{Binding Generate.TownsCrossBorders}"
+                                                      ToolTip="Off: the game's way, every street tile in one biome, so towns stop short of borders. On: a town can straddle a border; each lot still gets POIs and traders for the biome under it.">
+                                                <TextBlock Text="Let towns cross biome borders" TextWrapping="Wrap" />
+                                            </CheckBox>
                                         </StackPanel>
 
                                         <WrapPanel Margin="0,12,0,0">
@@ -1741,10 +1745,6 @@
                                                     <TextBlock DockPanel.Dock="Left" Text="Seed" Style="{StaticResource GenLabel}" />
                                                     <TextBox Style="{StaticResource GenNumberBox}" HorizontalContentAlignment="Left" Text="{Binding Generate.TownSeed, UpdateSourceTrigger=LostFocus}" AutomationProperties.Name="Town seed" />
                                                 </DockPanel>
-                                                <CheckBox Margin="0,8,0,0" IsChecked="{Binding Generate.TownsCrossBorders}"
-                                                          ToolTip="Off: the game's way, every street tile in one biome, so towns stop short of borders. On: a town can straddle a border; each lot still gets POIs and traders for the biome under it.">
-                                                    <TextBlock Text="Let towns cross biome borders" TextWrapping="Wrap" />
-                                                </CheckBox>
                                                 <StackPanel Margin="0,14,0,0">
                                                     <TextBlock Text="Spacing and biomes" FontWeight="SemiBold" Margin="0,0,0,8" />
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12"
