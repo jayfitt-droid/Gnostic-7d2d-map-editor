@@ -1367,7 +1367,7 @@
                     <TabItem Header="Wo_rld">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
                             <StackPanel>
-                                <TextBlock Text="{Binding WorldSummary}" FontFamily="Cascadia Mono, Consolas" FontSize="11" TextWrapping="Wrap" />
+                                <local:WorldStatsPanel Margin="0,0,6,0" />
                                 <TextBlock Text="Game folder" FontWeight="SemiBold" Margin="0,16,0,4" />
                                 <TextBlock Text="{Binding GameFolderText}" Style="{StaticResource HintText}" />
                                 <Button Content="Change..." HorizontalAlignment="Left" Margin="0,8,0,0" Click="GameFolder_Click" />

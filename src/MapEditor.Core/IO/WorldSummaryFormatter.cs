@@ -1,47 +1,54 @@
 using System.Text;
+using MapEditor.Core.GameData;
 using MapEditor.Core.Model;
 
 namespace MapEditor.Core.IO;
 
-/// <summary>Human-readable overview of a loaded world, shared by the CLI and the app.</summary>
+/// <summary>Human-readable world statistics, shared by the CLI and the app.</summary>
 public static class WorldSummaryFormatter
 {
-    public static string Format(World world)
+    public static string Format(World world) =>
+        Format(WorldStatistics.Measure(world, BiomeTable.Vanilla, PrefabLibrary.Empty));
+
+    public static string Format(WorldStatistics stats)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"World      {world.Name}");
-        sb.AppendLine($"Size       {world.Size} x {world.Size} m");
+        sb.AppendLine($"World      {stats.Name}");
+        sb.AppendLine($"Size       {stats.Size} x {stats.Size} m");
+        sb.AppendLine($"Height     {stats.MinHeightMetres:0.0} .. {stats.MaxHeightMetres:0.0} m");
+        sb.AppendLine($"Land       {stats.LandPercent:0.0}%");
+        sb.AppendLine($"Water      {stats.WaterPercent:0.0}%");
+        sb.AppendLine("Biomes (% of land)");
+        foreach (var (name, percent) in stats.BiomeLandPercent.OrderBy(b => b.Key, StringComparer.OrdinalIgnoreCase))
+            sb.AppendLine($"  {name}  {percent:0.0}%");
+        if (stats.BiomeLandPercent.Count == 0)
+            sb.AppendLine(stats.LandPercent == 0 ? "  No land" : "  Unavailable");
 
-        ushort min = ushort.MaxValue, max = 0;
-        foreach (ushort h in world.Height.Data) { if (h < min) min = h; if (h > max) max = h; }
-        sb.AppendLine($"Height     {World.HeightToMetres(min):0.0} .. {World.HeightToMetres(max):0.0} m");
-
-        if (world.Biomes is { } b)
+        sb.AppendLine("Road length (estimate)");
+        sb.AppendLine($"  Asphalt  about {stats.AsphaltKm:0.###} km");
+        sb.AppendLine($"  Gravel   about {stats.GravelKm:0.###} km");
+        sb.AppendLine($"  Uses {WorldStatistics.AsphaltWidth} m asphalt and {WorldStatistics.GravelWidth} m gravel widths");
+        sb.AppendLine($"Prefabs    {stats.Prefabs:N0}");
+        sb.AppendLine($"POIs       {stats.Pois:N0}");
+        if (stats.Pois > 0)
         {
-            var counts = new long[b.Palette.Count];
-            foreach (byte i in b.Indices.Data) counts[i]++;
-            sb.AppendLine($"Biomes     {b.Indices.Width} x {b.Indices.Height}, {b.Palette.Count} colours");
-            for (int i = 0; i < b.Palette.Count; i++)
-                sb.AppendLine($"           #{b.Palette[i]:X6}  {100.0 * counts[i] / b.Indices.Data.Length,5:0.0}%");
+            sb.AppendLine("  By tier");
+            foreach (var (tier, count) in stats.PoisByTier.OrderBy(t => t.Key))
+                sb.AppendLine($"    Tier {tier}  {count:N0}");
+            if (stats.PoisWithUnknownTier > 0) sb.AppendLine($"    Unknown  {stats.PoisWithUnknownTier:N0}");
+            sb.AppendLine("  By biome");
+            foreach (var (name, count) in stats.PoisByBiome.OrderBy(b => b.Key, StringComparer.OrdinalIgnoreCase))
+                sb.AppendLine($"    {name}  {count:N0}");
         }
+        sb.AppendLine($"Street tiles  {stats.StreetTiles:N0}");
+        sb.AppendLine($"Towns         {stats.Towns:N0}");
+        sb.AppendLine($"Traders       {stats.Traders:N0}");
+        sb.AppendLine($"Spawn points  {stats.SpawnPoints:N0}");
 
-        if (world.Roads is { } r)
-        {
-            var counts = new long[4];
-            foreach (byte v in r.Data) if (v < 4) counts[v]++;
-            sb.AppendLine($"Roads      asphalt {counts[(int)RoadType.Asphalt]:N0} px, gravel {counts[(int)RoadType.Gravel]:N0} px, river {counts[(int)RoadType.Water]:N0} px");
-        }
-
-        if (world.Water is { } w)
-            sb.AppendLine($"Water      {w.Data.Count(v => v > 0):N0} px");
-        if (world.Radiation is { } rad)
-            sb.AppendLine($"Radiation  {rad.Width} x {rad.Height}, {rad.Data.Count(v => v > 0):N0} px");
-
-        sb.AppendLine($"Prefabs    {world.Prefabs.Count:N0} ({world.Prefabs.Count(p => p.Name.StartsWith("rwg_tile_", StringComparison.Ordinal)):N0} street tiles)");
-        sb.AppendLine($"Spawns     {world.Spawns.Count}");
-        sb.AppendLine($"Extra      {string.Join(", ", world.ExtraFiles.Keys.Order())}");
-
-        foreach (var warning in world.Warnings) sb.AppendLine($"Warning    {warning}");
+        if (stats.Radiation is { } rad)
+            sb.AppendLine($"Radiation  {rad.Width} x {rad.Height}, {rad.Marked:N0} px");
+        sb.AppendLine($"Extra      {string.Join(", ", stats.ExtraFiles)}");
+        foreach (string warning in stats.Warnings) sb.AppendLine($"Warning    {warning}");
         return sb.ToString();
     }
 }

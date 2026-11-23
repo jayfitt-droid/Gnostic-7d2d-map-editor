@@ -48,6 +48,10 @@ public sealed class MapRenderer
         Levels = LevelCount(world.Size);
     }
 
+    /// <summary>The biome colour shown by the map before terrain shading.</summary>
+    public static uint BiomeDisplayColor(BiomeDefinition biome) =>
+        DisplayColours.GetValueOrDefault(biome.Name, biome.Color);
+
     /// <summary>
     /// Display colours for the biome palette, rebuilt whenever the palette differs: painting adds colours, and undo
     /// can remove them or the whole layer.
@@ -58,7 +62,7 @@ public sealed class MapRenderer
         if (System.Runtime.InteropServices.CollectionsMarshal.AsSpan(biomes.Palette).SequenceEqual(cached.Palette)) return cached.Display;
         var palette = biomes.Palette.ToArray();
         var display = palette.Select(rgb =>
-            _biomeTable.FindByColor(rgb) is { } def && DisplayColours.TryGetValue(def.Name, out uint c) ? c : rgb).ToArray();
+            _biomeTable.FindByColor(rgb) is { } def ? BiomeDisplayColor(def) : rgb).ToArray();
         _biomeDisplay = new BiomeColours(palette, display);
         return display;
     }

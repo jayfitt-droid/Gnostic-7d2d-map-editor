@@ -11,7 +11,8 @@ try
 {
     return args switch
     {
-        ["info", var world] => Info(world),
+        ["info", var world] => Info(world, null),
+        ["info", var world, "--game", var game] => Info(world, game),
         ["roundtrip", var world, var output, .. var rest] => RoundTrip(world, output, overwrite: rest.Contains("--overwrite")),
         ["installs"] => Installs(),
         ["render", var world, var output, .. var rest] => Render(world, output, rest.Length > 0 ? int.Parse(rest[0]) : -1),
@@ -33,8 +34,9 @@ catch (Exception ex) when (ex is IOException or InvalidDataException or Unauthor
 static int Usage()
 {
     Console.Error.WriteLine("""
-        mapeditor-cli info <worldFolder>
-            Print a summary of a game world.
+        mapeditor-cli info <worldFolder> [--game <gameFolder>]
+            Print world statistics. Read biome names and prefab data from the selected game folder
+            or the first detected install.
         mapeditor-cli roundtrip <worldFolder> <outFolder> [--overwrite]
             Load a world, write it back out, re-load the output and compare every layer.
         mapeditor-cli installs
@@ -400,11 +402,16 @@ static int Render(string folder, string output, int level)
     return 0;
 }
 
-static int Info(string folder)
+static int Info(string folder, string? game)
 {
     var sw = Stopwatch.StartNew();
     var world = WorldReader.Read(folder);
-    Console.Write(WorldSummaryFormatter.Format(world));
+    sw.Stop();
+    var installPath = game ?? GameInstall.FindCandidates().FirstOrDefault();
+    var install = installPath is null ? null : GameInstall.Open(installPath);
+    var biomes = install is null ? BiomeTable.Vanilla : BiomeTable.Load(install);
+    var prefabs = install is null ? PrefabLibrary.Empty : PrefabLibrary.Load(install);
+    Console.Write(WorldSummaryFormatter.Format(WorldStatistics.Measure(world, biomes, prefabs)));
     Console.WriteLine($"Loaded in  {sw.Elapsed.TotalSeconds:0.00} s");
     return 0;
 }
