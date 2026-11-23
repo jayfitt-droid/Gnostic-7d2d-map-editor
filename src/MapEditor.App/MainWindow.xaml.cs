@@ -408,7 +408,8 @@ public partial class MainWindow : Window
         {
             var sw = Stopwatch.StartNew();
             ProjectStore.ProjectSettings settings = new();
-            var world = await Task.Run(() => ProjectStore.Load(path, out settings));
+            string? missingWorldFilesWarning = null;
+            var world = await Task.Run(() => ProjectStore.Load(path, out settings, out missingWorldFilesWarning));
             await _gameDataLoad;
             SetWorld(world, sourcePath: null, dirty: recovered, recoveryPath: recovered ? path : null);
             _projectPath = recovered ? null : path;
@@ -427,6 +428,8 @@ public partial class MainWindow : Window
                 _settings.AddRecent(path);
                 _settings.Save();
             }
+            if (missingWorldFilesWarning is not null)
+                ThemedMessageBox.Show(this, missingWorldFilesWarning, "Missing World Files", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex) when (IsBadInput(ex))
         {

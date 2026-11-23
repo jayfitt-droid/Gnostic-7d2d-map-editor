@@ -217,7 +217,10 @@ public static class ProjectStore
 
     public static World Load(string path) => Load(path, out _);
 
-    public static World Load(string path, out ProjectSettings settings)
+    public static World Load(string path, out ProjectSettings settings) => Load(path, out settings, out _);
+
+    /// <summary>Loads a project and returns a warning to show before saving if any listed world files are missing.</summary>
+    public static World Load(string path, out ProjectSettings settings, out string? missingWorldFilesWarning)
     {
         using var zip = ZipFile.OpenRead(path);
         var manifestEntry = zip.GetEntry(ManifestEntry) ?? throw new InvalidDataException("The file is not a map editor project (no project.json).");
@@ -275,9 +278,15 @@ public static class ProjectStore
         foreach (var p in (manifest.Passthrough ?? []).Where(p => p is not null))
             world.PassthroughImages[p.File] = ReadOriginalImage(zip, p);
         long extraBytes = 0;
+        var missingWorldFiles = new List<string>();
         foreach (var file in manifest.ExtraFiles ?? [])
         {
-            if (ReadBytes(zip, ExtraDir + file, MaxExtraFileBytes) is not { } bytes) continue;
+            if (ReadBytes(zip, ExtraDir + file, MaxExtraFileBytes) is not { } bytes)
+            {
+                missingWorldFiles.Add(file);
+                world.Warnings.Add($"The project lists the world file {file}, but the file is missing. The project may be damaged.");
+                continue;
+            }
             if ((extraBytes += bytes.Length) > MaxExtraBytes) throw new InvalidDataException("The project's extra files are too large.");
             world.ExtraFiles[file] = bytes;
         }
@@ -289,7 +298,21 @@ public static class ProjectStore
         FillMissing(settings, size);
         // Format 4 added the starter-trader spawns option, on by default; older projects keep the old way.
         if (manifest.Format < 4 && settings.Generator is { } gen) gen.Spawns.NearStarterTrader = false;
+        missingWorldFilesWarning = FormatMissingWorldFilesWarning(missingWorldFiles);
         return world;
+    }
+
+    private static string? FormatMissingWorldFilesWarning(List<string> files)
+    {
+        if (files.Count == 0) return null;
+
+        string warning = "The project may be damaged. These world files are missing:\n\n"
+            + string.Join("\n", files)
+            + "\n\nSaving the project will not bring these files back.";
+        if (files.Contains(WorldFiles.Level, StringComparer.OrdinalIgnoreCase))
+            warning += $"\n\nWhen you export the world, the editor makes a new {WorldFiles.Level} with a new world GUID. "
+                + "Games already started on this world will not match the exported world.";
+        return warning;
     }
 
     /// <summary>Writes as much of the most recent history as the reader can load, in recording order.</summary>
