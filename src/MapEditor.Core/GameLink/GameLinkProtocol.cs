@@ -4,27 +4,35 @@ using System.Text;
 
 namespace MapEditor.Core.GameLink;
 
-internal enum GameLinkRequestKind { Status, Teleport, Waypoint }
+internal enum GameLinkRequestKind { Status, Teleport, Waypoint, Picture }
 internal enum GameLinkParseResult { Ok, BadRequest, UnsupportedProtocol }
 
 /// <summary>A validated request. A teleport's facing is selected from fixed protocol values.</summary>
 internal readonly struct GameLinkRequest(
-    GameLinkRequestKind kind, int x = 0, int z = 0, string? facing = null, string? prefabName = null)
+    GameLinkRequestKind kind, int x = 0, int z = 0, string? facing = null, string? prefabName = null,
+    int y = 0, int lookX = 0, int lookY = 0, int lookZ = 0)
 {
     public GameLinkRequestKind Kind { get; } = kind;
     public int X { get; } = x;
     public int Z { get; } = z;
+    public int Y { get; } = y;
+    public int LookX { get; } = lookX;
+    public int LookY { get; } = lookY;
+    public int LookZ { get; } = lookZ;
     public string? Facing { get; } = facing;
     public string? PrefabName { get; } = prefabName;
 }
 
-/// <summary>Game Link v1 request framing and parsing, shared with the game mod.</summary>
+/// <summary>Game Link request framing and parsing, shared with the game mod.</summary>
 internal static class GameLinkProtocol
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const int Port = 7790;
     public const int MaxRequestBytes = 128;
     public const int ReadTimeoutMilliseconds = 2000;
+    internal const float PictureVerticalFov = 50f;
+    internal const float PictureMinimumAspect = 1.6f;
+    internal const int PictureReplyTimeoutSeconds = 30;
     private const string RequestName = "GNOSTICLINK";
     private static readonly string VersionText = Version.ToString(CultureInfo.InvariantCulture);
     public static readonly string RequestPrefix = RequestName + " " + VersionText + " ";
@@ -90,9 +98,16 @@ internal static class GameLinkProtocol
             return GameLinkParseResult.Ok;
         }
 
-        if (parts.Length != 6 ||
-            !int.TryParse(parts[3], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int x) ||
-            !int.TryParse(parts[4], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int z))
+        if (parts[2] == "PICTURE" && parts.Length == 9 &&
+            TryCoordinate(parts[3], out int camX) && TryCoordinate(parts[4], out int camY) &&
+            TryCoordinate(parts[5], out int camZ) && TryCoordinate(parts[6], out int lookX) &&
+            TryCoordinate(parts[7], out int lookY) && TryCoordinate(parts[8], out int lookZ))
+        {
+            request = new(GameLinkRequestKind.Picture, camX, camZ, y: camY, lookX: lookX, lookY: lookY, lookZ: lookZ);
+            return GameLinkParseResult.Ok;
+        }
+
+        if (parts.Length != 6 || !TryCoordinate(parts[3], out int x) || !TryCoordinate(parts[4], out int z))
             return GameLinkParseResult.BadRequest;
 
         switch (parts[2])
@@ -113,4 +128,7 @@ internal static class GameLinkProtocol
                 return GameLinkParseResult.BadRequest;
         }
     }
+
+    private static bool TryCoordinate(string token, out int coordinate) =>
+        int.TryParse(token, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out coordinate);
 }
