@@ -143,6 +143,7 @@ public sealed class PrefabGroup
             foreach (var t in targets)
                 covered.UnionWith(PrefabPlacer.Covered(_world, _library, t.Info, t.Spot, _prefabs));
 
+        PrefabInstance? turnBlocker = null;
         if (targets.Length > 0)
             foreach (var p in _world.Prefabs)
             {
@@ -150,9 +151,12 @@ public sealed class PrefabGroup
                 var cells = PrefabPlacer.Footprint(_world, p, _library);
                 if (!targets.Any(t => Overlaps(t.Cells, cells))) continue;
                 if (_isBridgePiece(p)) return "The selection would overlap a bridge.";
-                if (_library.Find(p.Name)?.IsBridge == true &&
+                var info = _library.Find(p.Name);
+                if (info?.IsBridge == true &&
                     (!covered.Contains(p) || !targets.Any(t => !t.Info.IsStreetTile && !t.Info.IsPart && Contains(t.Cells, cells))))
                     return "The selection would overlap a bridge.";
+                if (!replaceCovered && info?.IsStreetTile != true)
+                    turnBlocker ??= p;
             }
 
         var ignore = new HashSet<PrefabInstance>(_prefabs);
@@ -160,6 +164,8 @@ public sealed class PrefabGroup
         foreach (var t in targets)
             if (PrefabPlacer.TileInTheWay(_world, _library, t.Info, t.Spot, ignore) is { } tile)
                 return $"The selection would partly overlap {tile.Name}.";
+        if (turnBlocker is not null)
+            return $"The selection would turn onto {turnBlocker.Name}.";
 
         var removed = new HashSet<PrefabInstance>(covered);
         foreach (var p in covered)
