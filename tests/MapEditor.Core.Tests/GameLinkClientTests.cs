@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using MapEditor.Core.GameLink;
 using MapEditor.Core.Model;
 
@@ -11,12 +12,12 @@ public class GameLinkClientTests
     [Fact]
     public async Task StatusReadsAReadyPlayerAndUnicodeWorld()
     {
-        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 1 STATUS",
-            """{"ok":true,"protocol":1,"mod":"1.0.0","state":"ready","world":"Île \u0022Test\u0022","hosting":true,"player":""",
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 2 STATUS",
+            """{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"Île \u0022Test\u0022","hosting":true,"player":""",
             """{"x":-412.25,"z":1880,"yaw":135}}""" + "\r\n");
 
         Assert.True(reply.Ok);
-        Assert.Equal(new GameLinkStatus("Île \"Test\"", true, GameLinkState.Ready, "1.0.0", new(-412.25f, 1880, 135)), reply.Status);
+        Assert.Equal(new GameLinkStatus("Île \"Test\"", true, GameLinkState.Ready, "1.1.0", new(-412.25f, 1880, 135)), reply.Status);
     }
 
     [Theory]
@@ -26,8 +27,8 @@ public class GameLinkClientTests
     [InlineData("remote", GameLinkState.Remote)]
     public async Task StatusReadsOtherStatesWithoutAPlayer(string state, GameLinkState expected)
     {
-        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 1 STATUS",
-            $$"""{"ok":true,"protocol":1,"mod":"1.0.0","state":"{{state}}","world":"","hosting":false}""" + "\n");
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 2 STATUS",
+            $$"""{"ok":true,"protocol":2,"mod":"1.1.0","state":"{{state}}","world":"","hosting":false}""" + "\n");
 
         Assert.True(reply.Ok);
         Assert.NotNull(reply.Status);
@@ -42,7 +43,7 @@ public class GameLinkClientTests
     public async Task TeleportSendsCoordinatesAndFacing(Facing? facing, string token)
     {
         var reply = await ExchangeAsync((client, cancel) => client.TeleportAsync(-412, 1880, facing, cancel),
-            "GNOSTICLINK 1 TELEPORT -412 1880 " + token, """{"ok":true}""" + "\n");
+            "GNOSTICLINK 2 TELEPORT -412 1880 " + token, """{"ok":true}""" + "\n");
         Assert.True(reply.Ok);
     }
 
@@ -50,7 +51,7 @@ public class GameLinkClientTests
     public async Task WaypointPreservesNameAndReadsTheTemporaryMessage()
     {
         var reply = await ExchangeAsync((client, cancel) => client.AddWaypointAsync(-412, 1880, "Farm_16-west", cancel),
-            "GNOSTICLINK 1 WAYPOINT -412 1880 Farm_16-west",
+            "GNOSTICLINK 2 WAYPOINT -412 1880 Farm_16-west",
             """{"ok":true,"message":"Temporary waypoint added. The game does not save it."}""" + "\n");
         Assert.True(reply.Ok);
         Assert.Equal("Temporary waypoint added. The game does not save it.", reply.Message);
@@ -67,13 +68,46 @@ public class GameLinkClientTests
     [InlineData("failed", GameLinkError.Failed)]
     [InlineData("poi_not_found", GameLinkError.PoiNotFound)]
     [InlineData("already_set", GameLinkError.AlreadySet)]
+    [InlineData("picture_failed", GameLinkError.PictureFailed)]
+    [InlineData("picture_render_timeout", GameLinkError.PictureRenderTimeout)]
     public async Task ReadsTheModsErrors(string code, GameLinkError expected)
     {
         var reply = await ExchangeAsync((client, cancel) => client.AddWaypointAsync(0, 0, "farm_16", cancel),
-            "GNOSTICLINK 1 WAYPOINT 0 0 farm_16",
+            "GNOSTICLINK 2 WAYPOINT 0 0 farm_16",
             $$"""{"ok":false,"error":"{{code}}","message":"Test error."}""" + "\n");
         Assert.Equal(expected, reply.Error);
         Assert.Equal("Test error.", reply.Message);
+    }
+
+    [Theory]
+    [InlineData("gnostic-20261123-123456-789.png", true)]
+    [InlineData(null, false)]
+    [InlineData("..\\gnostic-20261123-123456-789.png", false)]
+    [InlineData("C:/gnostic-20261123-123456-789.png", false)]
+    [InlineData("gnostic-20261123-123456-789.PNG", false)]
+    [InlineData("gnostic-20261123-123456-789.png\n", false)]
+    public async Task PictureSendsCoordinatesAndAcceptsOnlyGeneratedNames(string? file, bool valid)
+    {
+        var reply = await ExchangeAsync((client, cancel) => client.TakePictureAsync(new(-10, 90, -20), new(30, 40, 50), cancel),
+            "GNOSTICLINK 2 PICTURE -10 90 -20 30 40 50", JsonSerializer.Serialize(new { ok = true, file }) + "\n");
+        Assert.Equal(valid ? GameLinkError.None : GameLinkError.InvalidReply, reply.Error);
+        Assert.Equal(valid ? file : null, reply.FileName);
+    }
+
+    [Fact]
+    public async Task PictureCanWaitPastTheNormalReplyTimeout()
+    {
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        server.Start();
+        var cancel = TestContext.Current.CancellationToken;
+        var client = new GameLinkClient(((IPEndPoint)server.LocalEndpoint).Port, TimeSpan.FromMilliseconds(100));
+        var response = client.TakePictureAsync(new(0, 80, -30), new(0, 50, 0), cancel);
+        using var accepted = await server.AcceptTcpClientAsync(cancel);
+        await Task.Delay(250, cancel);
+        await accepted.GetStream().WriteAsync("""{"ok":true,"file":"gnostic-20261123-123456-789.png"}"""u8.ToArray(), cancel);
+        await accepted.GetStream().WriteAsync("\n"u8.ToArray(), cancel);
+
+        Assert.True((await response).Ok);
     }
 
     [Theory]
@@ -81,19 +115,19 @@ public class GameLinkClientTests
     [InlineData("[]\n", GameLinkError.InvalidReply)]
     [InlineData("{\"ok\":true}", GameLinkError.InvalidReply)]
     [InlineData("{\"ok\":true}\n", GameLinkError.InvalidReply)]
-    [InlineData("{\"ok\":true,\"protocol\":2}\n", GameLinkError.UnsupportedProtocol)]
-    [InlineData("{\"ok\":true,\"protocol\":1,\"mod\":\"1.0.0\",\"state\":\"ready\",\"world\":\"Test\",\"hosting\":true}\n",
+    [InlineData("{\"ok\":true,\"protocol\":1}\n", GameLinkError.UnsupportedProtocol)]
+    [InlineData("{\"ok\":true,\"protocol\":2,\"mod\":\"1.1.0\",\"state\":\"ready\",\"world\":\"Test\",\"hosting\":true}\n",
         GameLinkError.InvalidReply)]
     public async Task RejectsInvalidStatusReplies(string line, GameLinkError error)
     {
-        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 1 STATUS", line);
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 2 STATUS", line);
         Assert.Equal(error, reply.Error);
     }
 
     [Fact]
     public async Task RejectsAReplyAboveTheByteLimit()
     {
-        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 1 STATUS",
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), "GNOSTICLINK 2 STATUS",
             new string(' ', 4096) + "{}\n");
         Assert.Equal(GameLinkError.InvalidReply, reply.Error);
     }
@@ -104,7 +138,7 @@ public class GameLinkClientTests
         using var server = new TcpListener(IPAddress.Loopback, 0);
         server.Start();
         var client = ClientFor(server);
-        var reply = await client.AddWaypointAsync(0, 0, "farm_16\nGNOSTICLINK 1 STATUS", TestContext.Current.CancellationToken);
+        var reply = await client.AddWaypointAsync(0, 0, "farm_16\nGNOSTICLINK 2 STATUS", TestContext.Current.CancellationToken);
         Assert.Equal(GameLinkError.BadRequest, reply.Error);
         Assert.False(server.Pending());
     }

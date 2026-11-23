@@ -1,4 +1,4 @@
-using System.Globalization;
+using System.Collections;
 using System.Net.Sockets;
 using MapEditor.Core.GameLink;
 using UnityEngine;
@@ -9,7 +9,10 @@ namespace GnosticGameLink;
 public sealed class GameLinkMod : IModApi
 {
     private readonly GameLinkListener listener = new();
-    private static readonly Func<GameLinkRequest, string> Handle = HandleRequest;
+    private readonly Func<GameLinkRequest, Task<string>> handle;
+    private (IEnumerator<object> Capture, TaskCompletionSource<string> Reply, float Deadline)? activePicture;
+
+    public GameLinkMod() => handle = HandleRequestAsync;
 
     /// <inheritdoc />
     public void InitMod(Mod mod)
@@ -30,11 +33,41 @@ public sealed class GameLinkMod : IModApi
         Log.Out($"[Gnostic Game Link] Listening on 127.0.0.1:{GameLinkProtocol.Port}.");
     }
 
-    private void OnUpdate(ref ModEvents.SUnityUpdateData data) => listener.Update(Handle);
+    private void OnUpdate(ref ModEvents.SUnityUpdateData data)
+    {
+        if (activePicture is { } picture && Time.realtimeSinceStartup >= picture.Deadline)
+        {
+            Log.Warning("[Gnostic Game Link] Picture timed out while waiting for the game to render.");
+            StopPicture();
+        }
+        listener.Update(handle);
+    }
 
-    private void OnShutdown(ref ModEvents.SGameShutdownData data) => listener.Dispose();
+    private void OnShutdown(ref ModEvents.SGameShutdownData data)
+    {
+        listener.Dispose();
+        StopPicture();
+    }
 
-    private static string HandleRequest(GameLinkRequest request)
+    private void StopPicture()
+    {
+        if (activePicture is not { } picture) return;
+        activePicture = null;
+        try
+        {
+            picture.Capture.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Gnostic Game Link] Could not restore the view: {ex}");
+        }
+        finally
+        {
+            picture.Reply.TrySetResult(GameLinkCapture.Failure);
+        }
+    }
+
+    private async Task<string> HandleRequestAsync(GameLinkRequest request)
     {
         GameManager? game = GameManager.Instance;
         World? world = game == null ? null : game.World;
@@ -61,7 +94,7 @@ public sealed class GameLinkMod : IModApi
             return GameLinkReply.Error("remote", "Game Link works in single-player or when you host the game.");
         if (state == "dead")
             return GameLinkReply.Error("dead", "The player is dead.");
-        if (request.Kind == GameLinkRequestKind.Teleport && hosting && player != null &&
+        if (request.Kind is GameLinkRequestKind.Teleport or GameLinkRequestKind.Picture && hosting && player != null &&
             !player.IsSpawned() && player.MoveController?.respawnReason == RespawnType.Teleport)
             return GameLinkReply.Error("busy", "The player is still teleporting.");
         if (state != "ready" || !hosting || world == null || player == null)
@@ -69,12 +102,68 @@ public sealed class GameLinkMod : IModApi
 
         if (!world.GetWorldExtent(out Vector3i min, out Vector3i max))
             return GameLinkReply.Error("not_ready", "The world bounds are not available.");
-        if (request.X < min.x || request.X > max.x || request.Z < min.z || request.Z > max.z)
+        bool Inside(int x, int z) => x >= min.x && x <= max.x && z >= min.z && z <= max.z;
+        if (!Inside(request.X, request.Z))
             return GameLinkReply.Error("off_map", "The destination is outside the world.");
+
+        if (request.Kind == GameLinkRequestKind.Picture)
+        {
+            if (!Inside(request.LookX, request.LookZ))
+                return GameLinkReply.Error("off_map", "The point to look at is outside the world.");
+            // The camera can rise above the buildable blocks. Limit vertical coordinates to world scale.
+            int span = Math.Max(max.x - min.x, max.z - min.z);
+            if (request.Y < min.y - span || request.Y > max.y + span ||
+                request.LookY < min.y - span || request.LookY > max.y + span)
+                return GameLinkReply.Error("off_map", "The picture height is outside the world.");
+            if (request.X == request.LookX && request.Y == request.LookY && request.Z == request.LookZ)
+                return GameLinkReply.Error("bad_request", "The camera and the point to look at must differ.");
+
+            var reply = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var capture = GameLinkCapture.Take(world, player, request, min, max, reply);
+            activePicture = (capture, reply, Time.realtimeSinceStartup + GameLinkCapture.MaximumRenderSeconds + 5f);
+            try
+            {
+                ThreadManager.StartCoroutine(RunPicture(capture, reply));
+                return await reply.Task;
+            }
+            finally
+            {
+                activePicture = null;
+            }
+        }
 
         return request.Kind == GameLinkRequestKind.Teleport
             ? Teleport(request)
             : SetWaypoint(world, player, request);
+    }
+
+    private static IEnumerator RunPicture(IEnumerator<object> capture, TaskCompletionSource<string> reply)
+    {
+        try
+        {
+            while (AdvancePicture(capture, reply))
+                yield return capture.Current;
+        }
+        finally
+        {
+            capture.Dispose();
+            if (reply.TrySetResult(GameLinkCapture.Failure))
+                Log.Warning("[Gnostic Game Link] Picture ended before the game could capture a frame.");
+        }
+    }
+
+    private static bool AdvancePicture(IEnumerator<object> capture, TaskCompletionSource<string> reply)
+    {
+        try
+        {
+            return capture.MoveNext();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning($"[Gnostic Game Link] Picture failed: {ex}");
+            reply.TrySetResult(GameLinkCapture.Failure);
+            return false;
+        }
     }
 
     private static string GetState(bool starting, bool remote, bool hosting, World? world, EntityPlayerLocal? player)

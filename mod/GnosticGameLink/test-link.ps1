@@ -7,9 +7,11 @@
     ./test-link.ps1 Teleport -X -412 -Z 1880 -Facing se -Count 2 -DelaySeconds 5
 .EXAMPLE
     ./test-link.ps1 Waypoint -X -412 -Z 1880 -PrefabName farm_16 -Count 2
+.EXAMPLE
+    ./test-link.ps1 Picture -X -412 -Y 115 -Z 1820 -LookX -412 -LookY 65 -LookZ 1880
 #>
 param(
-    [ValidateSet('Status', 'Teleport', 'Waypoint')]
+    [ValidateSet('Status', 'Teleport', 'Waypoint', 'Picture')]
     [string]$Request = 'Status',
     [int]$X,
     [int]$Z,
@@ -22,7 +24,11 @@ param(
     [ValidateRange(0, 60000)]
     [int]$IntervalMilliseconds = 0,
     [ValidateRange(0, 60)]
-    [int]$DelaySeconds = 0
+    [int]$DelaySeconds = 0,
+    [int]$Y,
+    [int]$LookX,
+    [int]$LookY,
+    [int]$LookZ
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,13 +38,24 @@ if ($Request -ne 'Status' -and (-not $PSBoundParameters.ContainsKey('X') -or -no
 if ($Request -eq 'Waypoint' -and -not $PrefabName) {
     throw 'Specify -PrefabName for a waypoint.'
 }
+if ($Request -eq 'Picture') {
+    foreach ($coordinate in 'Y', 'LookX', 'LookY', 'LookZ') {
+        if (-not $PSBoundParameters.ContainsKey($coordinate)) {
+            throw "Specify -$coordinate for a picture."
+        }
+    }
+}
 
 $culture = [Globalization.CultureInfo]::InvariantCulture
 $coordinates = $X.ToString($culture) + ' ' + $Z.ToString($culture)
 $line = switch ($Request) {
-    'Status' { 'GNOSTICLINK 1 STATUS' }
-    'Teleport' { "GNOSTICLINK 1 TELEPORT $coordinates $($Facing.ToLowerInvariant())" }
-    'Waypoint' { "GNOSTICLINK 1 WAYPOINT $coordinates $PrefabName" }
+    'Status' { 'GNOSTICLINK 2 STATUS' }
+    'Teleport' { "GNOSTICLINK 2 TELEPORT $coordinates $($Facing.ToLowerInvariant())" }
+    'Waypoint' { "GNOSTICLINK 2 WAYPOINT $coordinates $PrefabName" }
+    'Picture' {
+        [string]::Format($culture, 'GNOSTICLINK 2 PICTURE {0} {1} {2} {3} {4} {5}',
+            [object[]]@($X, $Y, $Z, $LookX, $LookY, $LookZ))
+    }
 }
 $utf8 = [Text.UTF8Encoding]::new($false, $true)
 $bytes = $utf8.GetBytes($line + "`n")
@@ -60,7 +77,7 @@ for ($i = 0; $i -lt $Count; $i++) {
         }
 
         $stream = $client.GetStream()
-        $stream.ReadTimeout = 5000
+        $stream.ReadTimeout = if ($Request -eq 'Picture') { 30000 } else { 5000 }
         $stream.WriteTimeout = 2000
         $stream.Write($bytes, 0, $bytes.Length)
         $reader = [IO.StreamReader]::new($stream, $utf8)

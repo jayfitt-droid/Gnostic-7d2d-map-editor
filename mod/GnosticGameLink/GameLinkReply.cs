@@ -15,6 +15,8 @@ internal static class GameLinkReply
     public static string Error(string error, string message) =>
         ToJson(new { ok = false, error, message });
 
+    public static string PictureSaved(string file) => ToJson(new { ok = true, file });
+
     public static string Status(string state, string world, bool hosting) =>
         ToJson(new { ok = true, protocol = GameLinkProtocol.Version, mod = Version, state, world, hosting });
 

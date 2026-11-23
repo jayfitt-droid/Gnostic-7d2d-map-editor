@@ -16,6 +16,7 @@ internal sealed class GameLinkListener : IDisposable
     private volatile bool stopped;
     private TcpClient? client;
     private PendingRequest? pending;
+    private PendingRequest? active;
 
     private sealed class PendingRequest(GameLinkRequest request)
     {
@@ -31,26 +32,34 @@ internal sealed class GameLinkListener : IDisposable
     }
 
     /// <summary>Takes at most one request on Unity's main thread.</summary>
-    public void Update(Func<GameLinkRequest, string> handle)
+    public async void Update(Func<GameLinkRequest, Task<string>> handle)
     {
         PendingRequest? work;
         lock (gate)
         {
             work = pending;
             pending = null;
+            if (work != null) active = work;
         }
 
         if (work == null)
             return;
 
+        string reply;
         try
         {
-            work.Reply.SetResult(handle(work.Request));
+            reply = await handle(work.Request).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            work.Reply.SetResult(GameLinkReply.Error("failed", "The game could not process the request."));
+            reply = GameLinkReply.Error("failed", "The game could not process the request.");
             Log.Warning($"[Gnostic Game Link] Request failed: {ex}");
+        }
+
+        lock (gate)
+        {
+            active = null;
+            work.Reply.TrySetResult(reply);
         }
     }
 
@@ -63,7 +72,9 @@ internal sealed class GameLinkListener : IDisposable
             stopped = true;
             listener.Stop();
             client?.Close();
-            pending?.Reply.SetResult(GameLinkReply.Error("not_ready", "The game is shutting down."));
+            string reply = GameLinkReply.Error("not_ready", "The game is shutting down.");
+            pending?.Reply.TrySetResult(reply);
+            active?.Reply.TrySetResult(reply);
             pending = null;
         }
     }
