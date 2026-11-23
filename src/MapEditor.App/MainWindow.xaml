@@ -1294,6 +1294,8 @@
                             </DockPanel>
                             <StackPanel DockPanel.Dock="Top" Margin="0,4,0,0"
                                         Visibility="{Binding GameLinkInstalled, Converter={StaticResource BoolToVisibility}}">
+                                <Button x:Name="TakeIssuePicturesButton" Content="Take pictures..." Click="TakeIssuePictures_Click"
+                                        HorizontalAlignment="Left" IsEnabled="False" ToolTip="Take a picture of each issue in the game" />
                                 <CheckBox x:Name="IssueHotkeysCheck" Content="Enable in-game shortcuts" Click="IssueHotkeys_Click" IsEnabled="False"
                                           Margin="0,4,0,0" ToolTip="Teleport to the issue before or after the selected row while the game has focus" />
                                 <WrapPanel>

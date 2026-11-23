@@ -24,6 +24,9 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
 
     public bool IsDragging => _gesture is not null;
 
+    /// <summary>A snapshot of the prefabs picked with the Multi-select tool.</summary>
+    public IReadOnlyList<PrefabInstance> SelectedPrefabs => [.. _prefabs];
+
     public World? World { get; private set; }
 
     public void SetWorld(World? world)
