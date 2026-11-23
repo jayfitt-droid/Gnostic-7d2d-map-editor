@@ -13,7 +13,13 @@ This guide is for developers. To install and use the mod with the editor, see th
 - The mod works in single-player and when the game on this PC is the host. When the player joins another game or a dedicated server, requests other than `STATUS` fail with `remote`.
 - The game does not load the mod when Easy Anti-Cheat (EAC) is on (`SkipWithAntiCheat`).
 
-The current protocol version is **2**, supported by Gnostic Game Link 1.1.0. The 1.0.0 mod answers protocol 2 requests with `unsupported_protocol`.
+The current protocol version is **2**, supported by Gnostic Game Link 1.1.0.
+
+## Session token
+
+Each time the game starts, the mod generates a new token from 16 cryptographically random bytes. It stores the token as exactly 32 lowercase hexadecimal ASCII characters in `%APPDATA%\7DaysToDie\GnosticGameLink\session-token`. The file has no line ending. It inherits the AppData folder's permissions. The file stays after exit and the mod replaces it at the next start. Read it before each request to pick up the current token.
+
+The mod verifies the token before it checks the protocol version, command, or arguments. This blocks programs that can connect to the local port but cannot read the user's files. A program that runs as the same user can read the token and use Game Link.
 
 ## Coordinates
 
@@ -33,15 +39,15 @@ z = S/2 - py
 
 ## Requests
 
-A request is one line of printable ASCII (0x20 to 0x7E), with single spaces between the parts, ended by `\n` (`\r\n` is also accepted). The whole line, with its line end, is at most **128 bytes**. The mod must receive the line end within **2 seconds** of the connection, or it replies with `bad_request`.
+A request is one line of printable ASCII (0x20 to 0x7E), with single spaces between the parts, ended by `\n` (`\r\n` is also accepted). The whole line, with its line end, is at most **160 bytes**. The mod must receive the line end within **2 seconds** of the connection.
 
-Every request starts with `GNOSTICLINK`, then the protocol version:
+Every request starts with `GNOSTICLINK`, the protocol version, and the session token:
 
 ```
-GNOSTICLINK 2 STATUS
-GNOSTICLINK 2 TELEPORT <x> <z> <facing>
-GNOSTICLINK 2 WAYPOINT <x> <z> <prefab>
-GNOSTICLINK 2 PICTURE <camX> <camY> <camZ> <lookX> <lookY> <lookZ>
+GNOSTICLINK 2 <token> STATUS
+GNOSTICLINK 2 <token> TELEPORT <x> <z> <facing>
+GNOSTICLINK 2 <token> WAYPOINT <x> <z> <prefab>
+GNOSTICLINK 2 <token> PICTURE <camX> <camY> <camZ> <lookX> <lookY> <lookZ>
 ```
 
 ### STATUS
@@ -49,7 +55,7 @@ GNOSTICLINK 2 PICTURE <camX> <camY> <camZ> <lookX> <lookY> <lookZ>
 Asks what the game is doing. When the game answers, the reply has `"ok": true` in every state, and `state` tells you whether the other requests can work. (A `STATUS` request can still fail with `not_ready` or a request error, as below.)
 
 ```
-GNOSTICLINK 2 STATUS
+GNOSTICLINK 2 <token> STATUS
 ```
 
 Reply when the player is in a world:
@@ -80,7 +86,7 @@ Reply when the player is in a world:
 Teleports the local player to `x`, `z`. The game finds the ground height.
 
 ```
-GNOSTICLINK 2 TELEPORT -412 1880 se
+GNOSTICLINK 2 <token> TELEPORT -412 1880 se
 ```
 
 `facing` is the direction to look in after the teleport: `n`, `ne`, `e`, `se`, `s`, `sw`, `w` or `nw` (lowercase), or `-` to keep the current direction.
@@ -92,7 +98,7 @@ Reply: `{"ok":true}`
 Adds the game's temporary POI waypoint to the POI named `prefab` whose bounding box contains `x`, `z`. Send the position of any point inside the POI. Its centre is safest.
 
 ```
-GNOSTICLINK 2 WAYPOINT -412 1880 farm_16
+GNOSTICLINK 2 <token> WAYPOINT -412 1880 farm_16
 ```
 
 `prefab` is the prefab name, 1 to 64 characters from `A`–`Z`, `a`–`z`, `0`–`9`, `_` and `-`. Matching ignores case.
@@ -106,7 +112,7 @@ The waypoint shows on the game's map and compass. The game does not save it.
 Places the camera at `camX camY camZ` and points it at `lookX lookY lookZ`. Both points must be inside the horizontal world bounds and must differ. The camera can go above the buildable blocks. Heights may extend beyond the vertical world bounds by up to the larger horizontal world span.
 
 ```
-GNOSTICLINK 2 PICTURE -412 115 1820 -412 65 1880
+GNOSTICLINK 2 <token> PICTURE -412 115 1820 -412 65 1880
 ```
 
 The game hides the HUD and holds the camera in place for at least four seconds. During this time, it requests full detail for the chunks under the target POI or a 32 m square around an open spot. When those chunks have drawn and stayed ready for a second, it captures the window as a PNG at the end of a frame. If the chunks are still drawing after 20 seconds, it returns `picture_render_timeout`.
@@ -131,6 +137,7 @@ Use `error` in your code. The `message` text can change.
 
 | `error` | Requests | Meaning |
 |---|---|---|
+| `invalid_token` | all | The session token is missing or incorrect. Read the file again, restart the game, or check that the editor and mod versions match. |
 | `bad_request` | all | The line is not a valid request, is too long, or did not arrive within 2 seconds. |
 | `unsupported_protocol` | all | The version number is not one the mod supports. The message names the version to use. |
 | `not_ready` | all | The game did not take the request within 2 seconds, or it is shutting down. For actions other than STATUS, the player may also be outside a world. Try again later. |
@@ -156,7 +163,7 @@ If nothing listens on the port, the connection fails. The game is not running, o
 
 ## Versioning
 
-- Every request names the protocol version. A mod that does not support that version replies `unsupported_protocol`.
+- For requests with the current token, the mod replies `unsupported_protocol` if it does not support the requested version.
 - `STATUS` replies give `protocol` (the version of the mod's protocol) and `mod` (the mod's own version).
 - A change that would break existing clients gets a new protocol number. New fields can appear in replies without a new number, so ignore fields you do not know.
 
@@ -166,13 +173,21 @@ If nothing listens on the port, the connection fails. The game is not running, o
 
 ```python
 import json
+import os
+from pathlib import Path
+import re
 import socket
+
+token_path = Path(os.environ["APPDATA"]) / "7DaysToDie" / "GnosticGameLink" / "session-token"
 
 def game_link(request: str) -> dict:
     """Sends one Game Link request and returns the reply as a dict."""
+    token = token_path.read_bytes().decode("ascii")
+    if not re.fullmatch(r"[0-9a-f]{32}", token):
+        raise ValueError("Invalid Game Link token file. Restart the game.")
     with socket.create_connection(("127.0.0.1", 7790), timeout=1.0) as s:
         s.settimeout(5.0)
-        s.sendall(f"GNOSTICLINK 2 {request}\n".encode("ascii"))
+        s.sendall(f"GNOSTICLINK 2 {token} {request}\n".encode("ascii"))
         data = b""
         while not data.endswith(b"\n") and len(data) < 4096:
             chunk = s.recv(4096)
@@ -182,7 +197,9 @@ def game_link(request: str) -> dict:
     return json.loads(data)
 
 status = game_link("STATUS")
-if status["state"] == "ready":
+if not status["ok"]:
+    print(status["message"])
+elif status["state"] == "ready":
     p = status["player"]
     print(f"{status['world']}: x={p['x']:.0f} z={p['z']:.0f}, facing {p['yaw']:.0f} degrees")
     print(game_link("TELEPORT -412 1880 se"))
@@ -200,6 +217,8 @@ else:
 ./test-link.ps1 Waypoint -X -412 -Z 1880 -PrefabName farm_16
 ./test-link.ps1 Picture -X -412 -Y 115 -Z 1820 -LookX -412 -LookY 65 -LookZ 1880
 ```
+
+With the game running, `./test-link.ps1 -CheckLoopback` checks that port 7790 has exactly one listening address, `127.0.0.1`. Run `./test-link.ps1 Status -NoToken` to check that the mod replies with `invalid_token`.
 
 ### C#
 

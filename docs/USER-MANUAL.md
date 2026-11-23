@@ -141,6 +141,8 @@ The editor compares the world in the game with the world folder you opened or la
 
 If the editor cannot connect to Game Link, it shows a message. You can still use **Copy teleport command**.
 
+Each time you start the game, Game Link makes a new token. The editor uses this token to connect. If you get a token error, start the game again. If the problem continues, install the mod that matches the editor.
+
 If you installed Game Link, a plug icon appears in the status bar. It turns green when the game replies. Point to the icon to read the connection status.
 
 After a teleport, the status bar tells you if the editor has changes since export. Export again to use the latest terrain. A saved game keeps the terrain in chunks that it already generated.
