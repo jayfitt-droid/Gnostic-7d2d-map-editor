@@ -18,6 +18,7 @@ public sealed class HighwayStageTests
             foreach (var shape in TownGenerator.ShapeNames)
                 yield return new PrefabInfo($"rwg_tile_{district}_{shape}", "RWGTiles", new Int3(150, 22, 150), -12, 0, 0, ["streettile"], null);
         yield return new PrefabInfo("rwg_tile_gateway_straight3a", "RWGTiles", new Int3(150, 22, 150), -12, 0, 0, ["streettile"], null);
+        yield return new PrefabInfo("rwg_tile_test_block", "RWGTiles", new Int3(150, 22, 150), -12, 0, 0, ["streettile"], null);
     }
 
     private static World Flat(float metres = 40)
@@ -41,6 +42,16 @@ public sealed class HighwayStageTests
 
     /// <summary>A one-tile roadside town: a gateway with its street running north-south.</summary>
     private static void Roadside(World world, int cx, int cz) => Tile(world, "rwg_tile_gateway_straight", cx, cz, 0);
+
+    private static void PlaceAtGround(World world, string name, int x, int z, int ground)
+    {
+        var info = Library.Find(name)!;
+        world.Prefabs.Add(new PrefabInstance
+        {
+            Name = name,
+            Position = new Int3(world.GridToWorld(x), PrefabPlacer.PrefabY(info, ground), world.GridToWorld(z)),
+        });
+    }
 
     private static HighwayResult Run(World world, HighwayOptions? options, List<HighwayRoad> roads, EditSession? session = null) =>
         HighwayStage.Run(world, options ?? new HighwayOptions(), roads, Library, RwgMixer.Empty, [], session ?? new EditSession("Highways", world));
@@ -91,6 +102,54 @@ public sealed class HighwayStageTests
         // Every town's tile has a road leading off one of its exits.
         foreach (var (cx, cz) in new[] { (6, 6), (12, 8), (20, 6), (8, 20) })
             Assert.Contains(roads, r => r.Points.Any(p => Math.Abs(p[0] - (cx * 150 + 75)) < 1 && (Math.Abs(p[1] - cz * 150) < 1 || Math.Abs(p[1] - (cz * 150 + 149)) < 1)));
+    }
+
+    [Fact]
+    public void A_highway_leaves_room_for_its_full_width_beside_a_street_tile()
+    {
+        const int size = 1024;
+        var world = new World { Name = "T", Size = size, Height = new Grid<ushort>(size, size) };
+        ushort high = World.MetresToHeight(50), low = World.MetresToHeight(48);
+        Array.Fill(world.Height.Data, high);
+
+        PlaceAtGround(world, "rwg_tile_gateway_straight", 220, 110, 50);
+        PlaceAtGround(world, "rwg_tile_downtown_straight", 300, 350, 50);
+        PlaceAtGround(world, "rwg_tile_downtown_straight", 300, 500, 48);
+        PlaceAtGround(world, "rwg_tile_gateway_straight", 220, 740, 50);
+        for (int z = 500; z < 650; z++)
+            world.Height.Row(z).Slice(300, 150).Fill(low);
+
+        var result = Run(world, new HighwayOptions { Wiggle = 0, JoinUp = false }, []);
+        Assert.Single(result.Added, r => r.Kind == HighwayKind.Highway);
+        var roads = world.Roads!;
+        // A road right beside the tile would lose one shoulder and part of its pavement.
+        var roadRow = roads.Row(500)[..300].ToArray();
+        Assert.Equal(16, roadRow.Count(r => r == (byte)RoadType.Asphalt));
+        Assert.Equal(2, roadRow.Count(r => r == (byte)RoadType.Gravel));
+        Assert.InRange(Array.FindLastIndex(roadRow, r => r != 0), 0, 289);
+        Assert.Equal(((byte)RoadType.None, low, low), (roads[300, 500], world.Height[300, 500], world.Height[307, 500]));
+        Assert.Equal((byte)RoadType.Asphalt, roads[295, 259]);
+        Assert.Equal((byte)RoadType.Asphalt, roads[295, 740]);
+    }
+
+    [Fact]
+    public void A_rounded_highway_leaves_clearance_around_a_street_tile_corner()
+    {
+        const int size = 1024;
+        var world = new World { Name = "T", Size = size, Height = new Grid<ushort>(size, size) };
+        Array.Fill(world.Height.Data, World.MetresToHeight(50));
+        PlaceAtGround(world, "rwg_tile_gateway_straight", 220, 110, 50);
+        PlaceAtGround(world, "rwg_tile_test_block", 300, 350, 50);
+        PlaceAtGround(world, "rwg_tile_gateway_straight", 415, 740, 50);
+
+        var result = Run(world, new HighwayOptions { Wiggle = 0, JoinUp = false }, []);
+        Assert.Single(result.Added, r => r.Kind == HighwayKind.Highway);
+        var roads = world.Roads!;
+        Assert.Equal((byte)RoadType.Asphalt, roads[295, 259]);
+        Assert.Equal((byte)RoadType.Asphalt, roads[490, 740]);
+        // The grading needs a 10 m strip outside the tile free of road paint, including at the bend.
+        for (int z = 340; z < 510; z++)
+            Assert.True(roads.Row(z)[290..460].IndexOfAnyExcept((byte)RoadType.None) < 0, $"Road too close to tile at Z={z}");
     }
 
     [Fact]
