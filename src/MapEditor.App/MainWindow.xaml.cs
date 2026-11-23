@@ -1374,6 +1374,10 @@ public partial class MainWindow : Window
         _genTools.Refresh();
     }
 
+    private GeneratorStages StagesFor(World world, GeneratorSettings settings) =>
+        new(world, settings, new GeneratorData(_vm.Stamps, _vm.Mixer, _vm.Prefabs, _vm.Biomes),
+            _projectSettings.Bridges, _vm.BridgeWrecks);
+
     // ---- town sites ----------------------------------------------------------
 
     /// <summary>Which 150 m cells can take a town; worked out again after every edit.</summary>
@@ -1420,9 +1424,10 @@ public partial class MainWindow : Window
         g.IsRunning = true;
         try
         {
-            var (library, mixer, biomes) = (_vm.Prefabs, _vm.Mixer, _vm.Biomes);
+            var stages = StagesFor(world, gen);
             var cells = TownCellsNow(world);
-            g.Planned = await Task.Run(() => TownSiteStage.PlanTowns(world, library, mixer, biomes, cells, sites, default, gen.Towns.Traders));
+            var traders = gen.Towns.Traders;
+            g.Planned = await Task.Run(() => stages.PlanTowns(cells, sites, traders));
         }
         catch (Exception ex)
         {
@@ -1474,7 +1479,8 @@ public partial class MainWindow : Window
         if (newSeed is { } seed) g.TownSeed = seed;
         var options = gen.Towns.Clone();
         var keep = gen.Sites.Where(s => s.Built || s.Pinned).ToList();
-        var (library, mixer, biomes) = (_vm.Prefabs, _vm.Mixer, _vm.Biomes);
+        var library = _vm.Prefabs;
+        var stages = StagesFor(world, gen);
         _vm.IsBusy = true;
         g.IsRunning = true;
         _vm.Status = "Planning the towns...";
@@ -1484,11 +1490,7 @@ public partial class MainWindow : Window
         try
         {
             var cells = TownCellsNow(world);
-            (result, towns) = await Task.Run(() =>
-            {
-                var r = TownSiteStage.Plan(cells, mixer, options, keep);
-                return (r, TownSiteStage.PlanTowns(world, library, mixer, biomes, cells, r.Sites, default, options.Traders));
-            });
+            (result, towns) = await Task.Run(() => stages.PlanTownSites(cells, options, keep));
         }
         catch (Exception ex)
         {
@@ -1539,12 +1541,11 @@ public partial class MainWindow : Window
             return;
 
         var g = _vm.Generate;
-        var (library, mixer, biomes) = (_vm.Prefabs, _vm.Mixer, _vm.Biomes);
-        TownSiteResult? result = null;
-        List<PlannedTown>? towns = null;
-        int takenDown = 0, roadsOut = 0;
+        var library = _vm.Prefabs;
+        var stages = StagesFor(world, gen);
+        StageRun<TownPlanResult>? run = null;
         EditSession? ran = null;
-        TownSiteOptions? options = null;
+        int townSeed = gen.Towns.Seed;
         _vm.IsBusy = true;
         g.IsRunning = true;
         _vm.Status = "Taking the built towns down and planning new ones...";
@@ -1555,26 +1556,14 @@ public partial class MainWindow : Window
             ok = await _edits.RunInBackgroundAsync(world, newSeed is null ? "Plan towns again" : "Re-roll towns", session =>
             {
                 ran = session;
-                var bridges = TakeDownBridges(world, session);
-                roadsOut = TakeDownHighways(world, gen, session);
-                takenDown = TownSiteStage.TakeDown(world, library, down, null, session);
-                RebuildBridges(world, bridges, library, session);
-                // Plan on the ground as it is now, without the towns that came down.
-                var cells = TownCells.Build(world, biomes, library, gen.TerrainPlan, options!.CrossBorders);
-                var keep = gen.Sites.Where(s => s.Pinned).ToList();
-                result = TownSiteStage.Plan(cells, mixer, options, keep);
-                towns = TownSiteStage.PlanTowns(world, library, mixer, biomes, cells, result.Sites, default, options.Traders);
-                // Replaced in place, so undo brings the old sites (and their built towns) back into the same list.
-                session.TouchList(gen.Sites, s => s.Clone(), new GridRect(0, 0, world.Size, world.Size));
-                gen.Sites.Clear();
-                gen.Sites.AddRange(result.Sites);
+                run = stages.ReplanTowns(session);
             }, session =>
             {
                 // The seed changes inside the edit, so undo puts the old one back with the towns.
                 NoteGeneratorState(session);
                 if (newSeed is { } seed) g.TownSeed = seed;
-                options = gen.Towns.Clone();
-                session.HistoryDetail = $"seed {options.Seed}";
+                townSeed = gen.Towns.Seed;
+                session.HistoryDetail = $"seed {townSeed}";
             });
         }
         finally
@@ -1583,27 +1572,27 @@ public partial class MainWindow : Window
             _vm.IsBusy = false;
         }
         _townCells = null;
-        if (!ok || result is null || towns is null || ran is null || options is null)
+        if (!ok || run is null || ran is null)
         {
             TownSiteStage.MarkBuilt(world, library, gen.Sites);
             CloseIfWaiting();
             return;
         }
-        TownSiteStage.MarkBuilt(world, library, gen.Sites);
-        if (!gen.Sites.Any(s => s.Built)) gen.Done.Remove(GeneratorStage.TownSites);
+        var (result, towns) = run.Result;
+        int takenDown = run.Changes.Towns;
         g.Planned = towns;
-        NoteHighwaysTakenDown(roadsOut);
+        NoteHighwaysTakenDown(run.Changes);
         Map.InvalidateRegion(ran.Bounds);
         Map.InvalidateVisual();
         _prefabTools.Refresh();
         _townTools.Refresh();
         _genTools.Refresh();
         int planned = towns.Count;
-        g.TownStatus = $"Took {takenDown} built town{(takenDown == 1 ? "" : "s")} down and planned {planned} with seed {options.Seed} in {sw.Elapsed.TotalSeconds:0.0} s."
+        g.TownStatus = $"Took {takenDown} built town{(takenDown == 1 ? "" : "s")} down and planned {planned} with seed {townSeed} in {sw.Elapsed.TotalSeconds:0.0} s."
                        + (result.Shortfalls.Count > 0 ? " No room for all of: " + string.Join("; ", result.Shortfalls) + "." : "");
         g.TownStatusShort = $"Planned {planned} town{(planned == 1 ? "" : "s")}, not built yet" + (result.Shortfalls.Count > 0 ? "; some didn't fit" : "");
         g.RefreshDone();
-        _vm.Status = "Towns planned. Check them on the map, then Build. Undo (Ctrl+Z) puts the built towns back." + TakeBridgeNote();
+        _vm.Status = "Towns planned. Check them on the map, then Build. Undo (Ctrl+Z) puts the built towns back." + BridgeNote(run.Changes);
         CloseIfWaiting();
     }
 
@@ -1678,18 +1667,16 @@ public partial class MainWindow : Window
     private async Task BuildTownsAsync()
     {
         if (_world is not { } world || RefuseWhileBusy() || _projectSettings.Generator is not { } gen) return;
-        var sites = gen.Sites.Where(s => !s.Built).ToList();
-        if (sites.Count == 0) return;
+        if (!gen.Sites.Any(s => !s.Built)) return;
         var g = _vm.Generate;
-        var (library, mixer, biomes, stamps) = (_vm.Prefabs, _vm.Mixer, _vm.Biomes, _vm.Stamps);
+        var library = _vm.Prefabs;
+        var stages = StagesFor(world, gen);
         var cells = TownCellsNow(world);
-        var traderMode = gen.Towns.Traders;
-        int featuresOut = 0, roadsOut = 0;
         _vm.IsBusy = true;
         g.IsRunning = true;
         _vm.Status = "Building the towns...";
         var sw = Stopwatch.StartNew();
-        List<PlannedTown>? towns = null;
+        StageRun<TownBuildResult>? run = null;
         EditSession? ran = null;
         bool ok;
         try
@@ -1697,16 +1684,7 @@ public partial class MainWindow : Window
             ok = await _edits.RunInBackgroundAsync(world, "Build towns", session =>
             {
                 ran = session;
-                var bridges = TakeDownBridges(world, session);
-                roadsOut = TakeDownHighways(world, gen, session);
-                towns = TownSiteStage.PlanTowns(world, library, mixer, biomes, cells, sites, default, traderMode);
-                // Features in the way come out first: the towns get flat ground, as RWG plans towns before features.
-                var townCells = sites.SelectMany(s => s.AllCells).ToHashSet();
-                var inTheWay = gen.PlacedFeatures.Where(f => f.Drawn && f.Cells.Any(c => townCells.Contains((c[0], c[1])))).ToList();
-                featuresOut = inTheWay.Count;
-                if (inTheWay.Count > 0) FeatureStage.Remove(world, gen.PlacedFeatures, inTheWay, stamps, session);
-                TownSiteStage.Build(world, library, towns, session);
-                RebuildBridges(world, bridges, library, session);
+                run = stages.Towns(session, cells);
             }, session => NoteGeneratorState(session, $"seed {gen.Towns.Seed}"));
         }
         finally
@@ -1714,12 +1692,12 @@ public partial class MainWindow : Window
             g.IsRunning = false;
             _vm.IsBusy = false;
         }
-        if (!ok || towns is null || ran is null)
+        if (!ok || run is null || ran is null)
         {
             TownSiteStage.MarkBuilt(world, library, gen.Sites);
             return;
         }
-        gen.Done.Add(GeneratorStage.TownSites);
+        var (towns, featuresOut) = run.Result;
         g.Planned = [];
         Map.InvalidateRegion(ran.Bounds);
         Map.InvalidateVisual();
@@ -1734,8 +1712,8 @@ public partial class MainWindow : Window
                        + (featuresOut > 0 ? $" {featuresOut} feature stamp{(featuresOut == 1 ? " was" : "s were")} in the way and came out." : "");
         g.TownStatusShort = $"Built {towns.Count} towns, {pois:N0} POIs, {traders} traders";
         g.RefreshFeatures();
-        NoteHighwaysTakenDown(roadsOut);
-        _vm.Status = $"Built {towns.Count} towns in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes them all down again." + TakeBridgeNote();
+        NoteHighwaysTakenDown(run.Changes);
+        _vm.Status = $"Built {towns.Count} towns in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes them all down again." + BridgeNote(run.Changes);
         _vm.SelectedTool = EditorTool.Select;
         CloseIfWaiting();
     }
@@ -1771,11 +1749,8 @@ public partial class MainWindow : Window
         if (!FeaturesReady()) return;
         var g = _vm.Generate;
         g.RefreshFeatureRows(_vm.Mixer);
-        var options = gen.Features.Clone();
-        var (stamps, mixer, library) = (_vm.Stamps, _vm.Mixer, _vm.Prefabs);
-        var sites = gen.Sites.ToList();
-        var plan = gen.TerrainPlan;
-        float baseHeight = gen.Terrain.BaseHeight;
+        int seed = gen.Features.Seed;
+        var stages = StagesFor(world, gen);
         using var cancel = new CancellationTokenSource();
         _generateCancel = cancel;
         _vm.IsBusy = true;
@@ -1784,20 +1759,16 @@ public partial class MainWindow : Window
         _vm.Status = "Pressing in lakes, rivers, canyons and craters...";
         var progress = new Progress<double>(v => g.Progress = v);
         var sw = Stopwatch.StartNew();
-        FeatureResult? result = null;
+        StageRun<FeatureResult>? run = null;
         EditSession? ran = null;
-        int roadsOut = 0;
         bool ok;
         try
         {
             ok = await _edits.RunInBackgroundAsync(world, "Generate features", session =>
             {
                 ran = session;
-                var bridges = TakeDownBridges(world, session);
-                roadsOut = TakeDownHighways(world, gen, session);
-                result = FeatureStage.Run(world, options, gen.PlacedFeatures, stamps, mixer, library, sites, plan, baseHeight, session, progress, cancel.Token);
-                RebuildBridges(world, bridges, library, session);
-            }, session => NoteGeneratorState(session, $"seed {options.Seed}"));
+                run = stages.Features(session, progress, cancel.Token);
+            }, session => NoteGeneratorState(session, $"seed {seed}"));
         }
         finally
         {
@@ -1806,20 +1777,20 @@ public partial class MainWindow : Window
             _vm.IsBusy = false;
         }
         g.RefreshFeatures();
-        if (!ok || result is null || ran is null) return;
+        if (!ok || run is null || ran is null) return;
 
-        gen.Done.Add(GeneratorStage.Features);
-        NoteHighwaysTakenDown(roadsOut);
+        var result = run.Result;
+        NoteHighwaysTakenDown(run.Changes);
         var counts = string.Join(", ", result.Added.Where(f => f.Chain == 0 || f.Kind == FeatureKind.River)
             .GroupBy(f => f.Chain != 0 ? -f.Chain : f.GetHashCode()).Select(c => c.First().Kind)
             .GroupBy(k => k).OrderBy(k => k.Key).Select(k => $"{k.Count()} {(k.Count() == 1 ? FeatureRowViewModel.NameOf(k.Key).ToLowerInvariant() : FeatureStage.Plural(k.Key))}"));
-        g.FeatureStatus = (counts.Length == 0 ? "Nothing placed" : "Placed " + counts) + $" with seed {options.Seed} in {sw.Elapsed.TotalSeconds:0.0} s."
+        g.FeatureStatus = (counts.Length == 0 ? "Nothing placed" : "Placed " + counts) + $" with seed {seed} in {sw.Elapsed.TotalSeconds:0.0} s."
                           + (result.Shortfalls.Count > 0 ? " " + string.Join(" ", result.Shortfalls) : "");
         g.FeatureStatusShort = counts.Length == 0 ? "Nothing placed" : "Placed " + counts;
         Map.InvalidateRegion(ran.Bounds);
         Map.InvalidateVisual();
         _genTools.Refresh();
-        _vm.Status = $"Features done in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes them all out again." + TakeBridgeNote();
+        _vm.Status = $"Features done in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes them all out again." + BridgeNote(run.Changes);
         CloseIfWaiting();
         if (gen.Sites.Any(s => !s.Built)) await ReplanTownsAsync();
     }
@@ -1835,9 +1806,8 @@ public partial class MainWindow : Window
     private void FeaturesRemove_Click(object sender, RoutedEventArgs e)
     {
         if (_world is not { } world || RefuseWhileBusy() || _projectSettings.Generator is not { } gen || gen.PlacedFeatures.Count == 0) return;
-        RemoveFeatures(world, gen, gen.PlacedFeatures.ToList(), "Remove features");
-        gen.Done.Remove(GeneratorStage.Features);
-        _vm.Generate.FeatureStatus = "Every feature taken out.";
+        if (RemoveFeatures(world, gen, gen.PlacedFeatures, "Remove features", all: true))
+            _vm.Generate.FeatureStatus = "Every feature taken out.";
     }
 
     private void FeaturesPlace_Click(object sender, RoutedEventArgs e)
@@ -1852,9 +1822,9 @@ public partial class MainWindow : Window
         RemoveFeatures(world, gen, [f], "Drop feature");
     }
 
-    private void RemoveFeatures(World world, GeneratorSettings gen, List<Feature> which, string name)
+    private bool RemoveFeatures(World world, GeneratorSettings gen, IReadOnlyList<Feature> which, string name, bool all = false)
     {
-        var stamps = _vm.Stamps;
+        var stages = StagesFor(world, gen);
         // What comes out, a long river whole, so the map redraws all of it.
         var chains = which.Where(f => f.Chain != 0).Select(f => f.Chain).ToHashSet();
         var reach = gen.PlacedFeatures.Where(f => which.Contains(f) || f.Chain != 0 && chains.Contains(f.Chain))
@@ -1862,13 +1832,15 @@ public partial class MainWindow : Window
         if (!_edits.Run(world, name, session =>
             {
                 NoteGeneratorState(session);
-                FeatureStage.Remove(world, gen.PlacedFeatures, which, stamps, session);
-            })) return;
+                if (all) stages.Remove(GeneratorStage.Features, session);
+                else stages.DropFeatures(session, which);
+            })) return false;
         _vm.Generate.RefreshFeatures();
         Map.InvalidateRegion(reach);
         Map.InvalidateVisual();
         _genTools.Refresh();
         _vm.Status = $"{name}: done. Undo (Ctrl+Z) puts it back.";
+        return true;
     }
 
     /// <summary>The Place features tool: a click on a feature picks it; anywhere else presses in a pinned one.</summary>
@@ -1931,9 +1903,8 @@ public partial class MainWindow : Window
         if (_world is not { } world || RefuseWhileBusy() || _projectSettings.Generator is not { } gen) return;
         await _gameDataLoad;
         var g = _vm.Generate;
-        var options = gen.Highways.Clone();
-        var (library, mixer) = (_vm.Prefabs, _vm.Mixer);
-        var sites = gen.Sites.ToList();
+        int seed = gen.Highways.Seed;
+        var stages = StagesFor(world, gen);
         using var cancel = new CancellationTokenSource();
         _generateCancel = cancel;
         _vm.IsBusy = true;
@@ -1942,22 +1913,16 @@ public partial class MainWindow : Window
         _vm.Status = "Laying the highways...";
         var progress = new Progress<double>(v => g.Progress = v);
         var sw = Stopwatch.StartNew();
-        HighwayResult? result = null;
+        StageRun<HighwayResult>? run = null;
         EditSession? ran = null;
-        int wildOut = 0;
         bool ok;
         try
         {
             ok = await _edits.RunInBackgroundAsync(world, "Generate highways", session =>
             {
                 ran = session;
-                var bridges = TakeDownBridges(world, session);
-                wildOut = TakeDownWilderness(world, gen, session);
-                // The Bridge tool's bridges are down while the stage runs; it must still keep off their decks and ramps.
-                result = HighwayStage.Run(world, options, gen.PlacedRoads, library, mixer, sites, session, progress, cancel.Token,
-                    [.. _projectSettings.Bridges.Select(b => BridgeTool.KeepClearArea(b, world.Size))]);
-                RebuildBridges(world, bridges, library, session);
-            }, session => NoteGeneratorState(session, $"seed {options.Seed}"));
+                run = stages.Highways(session, progress, cancel.Token);
+            }, session => NoteGeneratorState(session, $"seed {seed}"));
         }
         finally
         {
@@ -1967,10 +1932,10 @@ public partial class MainWindow : Window
         }
         g.RefreshHighways();
         g.RefreshWilderness();
-        if (!ok || result is null || ran is null) return;
+        if (!ok || run is null || ran is null) return;
 
-        NoteWildernessTakenDown(wildOut);
-        if (result.Added.Count > 0) gen.Done.Add(GeneratorStage.Highways);
+        var result = run.Result;
+        NoteWildernessTakenDown(run.Changes);
         var parts = new List<string>();
         void Part(HighwayKind kind, string one, string many)
         {
@@ -1983,29 +1948,28 @@ public partial class MainWindow : Window
         Part(HighwayKind.JoinUp, "join-up", "join-ups");
         Part(HighwayKind.Bridge, "bridge", "bridges");
         g.HighwayStatus = (parts.Count == 0 ? "No roads laid" : $"Laid {string.Join(", ", parts)}, {result.Kilometres:0} km,")
-                          + $" with seed {options.Seed} in {sw.Elapsed.TotalSeconds:0.0} s." + (result.Notes.Count > 0 ? " " + string.Join(" ", result.Notes) : "");
+                          + $" with seed {seed} in {sw.Elapsed.TotalSeconds:0.0} s." + (result.Notes.Count > 0 ? " " + string.Join(" ", result.Notes) : "");
         g.HighwayStatusShort = parts.Count == 0 ? "No roads laid" : $"{string.Join(", ", parts)}, {result.Kilometres:0} km";
         Map.InvalidateRegion(new GridRect(0, 0, world.Size, world.Size));
         Map.InvalidateVisual();
         // Bridges are prefabs.
         _prefabTools.Refresh();
         _genTools.Refresh();
-        _vm.Status = $"Highways done in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes them all out again." + TakeBridgeNote();
+        _vm.Status = $"Highways done in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes them all out again." + BridgeNote(run.Changes);
         CloseIfWaiting();
     }
 
     private void HighwaysRemove_Click(object sender, RoutedEventArgs e)
     {
         if (_world is not { } world || RefuseWhileBusy() || _projectSettings.Generator is not { } gen || gen.PlacedRoads.Count == 0) return;
-        int wildOut = 0;
+        var stages = StagesFor(world, gen);
+        StageChanges changes = new();
         if (!_edits.Run(world, "Remove highways", session =>
             {
                 NoteGeneratorState(session);
-                wildOut = TakeDownWilderness(world, gen, session);
-                HighwayStage.TakeDown(world, gen.PlacedRoads, session);
+                changes = stages.Remove(GeneratorStage.Highways, session);
             })) return;
-        NoteWildernessTakenDown(wildOut);
-        gen.Done.Remove(GeneratorStage.Highways);
+        NoteWildernessTakenDown(changes);
         _vm.Generate.RefreshHighways();
         _vm.Generate.HighwayStatus = "Every road this stage laid was taken out.";
         Map.InvalidateRegion(new GridRect(0, 0, world.Size, world.Size));
@@ -2014,51 +1978,19 @@ public partial class MainWindow : Window
         _vm.Status = "Highways taken out. Undo (Ctrl+Z) puts them back.";
     }
 
-    /// <summary>
-    /// An earlier stage is about to change the ground: the highways come out first, in the same edit, putting back the
-    /// ground they graded. Returns how many came out.
-    /// </summary>
-    private int TakeDownHighways(World world, GeneratorSettings? gen, EditSession session)
+    private static string BridgeNote(StageChanges changes)
     {
-        // Stage 5 was drawn after the highways, so it comes out first.
-        _wildernessTakenDown = TakeDownWilderness(world, gen, session);
-        return gen is { PlacedRoads.Count: > 0 } ? HighwayStage.TakeDown(world, gen.PlacedRoads, session) : 0;
+        int dropped = changes.BridgesDropped, rebuilt = changes.BridgesRebuilt;
+        if (dropped > 0)
+            return $" {dropped} bridge{(dropped == 1 ? " couldn't" : "s couldn't")} be built again and {(dropped == 1 ? "was" : "were")} dropped.";
+        return rebuilt == 0 ? "" : $" {rebuilt} bridge{(rebuilt == 1 ? " was" : "s were")} rebuilt on the new ground.";
     }
 
-    /// <summary>How many wilderness POIs the last <see cref="TakeDownHighways"/> took out, for <see cref="NoteHighwaysTakenDown"/>.</summary>
-    private int _wildernessTakenDown;
-
-    /// <summary>What the last stage run did to the Bridge tool's bridges, for its status text.</summary>
-    private string _bridgeNote = "";
-
-    /// <summary>A stage is about to change the ground: the Bridge tool's bridges come down first, in the same edit.</summary>
-    private List<PlacedBridge> TakeDownBridges(World world, EditSession session) =>
-        BridgeTool.TakeDownAll(world, _projectSettings.Bridges, session);
-
-    /// <summary>The stage has changed the ground: each bridge goes up again where it was, its deck height worked out afresh.</summary>
-    private void RebuildBridges(World world, List<PlacedBridge> taken, PrefabLibrary library, EditSession session)
+    private void NoteHighwaysTakenDown(StageChanges changes)
     {
-        if (taken.Count == 0) return;
-        int dropped = BridgeTool.RebuildAll(world, BridgeKit.From(library), _projectSettings.Bridges, taken, session, _vm.BridgeWrecks);
-        _bridgeNote = dropped > 0
-            ? $" {dropped} bridge{(dropped == 1 ? " couldn't" : "s couldn't")} be built again and {(dropped == 1 ? "was" : "were")} dropped."
-            : $" {taken.Count} bridge{(taken.Count == 1 ? " was" : "s were")} rebuilt on the new ground.";
-    }
-
-    private string TakeBridgeNote()
-    {
-        string note = _bridgeNote;
-        _bridgeNote = "";
-        return note;
-    }
-
-    /// <summary>After an earlier stage took the highways (and stage 5) out: says so and marks the stages as not run.</summary>
-    private void NoteHighwaysTakenDown(int count)
-    {
-        NoteWildernessTakenDown(_wildernessTakenDown);
-        _wildernessTakenDown = 0;
-        if (count == 0 || _projectSettings.Generator is not { } gen) return;
-        gen.Done.Remove(GeneratorStage.Highways);
+        NoteWildernessTakenDown(changes);
+        int count = changes.Highways;
+        if (count == 0) return;
         _vm.Generate.RefreshHighways();
         _vm.Generate.HighwayStatus = $"{count} road{(count == 1 ? " was" : "s were")} taken out as an earlier stage changed; Generate lays them again.";
     }
@@ -2090,9 +2022,9 @@ public partial class MainWindow : Window
         await _gameDataLoad;
         if (!WildernessReady()) return;
         var g = _vm.Generate;
-        var options = gen.Wilderness.Clone();
-        var (library, mixer, biomes) = (_vm.Prefabs, _vm.Mixer, _vm.Biomes);
-        var sites = gen.Sites.ToList();
+        int seed = gen.Wilderness.Seed;
+        bool roads = gen.Wilderness.Roads;
+        var stages = StagesFor(world, gen);
         using var cancel = new CancellationTokenSource();
         _generateCancel = cancel;
         _vm.IsBusy = true;
@@ -2101,7 +2033,7 @@ public partial class MainWindow : Window
         _vm.Status = "Placing wilderness POIs...";
         var progress = new Progress<double>(v => g.Progress = v);
         var sw = Stopwatch.StartNew();
-        WildernessResult? result = null;
+        StageRun<WildernessResult>? run = null;
         EditSession? ran = null;
         bool ok;
         try
@@ -2109,13 +2041,8 @@ public partial class MainWindow : Window
             ok = await _edits.RunInBackgroundAsync(world, "Generate wilderness", session =>
             {
                 ran = session;
-                var bridges = TakeDownBridges(world, session);
-                _spawnsTakenDown = TakeDownSpawns(world, gen, session);
-                // The Bridge tool's bridges are down while the stage runs; its POIs and roads must still keep off their decks and ramps.
-                result = WildernessStage.Run(world, options, gen.PlacedWilderness, library, mixer, biomes, sites, session, progress, cancel.Token,
-                    [.. _projectSettings.Bridges.Select(b => BridgeTool.KeepClearArea(b, world.Size))]);
-                RebuildBridges(world, bridges, library, session);
-            }, session => NoteGeneratorState(session, $"seed {options.Seed}"));
+                run = stages.Wilderness(session, progress, cancel.Token);
+            }, session => NoteGeneratorState(session, $"seed {seed}"));
         }
         finally
         {
@@ -2124,20 +2051,20 @@ public partial class MainWindow : Window
             _vm.IsBusy = false;
         }
         g.RefreshWilderness();
-        if (!ok || result is null || ran is null) return;
+        if (!ok || run is null || ran is null) return;
 
-        NoteSpawnsTakenDown();
-        if (gen.PlacedWilderness.Count > 0) gen.Done.Add(GeneratorStage.Wilderness);
+        var result = run.Result;
+        NoteSpawnsTakenDown(run.Changes.Spawns);
         int pinned = gen.PlacedWilderness.Count(p => p.Pinned);
         g.WildernessStatus = $"Placed {result.Added.Count} POIs ({result.Prefabs:N0} prefabs){(pinned > 0 ? $", kept {pinned} pinned" : "")}, "
-                             + (options.Roads ? $"{result.Roads} gravel roads, {result.RoadKilometres:0} km," : "no roads,")
-                             + $" with seed {options.Seed} in {sw.Elapsed.TotalSeconds:0.0} s." + (result.Notes.Count > 0 ? " " + string.Join(" ", result.Notes) : "");
-        g.WildernessStatusShort = $"{result.Added.Count} POIs, " + (options.Roads ? $"{result.Roads} gravel roads, {result.RoadKilometres:0} km" : "no roads");
+                             + (roads ? $"{result.Roads} gravel roads, {result.RoadKilometres:0} km," : "no roads,")
+                             + $" with seed {seed} in {sw.Elapsed.TotalSeconds:0.0} s." + (result.Notes.Count > 0 ? " " + string.Join(" ", result.Notes) : "");
+        g.WildernessStatusShort = $"{result.Added.Count} POIs, " + (roads ? $"{result.Roads} gravel roads, {result.RoadKilometres:0} km" : "no roads");
         Map.InvalidateRegion(new GridRect(0, 0, world.Size, world.Size));
         Map.InvalidateVisual();
         _prefabTools.Refresh();
         _genTools.Refresh();
-        _vm.Status = $"Wilderness done in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes it all out again." + TakeBridgeNote();
+        _vm.Status = $"Wilderness done in {sw.Elapsed.TotalSeconds:0.0} s. Undo (Ctrl+Z) takes it all out again." + BridgeNote(run.Changes);
         CloseIfWaiting();
     }
 
@@ -2153,27 +2080,23 @@ public partial class MainWindow : Window
     private void WildernessRemove_Click(object sender, RoutedEventArgs e)
     {
         if (_world is not { } world || RefuseWhileBusy() || _projectSettings.Generator is not { } gen || gen.PlacedWilderness.Count == 0) return;
-        RemoveWilderness(world, gen, gen.PlacedWilderness.ToList(), "Remove wilderness POIs");
-        gen.Done.Remove(GeneratorStage.Wilderness);
-        _vm.Generate.WildernessStatus = "Every POI and gravel road this stage placed was taken out.";
-    }
-
-    private void RemoveWilderness(World world, GeneratorSettings gen, List<WildernessPoi> which, string name)
-    {
-        var reach = PoiReach(world, which);
+        const string name = "Remove wilderness POIs";
+        var reach = PoiReach(world, gen.PlacedWilderness);
+        var stages = StagesFor(world, gen);
+        StageChanges changes = new();
         if (!_edits.Run(world, name, session =>
             {
                 NoteGeneratorState(session);
-                _spawnsTakenDown = TakeDownSpawns(world, gen, session);
-                WildernessStage.Remove(world, gen.PlacedWilderness, which, session);
+                changes = stages.Remove(GeneratorStage.Wilderness, session);
             })) return;
-        NoteSpawnsTakenDown();
+        NoteSpawnsTakenDown(changes.Spawns);
         _vm.Generate.RefreshWilderness();
         Map.InvalidateRegion(reach);
         Map.InvalidateVisual();
         _prefabTools.Refresh();
         _genTools.Refresh();
         _vm.Status = $"{name}: done. Undo (Ctrl+Z) puts it back.";
+        _vm.Generate.WildernessStatus = "Every POI and gravel road this stage placed was taken out.";
     }
 
     /// <summary>What POIs and their roads can have changed on the map.</summary>
@@ -2193,23 +2116,11 @@ public partial class MainWindow : Window
         return r.Clamp(world.Size, world.Size);
     }
 
-    /// <summary>
-    /// An earlier stage is about to change the ground: stage 5's POIs and gravel roads come out first, in the same edit,
-    /// putting back the ground they changed. Pinned POIs wait to come back on the next run. Returns how many came out.
-    /// </summary>
-    private int TakeDownWilderness(World world, GeneratorSettings? gen, EditSession session)
+    private void NoteWildernessTakenDown(StageChanges changes)
     {
-        // Stage 6 came after stage 5, so its spawns come out first.
-        _spawnsTakenDown = TakeDownSpawns(world, gen, session);
-        return gen is { PlacedWilderness.Count: > 0 } ? WildernessStage.TakeDown(world, gen.PlacedWilderness, session) : 0;
-    }
-
-    /// <summary>After an earlier stage took stage 5 out: says so and marks the stage as not run.</summary>
-    private void NoteWildernessTakenDown(int count)
-    {
-        NoteSpawnsTakenDown();
-        if (count == 0 || _projectSettings.Generator is not { } gen) return;
-        gen.Done.Remove(GeneratorStage.Wilderness);
+        NoteSpawnsTakenDown(changes.Spawns);
+        int count = changes.Wilderness;
+        if (count == 0) return;
         _vm.Generate.RefreshWilderness();
         _prefabTools.Refresh();
         _vm.Generate.WildernessStatus = $"{count} wilderness POI{(count == 1 ? " was" : "s were")} taken out as an earlier stage changed; Generate places them again.";
@@ -2217,20 +2128,9 @@ public partial class MainWindow : Window
 
     // ---- stage 6: spawns ----------------------------------------------------------
 
-    /// <summary>How many spawns the last <see cref="TakeDownWilderness"/> or stage 5 edit took out, for <see cref="NoteSpawnsTakenDown"/>.</summary>
-    private int _spawnsTakenDown;
-
-    /// <summary>An earlier stage is about to run: stage 6's spawns come out first, in the same edit. Hand-placed ones stay.</summary>
-    private static int TakeDownSpawns(World world, GeneratorSettings? gen, EditSession session) =>
-        gen is { PlacedSpawns.Count: > 0 } ? SpawnStage.TakeDown(world, gen.PlacedSpawns, session) : 0;
-
-    /// <summary>After an earlier stage took stage 6's spawns out: says so and marks the stage as not run.</summary>
-    private void NoteSpawnsTakenDown()
+    private void NoteSpawnsTakenDown(int count)
     {
-        int count = _spawnsTakenDown;
-        _spawnsTakenDown = 0;
-        if (count == 0 || _projectSettings.Generator is not { } gen) return;
-        gen.Done.Remove(GeneratorStage.Spawns);
+        if (count == 0) return;
         _vm.Generate.RefreshSpawns();
         _prefabTools.Refresh();
         _vm.Generate.SpawnStatus = $"{count} spawn{(count == 1 ? " was" : "s were")} taken out as an earlier stage changed; Generate places them again.";
@@ -2249,21 +2149,19 @@ public partial class MainWindow : Window
         if (_world is not { } world || RefuseWhileBusy() || _projectSettings.Generator is not { } gen) return;
         await _gameDataLoad;
         var g = _vm.Generate;
-        var options = gen.Spawns.Clone();
-        var (library, biomes) = (_vm.Prefabs, _vm.Biomes);
-        var sites = gen.Sites.ToList();
-        var pois = gen.PlacedWilderness.ToList();
+        int seed = gen.Spawns.Seed;
+        var stages = StagesFor(world, gen);
         _vm.IsBusy = true;
         g.IsRunning = true;
         _vm.Status = "Placing spawn points...";
         var sw = Stopwatch.StartNew();
-        SpawnResult? result = null;
+        StageRun<SpawnResult>? run = null;
         bool ok;
         try
         {
             ok = await _edits.RunInBackgroundAsync(world, "Generate spawns", session =>
-                result = SpawnStage.Run(world, options, gen.PlacedSpawns, library, biomes, sites, pois, session),
-                session => NoteGeneratorState(session, $"seed {options.Seed}"));
+                run = stages.Spawns(session),
+                session => NoteGeneratorState(session, $"seed {seed}"));
         }
         finally
         {
@@ -2271,12 +2169,12 @@ public partial class MainWindow : Window
             _vm.IsBusy = false;
         }
         g.RefreshSpawns();
-        if (!ok || result is null) return;
+        if (!ok || run is null) return;
 
-        if (gen.PlacedSpawns.Count > 0) gen.Done.Add(GeneratorStage.Spawns);
+        var result = run.Result;
         g.SpawnStatus = $"Placed {result.Added} spawns ({result.ByRoad} by gravel roads, {result.TopUp} topping up)"
                         + (result.Kept > 0 ? $", kept {result.Kept} already there" : "")
-                        + $"; {world.Spawns.Count} in all, {result.Traders} traders, seed {options.Seed}."
+                        + $"; {world.Spawns.Count} in all, {result.Traders} traders, seed {seed}."
                         + (result.Notes.Count > 0 ? " " + string.Join(" ", result.Notes) : "");
         g.SpawnStatusShort = $"{world.Spawns.Count} spawns ({result.ByRoad} by roads, {result.TopUp} top-up" + (result.Kept > 0 ? $", {result.Kept} kept" : "") + ")";
         Map.InvalidateVisual();
@@ -2298,13 +2196,13 @@ public partial class MainWindow : Window
     private void SpawnsRemove_Click(object sender, RoutedEventArgs e)
     {
         if (_world is not { } world || RefuseWhileBusy() || _projectSettings.Generator is not { } gen || gen.PlacedSpawns.Count == 0) return;
+        var stages = StagesFor(world, gen);
         int n = 0;
         if (!_edits.Run(world, "Remove spawns", session =>
             {
                 NoteGeneratorState(session);
-                n = SpawnStage.TakeDown(world, gen.PlacedSpawns, session);
+                n = stages.Remove(GeneratorStage.Spawns, session).Spawns;
             })) return;
-        gen.Done.Remove(GeneratorStage.Spawns);
         _vm.Generate.RefreshSpawns();
         _vm.Generate.SpawnStatus = $"Took out the {n} spawn{(n == 1 ? "" : "s")} this stage placed; {world.Spawns.Count} left.";
         Map.InvalidateVisual();
@@ -2349,7 +2247,7 @@ public partial class MainWindow : Window
     private async Task RerollAsync(Action newSeed, Func<Task> run)
     {
         if (_vm.IsBusy) return;
-        _seedsBeforeReroll = _projectSettings.Generator is { } gen ? GeneratorUndoState.SeedsOf(gen) : null;
+        _seedsBeforeReroll = _projectSettings.Generator is { } gen ? GeneratorEditState.SeedsOf(gen) : null;
         try
         {
             newSeed();
@@ -2499,15 +2397,6 @@ public partial class MainWindow : Window
         await RerollAsync(() => _vm.Generate.CoastSeed = Random.Shared.Next(1, 1_000_000), GenerateTerrainAsync);
     }
 
-    /// <summary>An area run plans only its own tiles: puts the last plan back everywhere else. Changes and returns <paramref name="plan"/>.</summary>
-    private static TerrainType[] MergeTerrainPlan(TerrainType[] plan, GridRect? area, TerrainType[]? last, int tiles)
-    {
-        if (area is { } a && last is not null && last.Length == plan.Length)
-            for (int i = 0; i < last.Length; i++)
-                if (!a.Contains(i % tiles, i / tiles)) plan[i] = last[i];
-        return plan;
-    }
-
     /// <summary>
     /// Runs the terrain stage in the background as one edit: the whole map, or the area picked in the panel. Cancel
     /// rolls it back.
@@ -2548,7 +2437,6 @@ public partial class MainWindow : Window
         var options = g.Settings.Terrain.Clone();
         if (drawing is not null) options.Shape.Drawing = drawing;
         var mask = g.LastMask;
-        var mixer = _vm.Mixer;
         var replan = area is null && (g.ReplanBiomes || drawing is not null && !options.Shape.SameLand(g.Settings.Biomes?.PlannedFor))
             ? g.Settings.Biomes?.Clone() : null;
         var library = _vm.Prefabs;
@@ -2581,9 +2469,7 @@ public partial class MainWindow : Window
                 $"New ground clears the later stages: {(area is null ? "" : "in or near the area, ")}{later}.\n\n{action}?",
                 action, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
-        int takenDown = 0, featuresOut = 0, roadsOut = 0, sitesCleared = 0, sitesUnusable = 0;
-        // Read on the UI thread; the run uses them in the background to check the town sites against the new ground.
-        var (lastPlan, tiles, biomes) = (g.LastPlan, g.Tiles, _vm.Biomes);
+        var stages = StagesFor(world, g.Settings);
         using var cancel = new CancellationTokenSource();
         _generateCancel = cancel;
         _vm.IsBusy = true;
@@ -2592,7 +2478,7 @@ public partial class MainWindow : Window
         _vm.Status = drawing is not null ? "Building the world..." : area is null ? "Generating the terrain..." : "Generating the terrain in the area...";
         var progress = new Progress<double>(v => g.Progress = v);
         var sw = Stopwatch.StartNew();
-        TerrainResult? result = null;
+        StageRun<TerrainRunResult>? run = null;
         EditSession? ran = null;
         bool ok;
         try
@@ -2600,28 +2486,7 @@ public partial class MainWindow : Window
             ok = await _edits.RunInBackgroundAsync(world, drawing is null ? "Generate terrain" : "Build World", session =>
             {
                 ran = session;
-                // Later stages come out newest first, so each puts back the ground it found.
-                var bridges = TakeDownBridges(world, session);
-                roadsOut = TakeDownHighways(world, gen, session);
-                if (hasFeatures) featuresOut = FeatureStage.TakeDown(world, gen!.PlacedFeatures, areaMetres, stamps, session);
-                if (builtSites.Count > 0) takenDown = TownSiteStage.TakeDown(world, library, builtSites, areaMetres, session);
-                result = TerrainStage.Run(world, options, stamps, mixer, painted: null, area, mask, session, progress, cancel.Token, replan);
-                RebuildBridges(world, bridges, library, session);
-                if (gen is not null && gen.Sites.Count > 0)
-                {
-                    // The new land can leave sites over water or mountains. The list is snapshotted before it changes, so undo
-                    // puts them back (into the same list the settings hold).
-                    var plan = MergeTerrainPlan(result.Plan, area, lastPlan, tiles);
-                    var cells = TownCells.Build(world, biomes, library, plan, gen.Towns.CrossBorders);
-                    var kept = gen.Sites.ToList();
-                    (sitesCleared, sitesUnusable) = TownSiteStage.DropForNewGround(kept, cells, area is null);
-                    if (kept.Count != gen.Sites.Count)
-                    {
-                        session.TouchList(gen.Sites, s => s.Clone(), new GridRect(0, 0, world.Size, world.Size));
-                        gen.Sites.Clear();
-                        gen.Sites.AddRange(kept);
-                    }
-                }
+                run = stages.Terrain(session, options, area, mask, replan, drawing is not null, progress, cancel.Token);
             }, session =>
             {
                 if (drawing is not null)
@@ -2638,7 +2503,7 @@ public partial class MainWindow : Window
             g.IsRunning = false;
             _vm.IsBusy = false;
         }
-        if (!ok || result is null || ran is null)
+        if (!ok || run is null || ran is null)
         {
             // A cancelled or failed run rolled the towns back up.
             if (gen is not null) TownSiteStage.MarkBuilt(world, library, gen.Sites);
@@ -2647,26 +2512,17 @@ public partial class MainWindow : Window
             return;
         }
         g.RefreshFeatures();
-        NoteHighwaysTakenDown(roadsOut);
+        var (result, sitesCleared, sitesUnusable) = run.Result;
+        int featuresOut = run.Changes.Features, takenDown = run.Changes.Towns;
+        NoteHighwaysTakenDown(run.Changes);
         if (featuresOut > 0)
-        {
-            if (!g.Settings.PlacedFeatures.Any(f => f.Drawn)) g.Settings.Done.Remove(GeneratorStage.Features);
             g.FeatureStatus = $"{featuresOut} feature stamp{(featuresOut == 1 ? " was" : "s were")} taken out for the new ground; Generate presses them in again.";
-        }
-
-        // An area run plans only its own tiles; keep the last plan elsewhere.
-        MergeTerrainPlan(result.Plan, area, g.LastPlan, g.Tiles);
         g.LastPlan = result.Plan;
         g.LastMask = result.Mask;
-        g.Settings.TerrainPlan = result.Plan;
-        g.Settings.Done.Add(GeneratorStage.Terrain);
-        if (drawing is not null) g.Settings.Done.RemoveWhere(stage => stage != GeneratorStage.Terrain);
-        if (result.BiomesPlanned && g.Settings.Biomes is { } planned) planned.PlannedFor = options.Shape.Clone();
         g.ShapeChanged();
         _townCells = null;
         if (takenDown > 0 || sitesCleared > 0 || sitesUnusable > 0)
         {
-            if (gen is not null && !gen.Sites.Any(s => s.Built)) g.Settings.Done.Remove(GeneratorStage.TownSites);
             string dropped = sitesUnusable > 0
                 ? $" {sitesUnusable} planned town{(sitesUnusable == 1 ? " was" : "s were")} dropped because {(sitesUnusable == 1 ? "its" : "their")} ground is now water, mountains or radiation."
                 : "";
@@ -2696,7 +2552,7 @@ public partial class MainWindow : Window
         _genTools.Refresh();
         _vm.Status = $"Generated the terrain for {where} in {sw.Elapsed.TotalSeconds:0.0} s.{biomesNote} Undo (Ctrl+Z) puts the old ground back."
                      + (hasBuilt && world.Prefabs.Count > 0 ? " Prefabs and roads stayed where they were; check they still sit right (Validate, F7)." : "")
-                     + TakeBridgeNote();
+                     + BridgeNote(run.Changes);
         CloseIfWaiting();
         if (gen?.Sites.Any(s => !s.Built) == true) await ReplanTownsAsync();
     }

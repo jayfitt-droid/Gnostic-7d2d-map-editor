@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
 using MapEditor.Core.Model;
@@ -52,6 +53,7 @@ public static class GeneratorRunner
         if (data.Mixer.Townships.Count > 0 || settings.Features.Rows.Count > 0)
             settings.Features.Rows = FeatureStage.RowsFor(settings.Features, data.Mixer);
 
+        var generator = new GeneratorStages(world, settings, data, addOnly: true);
         var reports = new List<StageReport>();
         foreach (var stage in run)
         {
@@ -59,17 +61,19 @@ public static class GeneratorRunner
             progress?.Report((stage, 0));
             var stageProgress = progress is null ? null : new StageProgress(stage, progress);
             var started = DateTime.UtcNow;
-            var session = new EditSession(Name(stage), world);
-            string summary = stage switch
+            var edits = new EditRunner(new UndoStack());
+            edits.Failed += (_, failure) => ExceptionDispatchInfo.Throw(failure.Error);
+            string summary = "";
+            edits.Run(world, Name(stage), session => summary = stage switch
             {
-                GeneratorStage.Terrain => Terrain(world, settings, data, session, stageProgress, cancel),
-                GeneratorStage.TownSites => Towns(world, settings, data, session, cancel),
-                GeneratorStage.Features => Features(world, settings, data, session, stageProgress, cancel),
-                GeneratorStage.Highways => Highways(world, settings, data, session, stageProgress, cancel),
-                GeneratorStage.Wilderness => Wilderness(world, settings, data, session, stageProgress, cancel),
-                GeneratorStage.Spawns => Spawns(world, settings, data, session),
+                GeneratorStage.Terrain => Terrain(generator.Terrain(session, progress: stageProgress, cancel: cancel).Result.Terrain, settings.Terrain.Seed),
+                GeneratorStage.TownSites => Towns(generator.Towns(session, cancel: cancel), settings.Towns.Seed),
+                GeneratorStage.Features => Features(generator.Features(session, stageProgress, cancel).Result, settings.Features.Seed),
+                GeneratorStage.Highways => Highways(generator.Highways(session, stageProgress, cancel).Result, settings.Highways.Seed),
+                GeneratorStage.Wilderness => Wilderness(generator.Wilderness(session, stageProgress, cancel).Result, settings.Wilderness),
+                GeneratorStage.Spawns => Spawns(generator.Spawns(session).Result, settings.Spawns.Seed, world.Spawns.Count),
                 _ => throw new ArgumentOutOfRangeException(nameof(stages), stage, null),
-            };
+            });
             progress?.Report((stage, 1));
             var report = new StageReport(stage, summary, DateTime.UtcNow - started);
             reports.Add(report);
@@ -85,58 +89,33 @@ public static class GeneratorRunner
         _ => stage.ToString().ToLowerInvariant(),
     };
 
-    private static string Terrain(World world, GeneratorSettings settings, GeneratorData data, EditSession session,
-        IProgress<double>? progress, CancellationToken cancel)
+    private static string Terrain(TerrainResult result, int seed)
     {
-        var options = settings.Terrain.Clone();
-        var result = TerrainStage.Run(world, options, data.Stamps, data.Mixer, settings.PaintedTerrain, area: null, previousMask: null,
-            session, progress, cancel);
-        settings.TerrainPlan = result.Plan;
-        settings.Done.Add(GeneratorStage.Terrain);
         int Count(TerrainType t) => result.Plan.Count(p => p == t);
         return $"{result.Stamps:N0} stamps; {Count(TerrainType.Plains)} plains, {Count(TerrainType.Hills)} hills and "
-               + $"{Count(TerrainType.Mountains)} mountain tiles (seed {options.Seed})";
+               + $"{Count(TerrainType.Mountains)} mountain tiles (seed {seed})";
     }
 
-    private static string Towns(World world, GeneratorSettings settings, GeneratorData data, EditSession session, CancellationToken cancel)
+    private static string Towns(StageRun<TownBuildResult> run, int seed)
     {
-        var options = settings.Towns.Clone();
-        var cells = TownCells.Build(world, data.Biomes, data.Prefabs, settings.TerrainPlan, options.CrossBorders);
-        var keep = settings.Sites.Where(s => s.Built || s.Pinned).ToList();
-        var planned = TownSiteStage.Plan(cells, data.Mixer, options, keep, cancel);
-        settings.Sites = planned.Sites;
-        TownSiteStage.MarkBuilt(world, data.Prefabs, settings.Sites);
-        var towns = TownSiteStage.PlanTowns(world, data.Prefabs, data.Mixer, data.Biomes, cells,
-            settings.Sites.Where(s => !s.Built).ToList(), cancel, options.Traders);
-        TownSiteStage.Build(world, data.Prefabs, towns, session);
-        settings.Done.Add(GeneratorStage.TownSites);
+        var towns = run.Result.Towns;
         int pois = towns.Sum(t => t.Plan.PoiCount), traders = towns.Sum(t => t.Plan.TraderCount);
-        return $"{towns.Count} towns, {pois:N0} POIs, {traders} traders (seed {options.Seed})"
-               + (planned.Shortfalls.Count > 0 ? ". No room for all of: " + string.Join("; ", planned.Shortfalls) : "");
+        return $"{towns.Count} towns, {pois:N0} POIs, {traders} traders (seed {seed})"
+               + (run.Notes.Count > 0 ? ". No room for all of: " + string.Join("; ", run.Notes) : "");
     }
 
-    private static string Features(World world, GeneratorSettings settings, GeneratorData data, EditSession session,
-        IProgress<double>? progress, CancellationToken cancel)
+    private static string Features(FeatureResult result, int seed)
     {
-        var options = settings.Features.Clone();
-        var result = FeatureStage.Run(world, options, settings.PlacedFeatures, data.Stamps, data.Mixer, data.Prefabs, settings.Sites.ToList(),
-            settings.TerrainPlan, settings.Terrain.BaseHeight, session, progress, cancel);
-        settings.Done.Add(GeneratorStage.Features);
         // A river is one chain of stamps; count each chain once.
         var placed = result.Added.Where(f => f.Chain == 0 || f.Kind == FeatureKind.River)
             .GroupBy(f => f.Chain != 0 ? (object)f.Chain : f).Select(c => c.First().Kind)
             .GroupBy(k => k).OrderBy(k => k.Key).Select(k => $"{k.Count()} {FeatureStage.Plural(k.Key)}").ToList();
-        return (placed.Count == 0 ? "nothing placed" : string.Join(", ", placed)) + $" (seed {options.Seed})"
+        return (placed.Count == 0 ? "nothing placed" : string.Join(", ", placed)) + $" (seed {seed})"
                + (result.Shortfalls.Count > 0 ? ". " + string.Join(" ", result.Shortfalls) : "");
     }
 
-    private static string Highways(World world, GeneratorSettings settings, GeneratorData data, EditSession session,
-        IProgress<double>? progress, CancellationToken cancel)
+    private static string Highways(HighwayResult result, int seed)
     {
-        var options = settings.Highways.Clone();
-        var result = HighwayStage.Run(world, options, settings.PlacedRoads, data.Prefabs, data.Mixer, settings.Sites.ToList(), session,
-            progress, cancel);
-        if (result.Added.Count > 0) settings.Done.Add(GeneratorStage.Highways);
         var parts = new List<string>();
         void Part(HighwayKind kind, string one, string many)
         {
@@ -148,29 +127,20 @@ public static class GeneratorRunner
         Part(HighwayKind.Country, "country road", "country roads");
         Part(HighwayKind.JoinUp, "join-up road", "join-up roads");
         Part(HighwayKind.Bridge, "bridge", "bridges");
-        return (parts.Count == 0 ? "no roads" : string.Join(", ", parts) + $", {result.Kilometres:0} km") + $" (seed {options.Seed})"
+        return (parts.Count == 0 ? "no roads" : string.Join(", ", parts) + $", {result.Kilometres:0} km") + $" (seed {seed})"
                + (result.Notes.Count > 0 ? ". " + string.Join(" ", result.Notes) : "");
     }
 
-    private static string Wilderness(World world, GeneratorSettings settings, GeneratorData data, EditSession session,
-        IProgress<double>? progress, CancellationToken cancel)
+    private static string Wilderness(WildernessResult result, WildernessOptions options)
     {
-        var options = settings.Wilderness.Clone();
-        var result = WildernessStage.Run(world, options, settings.PlacedWilderness, data.Prefabs, data.Mixer, data.Biomes,
-            settings.Sites.ToList(), session, progress, cancel);
-        if (settings.PlacedWilderness.Count > 0) settings.Done.Add(GeneratorStage.Wilderness);
         return $"{result.Added.Count} POIs, " + (options.Roads ? $"{result.Roads} gravel roads, {result.RoadKilometres:0} km" : "no roads")
                + $" (seed {options.Seed})" + (result.Notes.Count > 0 ? ". " + string.Join(" ", result.Notes) : "");
     }
 
-    private static string Spawns(World world, GeneratorSettings settings, GeneratorData data, EditSession session)
+    private static string Spawns(SpawnResult result, int seed, int total)
     {
-        var options = settings.Spawns.Clone();
-        var result = SpawnStage.Run(world, options, settings.PlacedSpawns, data.Prefabs, data.Biomes, settings.Sites.ToList(),
-            settings.PlacedWilderness.ToList(), session);
-        if (settings.PlacedSpawns.Count > 0) settings.Done.Add(GeneratorStage.Spawns);
-        return $"{result.Added} spawns ({result.ByRoad} by gravel roads, {result.TopUp} topping up), {world.Spawns.Count} in all, "
-               + $"{result.Traders} traders (seed {options.Seed})" + (result.Notes.Count > 0 ? ". " + string.Join(" ", result.Notes) : "");
+        return $"{result.Added} spawns ({result.ByRoad} by gravel roads, {result.TopUp} topping up), {total} in all, "
+               + $"{result.Traders} traders (seed {seed})" + (result.Notes.Count > 0 ? ". " + string.Join(" ", result.Notes) : "");
     }
 
     private sealed class StageProgress(GeneratorStage stage, IProgress<(GeneratorStage, double)> target) : IProgress<double>
