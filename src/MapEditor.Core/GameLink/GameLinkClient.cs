@@ -33,7 +33,7 @@ public sealed class GameLinkClient
     private const int MaxReplyBytes = 4096;
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan PictureReplyTimeout = TimeSpan.FromSeconds(GameLinkProtocol.PictureReplyTimeoutSeconds);
-    private static readonly Regex PictureName = new(@"\Agnostic-[0-9]{8}-[0-9]{6}-[0-9]{3}\.png\z");
+    internal static readonly Regex PictureName = new(@"\Agnostic-[0-9]{8}-[0-9]{6}-[0-9]{3}\.png\z");
     private readonly int _port;
     private readonly TimeSpan _replyTimeout;
 
