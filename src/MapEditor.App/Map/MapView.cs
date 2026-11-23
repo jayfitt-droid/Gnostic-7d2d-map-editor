@@ -38,6 +38,7 @@ public sealed class MapView : FrameworkElement
     private Point _origin; // map coords at the control's top-left
     private bool _needsFit;
     private bool _fitted; // the view has not moved since FitToView
+    private (Window Window, Point Position, Size Size)? _viewportBeforeLayout;
     private Point? _dragStart;
     private Point _dragOrigin;
     private bool _toolDrag;
@@ -86,6 +87,7 @@ public sealed class MapView : FrameworkElement
         RenderOptions.SetEdgeMode(this, EdgeMode.Aliased);
         SizeChanged += (_, e) =>
         {
+            if (_viewportBeforeLayout is not null) return;
             // A view still showing the whole world refits; otherwise the point in the middle stays in the middle.
             if (_needsFit || _fitted) FitToView();
             else if (e.PreviousSize.Width > 0)
@@ -503,6 +505,34 @@ public sealed class MapView : FrameworkElement
 
     public Point MapToScreen(Point m) => new((m.X - _origin.X) * _scale, (m.Y - _origin.Y) * _scale);
 
+    /// <summary>Keeps map points at the same window positions when docked controls change the viewport.</summary>
+    internal void PreservePositionOnNextLayout()
+    {
+        if (_viewportBeforeLayout is not null || _renderer is null || !IsLoaded || Window.GetWindow(this) is not { } window) return;
+        _viewportBeforeLayout = (window, TranslatePoint(new Point(), window), RenderSize);
+        LayoutUpdated += RestoreViewportPosition;
+        InvalidateArrange();
+    }
+
+    private void RestoreViewportPosition(object? sender, EventArgs e)
+    {
+        if (_viewportBeforeLayout is not { } before) return;
+        CancelViewportPreservation();
+        if (Window.GetWindow(this) != before.Window) return;
+
+        // Layout can move the viewport without resizing it, so measure its offset after arrange.
+        var offset = TranslatePoint(new Point(), before.Window) - before.Position;
+        if (offset.X == 0 && offset.Y == 0 && RenderSize == before.Size) return;
+        _origin += offset / _scale;
+        OnViewChanged();
+    }
+
+    private void CancelViewportPreservation()
+    {
+        _viewportBeforeLayout = null;
+        LayoutUpdated -= RestoreViewportPosition;
+    }
+
     public void FitToView()
     {
         if (_renderer is null || ActualWidth <= 0 || ActualHeight <= 0) return;
@@ -515,6 +545,7 @@ public sealed class MapView : FrameworkElement
 
     public void CenterOn(Point map)
     {
+        CancelViewportPreservation();
         _origin = new Point(map.X - ActualWidth / 2 / _scale, map.Y - ActualHeight / 2 / _scale);
         _fitted = false;
         OnViewChanged();
@@ -538,6 +569,7 @@ public sealed class MapView : FrameworkElement
 
     private void ZoomAt(Point screen, double factor)
     {
+        CancelViewportPreservation();
         var anchor = ScreenToMap(screen);
         SetScale(_scale * factor);
         _origin = new Point(anchor.X - screen.X / _scale, anchor.Y - screen.Y / _scale);
