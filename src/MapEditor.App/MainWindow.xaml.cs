@@ -3299,6 +3299,13 @@ public partial class MainWindow : Window
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
+        if (e.Key == Key.Escape && _pictureBatch is { } pictures)
+        {
+            pictures.Cancel();
+            _vm.Status = "Cancelling pictures...";
+            e.Handled = true;
+            return;
+        }
         if (_vm.IsLandMode && HandleLandKey(e)) return;
         if (AltTurnsOffSnapping(e)) return;
         // Leave typing in text boxes alone.
@@ -3474,6 +3481,28 @@ public partial class MainWindow : Window
             addWaypoint.Click += async (_, _) =>
                 await RunGameLinkActionAsync(world, waypoint.X, waypoint.Z, waypointPrefab: waypoint.Name);
             menu.Items.Add(addWaypoint);
+        }
+
+        if (_vm.GameLinkInstalled)
+        {
+            var poi = GameLinkWorld.PoiAt(world, target.X, target.Z, _vm.Prefabs);
+            var picture = new MenuItem
+            {
+                Header = new TextBlock { Text = poi is null ? "Take Picture" : $"Take Picture: {poi.Name}" },
+                IsEnabled = !_gameLinkActionRunning,
+            };
+            picture.Click += async (_, _) => await TakeGameLinkPicturesAsync(world,
+                [poi is not null ? PictureOfPrefab(world, poi) : new("spot", GameLinkPicture.ForSpot(world, target.X, target.Z))],
+                batch: false);
+            menu.Items.Add(picture);
+
+            if (_vm.IsMultiSelectTool && _multiSelect.SelectedPrefabs is { Count: > 0 } selected)
+            {
+                var selectionPictures = new MenuItem { Header = "Take pictures of selection", IsEnabled = !_gameLinkActionRunning };
+                selectionPictures.Click += async (_, _) => await TakeGameLinkPicturesAsync(world,
+                    selected.Select(p => PictureOfPrefab(world, p)).ToArray(), batch: true);
+                menu.Items.Add(selectionPictures);
+            }
         }
 
         menu.IsOpen = true;

@@ -30,6 +30,7 @@ public partial class MainWindow
     {
         _vm.CanTeleportIssues = _vm.GameLinkInstalled && _vm.GameLinkConnected && !_vm.IsBusy && !_gameLinkActionRunning;
         IssueHotkeysCheck.IsEnabled = _vm.GameLinkInstalled && _issueStepper.HasStops;
+        TakeIssuePicturesButton.IsEnabled = _vm.Issues.Count > 0 && !_vm.IsBusy && !_gameLinkActionRunning;
     }
 
     private void SelectIssueRow(ValidationIssue issue)

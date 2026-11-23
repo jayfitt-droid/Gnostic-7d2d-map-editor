@@ -26,6 +26,10 @@ public sealed partial class GameInstall
     public static string UserModsDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7DaysToDie", "Mods");
 
+    /// <summary>Where Gnostic Game Link writes its pictures for the current user.</summary>
+    public static string GameLinkPicturesDir =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7DaysToDie", "GnosticGameLink", "Pictures");
+
     /// <summary>
     /// The current user's own prefabs (where the game's prefab editor saves). The game searches it before mods
     /// and vanilla, so a prefab here wins on a duplicate name.

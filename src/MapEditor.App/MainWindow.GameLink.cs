@@ -12,66 +12,17 @@ public partial class MainWindow
     private bool _gameLinkActionRunning;
 
     /// <summary>Checks the running game and sends a teleport or a temporary POI waypoint.</summary>
-    private async Task RunGameLinkActionAsync(World world, int x, int z, Facing? facing = null,
+    private Task RunGameLinkActionAsync(World world, int x, int z, Facing? facing = null,
         string? waypointPrefab = null, ValidationIssue? issue = null, Action? onTeleported = null)
     {
         string? folder = GameLinkExportFolder;
         bool SameExport() => ReferenceEquals(_world, world) && folder == GameLinkExportFolder;
         bool CanSend() => CanUseGameLink(world) && SameExport() && (issue is null || _issueStepper.StopFor(issue) is not null);
-        if (!CanSend()) return;
-        if (_gameLinkActionRunning)
+        bool teleport = waypointPrefab is null;
+        return RunCheckedGameLinkActionAsync(folder, CanSend, teleport ? "Teleport Here" : "Add Waypoint",
+            teleport ? "Teleport Anyway" : "Add Waypoint Anyway", teleport ? "Teleport cancelled." : "Waypoint cancelled.",
+            async (_, matches) =>
         {
-            _vm.Status = "A Game Link request is already in progress.";
-            return;
-        }
-
-        _gameLinkActionRunning = true;
-        UpdateIssueStepControls();
-        const string checking = "Checking the game...";
-        _vm.Status = checking;
-        void ReportCancellation()
-        {
-            if (_vm.Status == checking) _vm.Status = "Game Link action cancelled before it was sent.";
-        }
-        try
-        {
-            GameLinkReply status = await _gameLink.GetStatusAsync();
-            _vm.GameLinkConnected = status.Status is not null;
-            if (!CanSend())
-            {
-                ReportCancellation();
-                return;
-            }
-            if (status.Status is not { } game)
-            {
-                ShowGameLinkError(status.Error);
-                return;
-            }
-
-            if (game is not { State: GameLinkState.Ready, Hosting: true })
-            {
-                _vm.Status = GameLinkErrorText(game.State switch
-                {
-                    GameLinkState.Dead => GameLinkError.Dead,
-                    GameLinkState.Remote or GameLinkState.Ready => GameLinkError.Remote,
-                    _ => GameLinkError.NotReady,
-                });
-                return;
-            }
-
-            bool teleport = waypointPrefab is null;
-            bool matches = GameLinkWorld.Matches(folder, game.World);
-            if (!matches && !ConfirmGameLinkWorld(folder, game.World, teleport))
-            {
-                _vm.Status = teleport ? "Teleport cancelled." : "Waypoint cancelled.";
-                return;
-            }
-            if (!CanSend())
-            {
-                ReportCancellation();
-                return;
-            }
-
             _vm.Status = teleport ? "Teleporting..." : "Adding waypoint...";
             GameLinkReply reply = waypointPrefab is null
                 ? await _gameLink.TeleportAsync(x, z, facing)
@@ -111,13 +62,63 @@ public partial class MainWindow
             }
             if (CanUseGameLink(world) && SameExport() && _vm.Status == message && !GameWindow.TryActivate())
                 _vm.Status += " Switch to the game to see the destination.";
+        });
+    }
+
+    private async Task RunCheckedGameLinkActionAsync(string? folder, Func<bool> canSend, string title,
+        string confirm, string cancelled, Func<GameLinkStatus, bool, Task> send)
+    {
+        if (!canSend()) return;
+        if (_gameLinkActionRunning)
+        {
+            _vm.Status = "A Game Link request is already in progress.";
+            return;
+        }
+
+        _gameLinkActionRunning = true;
+        UpdateIssueStepControls();
+        const string checking = "Checking the game...";
+        _vm.Status = checking;
+        try
+        {
+            GameLinkReply status = await _gameLink.GetStatusAsync();
+            _vm.GameLinkConnected = status.Status is not null;
+            if (!canSend()) return;
+            if (status.Status is not { } game)
+            {
+                ShowGameLinkError(status.Error);
+                return;
+            }
+
+            if (GameLinkReadinessError(game) is { } error)
+            {
+                _vm.Status = GameLinkErrorText(error);
+                return;
+            }
+
+            bool matches = GameLinkWorld.Matches(folder, game.World);
+            if (!matches && !ConfirmGameLinkWorld(folder, game.World, title, confirm))
+            {
+                _vm.Status = cancelled;
+                return;
+            }
+            if (canSend()) await send(game, matches);
         }
         finally
         {
+            if (_vm.Status == checking) _vm.Status = "Game Link action cancelled before it was sent.";
             _gameLinkActionRunning = false;
             UpdateIssueStepControls();
         }
     }
+
+    private static GameLinkError? GameLinkReadinessError(GameLinkStatus game) => game.State switch
+    {
+        GameLinkState.Ready when game.Hosting => null,
+        GameLinkState.Dead => GameLinkError.Dead,
+        GameLinkState.Remote or GameLinkState.Ready => GameLinkError.Remote,
+        _ => GameLinkError.NotReady,
+    };
 
     private bool CanUseGameLink(World world) => IsLoaded && !_vm.IsBusy && ReferenceEquals(_world, world);
 
@@ -135,14 +136,12 @@ public partial class MainWindow
         _vm.Status = message;
     }
 
-    private bool ConfirmGameLinkWorld(string? exportFolder, string runningWorld, bool teleport)
+    private bool ConfirmGameLinkWorld(string? exportFolder, string runningWorld, string title, string action)
     {
         string world = runningWorld.Length == 0 ? "an unnamed world" : $"'{runningWorld}'";
         string message = GameLinkWorld.ExportName(exportFolder) is { } exported
             ? $"The game has {world} open. This world was last exported to '{exported}'."
             : $"The game has {world} open. This project has no export folder yet.";
-        string title = teleport ? "Teleport Here" : "Add Waypoint";
-        string action = teleport ? "Teleport Anyway" : "Add Waypoint Anyway";
         Activate();
         return ThemedMessageBox.Show(this, message, title, MessageBoxButton.OKCancel,
             MessageBoxImage.Warning, [action, "Cancel"]) == MessageBoxResult.OK;
@@ -166,7 +165,7 @@ public partial class MainWindow
         GameLinkError.NoReply => "The game did not answer Game Link. Try again.",
         GameLinkError.InvalidReply => "Game Link sent an invalid reply.",
         GameLinkError.BadRequest => "Game Link could not use that target.",
-        GameLinkError.UnsupportedProtocol => "This editor and the Game Link mod use different protocol versions.",
+        GameLinkError.UnsupportedProtocol => "Install Gnostic Game Link 1.1.0 to use Game Link with this editor.",
         GameLinkError.NotReady => "The game is not ready. Enter a world and try again.",
         GameLinkError.Dead => "The player is dead. Respawn and try again.",
         GameLinkError.Remote => "Game Link works in single-player or when you host the game.",
@@ -174,6 +173,8 @@ public partial class MainWindow
         GameLinkError.Busy => "The game is busy. Wait for the player to finish teleporting and try again.",
         GameLinkError.PoiNotFound => "The game could not find that POI. Export the world again and load it in the game.",
         GameLinkError.AlreadySet => "This POI already has a temporary waypoint.",
+        GameLinkError.PictureFailed => "The game could not take the picture. See the game log for details.",
+        GameLinkError.PictureRenderTimeout => "The area did not finish rendering in time. Try taking the picture again.",
         _ => "The game could not complete the Game Link request.",
     };
 }

@@ -39,10 +39,14 @@ public static class GameLinkWorld
     }
 
     /// <summary>The POI at the clicked world coordinates, using the same footprint as the map.</summary>
+    public static PrefabInstance? PoiAt(World world, int x, int z, PrefabLibrary prefabs) =>
+        WorldQuery.PrefabAt(world, x, z, prefabs,
+            info => info is { IsStreetTile: false, IsPart: false, IsInternal: false });
+
+    /// <summary>The POI and the centre to send to the game for a temporary waypoint.</summary>
     public static GameLinkWaypoint? WaypointAt(World world, int x, int z, PrefabLibrary prefabs)
     {
-        var prefab = WorldQuery.PrefabAt(world, x, z, prefabs,
-            info => info is { IsStreetTile: false, IsPart: false, IsInternal: false });
+        var prefab = PoiAt(world, x, z, prefabs);
         if (prefab is null || !GameLinkProtocol.IsPrefabName(prefab.Name) || prefabs.Find(prefab.Name) is not { } info) return null;
         var (width, depth) = info.Footprint(prefab.Rotation);
         return new(prefab.Name, prefab.Position.X + width / 2, prefab.Position.Z + depth / 2);
