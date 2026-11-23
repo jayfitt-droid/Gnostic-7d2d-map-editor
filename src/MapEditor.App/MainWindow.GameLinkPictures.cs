@@ -148,7 +148,7 @@ public partial class MainWindow
             string safeName = string.Concat(name.Select(c => invalid.Contains(c) ? '_' : c).Take(150));
             string path = Path.Combine(folder, FormattableString.Invariant($"{safeName}_{look.X}_{look.Z}_{DateTime.Now:yyyyMMdd-HHmmss}.png"));
             Directory.CreateDirectory(folder);
-            File.Copy(Path.Combine(GameInstall.GameLinkPicturesDir, file), path);
+            GameLinkPictureFile.CopyToProject(GameInstall.GameLinkPicturesDir, file, path);
             return (path, null);
         }
         catch (Exception ex) when (IsWriteError(ex))
