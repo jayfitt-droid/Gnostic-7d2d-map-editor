@@ -16,7 +16,7 @@ The [user manual](docs/USER-MANUAL.md) explains every tool and each stage of the
 
 ## Gnostic Game Link (optional)
 
-Gnostic Game Link connects the editor to 7 Days to Die 3.4 on the same PC. Use it to teleport, check validation issues one by one, show your player on the editor map, or add a temporary waypoint to a POI.
+Gnostic Game Link connects the editor to 7 Days to Die 3.4 on the same PC. Use it to teleport, check validation issues one by one, show your player on the editor map, add a temporary waypoint to a POI, or take raised overview pictures of POIs, map spots, and validation issues. This editor uses Gnostic Game Link 1.1.0.
 
 1. Close the game. Download `GnosticGameLink-<version>.zip` from the editor's [release page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest).
 2. Extract the `GnosticGameLink` folder into `%AppData%\7DaysToDie\Mods`. Create the `Mods` folder if you need it.

@@ -123,7 +123,7 @@ The game puts you on the ground at that place. The numbers in the command are th
 
 #### Use Gnostic Game Link
 
-Gnostic Game Link is an optional mod for 7 Days to Die 3.4. It connects the editor and the game on the same PC.
+Gnostic Game Link is an optional mod for 7 Days to Die 3.4. It connects the editor and the game on the same PC. This editor uses Gnostic Game Link 1.1.0.
 
 1. Close the game. Download `GnosticGameLink-<version>.zip` from the editor's [release page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/latest).
 2. Extract the `GnosticGameLink` folder into `%AppData%\7DaysToDie\Mods`. Create the `Mods` folder if you need it. The folder `Mods\GnosticGameLink` must contain `ModInfo.xml` and `GnosticGameLink.dll`.
@@ -144,6 +144,19 @@ If the editor cannot connect to Game Link, it shows a message. You can still use
 If you installed Game Link, a plug icon appears in the status bar. It turns green when the game replies. Point to the icon to read the connection status.
 
 After a teleport, the status bar tells you if the editor has changes since export. Export again to use the latest terrain. A saved game keeps the terrain in chunks that it already generated.
+
+##### Take pictures
+
+Save the project first. Right-click a POI or a place on the map and click **Take Picture**. The game moves the player near the target. It takes a close view from above with the HUD hidden.
+
+The camera faces the front of a POI if there is room. The game waits for the area to draw before it takes the picture. The editor shows an error if this takes more than 20 seconds.
+
+The editor saves the PNG in a folder next to the `.7dmap` file. For `My World.7dmap`, the folder is `My World pictures`. The status bar shows where the editor saved the picture.
+
+- To take a picture of each selected POI, use the **Multi-select** tool. Right-click the map and click **Take pictures of selection**.
+- To take a picture of each issue, click **Validate**. In the **Issues** tab, click **Take pictures...**. An issue with no place on the map counts as a failed picture.
+
+Press Esc in the editor to stop a group of pictures. If the game is taking a picture, it completes that picture first. The status bar shows how many pictures the editor saved and how many failed.
 
 #### Show the player on the map
 

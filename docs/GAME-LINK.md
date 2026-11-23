@@ -1,6 +1,6 @@
 # Gnostic Game Link: developer guide
 
-Gnostic Game Link is a small mod for 7 Days to Die 3.4. A program on the same PC can use it to get the player's position, teleport the player, and add a temporary waypoint to a POI. Gnostic - 7D2D Map Editor uses it, and any other tool can use it too.
+Gnostic Game Link is a small mod for 7 Days to Die 3.4. A program on the same PC can use it to get the player's position, teleport the player, add a temporary waypoint to a POI, and take a picture. Gnostic - 7D2D Map Editor uses it, and any other tool can use it too.
 
 This guide is for developers. To install and use the mod with the editor, see the [user manual](USER-MANUAL.md#use-gnostic-game-link).
 
@@ -9,17 +9,18 @@ This guide is for developers. To install and use the mod with the editor, see th
 - The mod listens on **127.0.0.1, TCP port 7790**. It accepts connections from the same PC only.
 - A client connects, sends **one request line**, reads **one reply line**, and closes the connection. Each connection serves exactly one request.
 - Requests are short ASCII text. Replies are one line of JSON, encoded as UTF-8 and ended with `\n`.
-- The mod serves **one connection at a time**. The game handles each request on Unity's main thread, at most one per frame.
+- The mod serves **one connection at a time**. The game starts each request on Unity's main thread. A picture takes several frames and completes even if the client disconnects.
 - The mod works in single-player and when the game on this PC is the host. When the player joins another game or a dedicated server, requests other than `STATUS` fail with `remote`.
 - The game does not load the mod when Easy Anti-Cheat (EAC) is on (`SkipWithAntiCheat`).
 
-The current protocol version is **1**.
+The current protocol version is **2**, supported by Gnostic Game Link 1.1.0. The 1.0.0 mod answers protocol 2 requests with `unsupported_protocol`.
 
 ## Coordinates
 
 All positions use the game's world coordinates, the same numbers as the game's `teleport` console command:
 
 - `x` grows to the east, `z` grows to the north.
+- `y` is the height in blocks.
 - `0 0` is the centre of the world. On a world of size `S`, both axes run from `-S/2` to `S/2`.
 - Requests take whole numbers (32-bit integers, with an optional `-` or `+` sign). Replies give decimal numbers.
 
@@ -37,9 +38,10 @@ A request is one line of printable ASCII (0x20 to 0x7E), with single spaces betw
 Every request starts with `GNOSTICLINK`, then the protocol version:
 
 ```
-GNOSTICLINK 1 STATUS
-GNOSTICLINK 1 TELEPORT <x> <z> <facing>
-GNOSTICLINK 1 WAYPOINT <x> <z> <prefab>
+GNOSTICLINK 2 STATUS
+GNOSTICLINK 2 TELEPORT <x> <z> <facing>
+GNOSTICLINK 2 WAYPOINT <x> <z> <prefab>
+GNOSTICLINK 2 PICTURE <camX> <camY> <camZ> <lookX> <lookY> <lookZ>
 ```
 
 ### STATUS
@@ -47,19 +49,19 @@ GNOSTICLINK 1 WAYPOINT <x> <z> <prefab>
 Asks what the game is doing. When the game answers, the reply has `"ok": true` in every state, and `state` tells you whether the other requests can work. (A `STATUS` request can still fail with `not_ready` or a request error, as below.)
 
 ```
-GNOSTICLINK 1 STATUS
+GNOSTICLINK 2 STATUS
 ```
 
 Reply when the player is in a world:
 
 ```json
-{"ok":true,"protocol":1,"mod":"1.0.0","state":"ready","world":"My World","hosting":true,"player":{"x":-412.5,"z":1880.2,"yaw":135.0}}
+{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"My World","hosting":true,"player":{"x":-412.5,"z":1880.2,"yaw":135.0}}
 ```
 
 | Field | Type | Meaning |
 |---|---|---|
 | `protocol` | number | The protocol version of the mod. |
-| `mod` | string | The mod version, for example `1.0.0`. |
+| `mod` | string | The mod version, for example `1.1.0`. |
 | `state` | string | One of the states below. |
 | `world` | string | The world name in the game's settings (the world folder name). At the menu it can be empty or the last world selected. |
 | `hosting` | bool | True when this game is single-player or the host. |
@@ -69,7 +71,7 @@ Reply when the player is in a world:
 |---|---|
 | `menu` | The game has no world open. |
 | `loading` | A world is loading, or the player has not spawned yet. |
-| `ready` | The player is in the world. `TELEPORT` and `WAYPOINT` can work. |
+| `ready` | The player is in the world. `TELEPORT`, `WAYPOINT` and `PICTURE` can work. |
 | `dead` | The player is dead. |
 | `remote` | This game joined another game or a dedicated server. |
 
@@ -78,7 +80,7 @@ Reply when the player is in a world:
 Teleports the local player to `x`, `z`. The game finds the ground height.
 
 ```
-GNOSTICLINK 1 TELEPORT -412 1880 se
+GNOSTICLINK 2 TELEPORT -412 1880 se
 ```
 
 `facing` is the direction to look in after the teleport: `n`, `ne`, `e`, `se`, `s`, `sw`, `w` or `nw` (lowercase), or `-` to keep the current direction.
@@ -90,7 +92,7 @@ Reply: `{"ok":true}`
 Adds the game's temporary POI waypoint to the POI named `prefab` whose bounding box contains `x`, `z`. Send the position of any point inside the POI. Its centre is safest.
 
 ```
-GNOSTICLINK 1 WAYPOINT -412 1880 farm_16
+GNOSTICLINK 2 WAYPOINT -412 1880 farm_16
 ```
 
 `prefab` is the prefab name, 1 to 64 characters from `A`–`Z`, `a`–`z`, `0`–`9`, `_` and `-`. Matching ignores case.
@@ -98,6 +100,24 @@ GNOSTICLINK 1 WAYPOINT -412 1880 farm_16
 Reply: `{"ok":true,"message":"Temporary waypoint added. The game does not save it."}`
 
 The waypoint shows on the game's map and compass. The game does not save it.
+
+### PICTURE
+
+Places the camera at `camX camY camZ` and points it at `lookX lookY lookZ`. Both points must be inside the horizontal world bounds and must differ. The camera can go above the buildable blocks. Heights may extend beyond the vertical world bounds by up to the larger horizontal world span.
+
+```
+GNOSTICLINK 2 PICTURE -412 115 1820 -412 65 1880
+```
+
+The game hides the HUD and holds the camera in place for at least four seconds. During this time, it requests full detail for the chunks under the target POI or a 32 m square around an open spot. When those chunks have drawn and stayed ready for a second, it captures the window as a PNG at the end of a frame. If the chunks are still drawing after 20 seconds, it returns `picture_render_timeout`.
+
+The capture uses a 50-degree vertical field of view and widens it for camera aspect ratios below 1.6. The game restores the camera and HUD before replying. Teleport near the camera first so the game loads the chunks you want to see.
+
+The reply gives the file name. The mod writes the PNG to `%APPDATA%\7DaysToDie\GnosticGameLink\Pictures`. The name has the form `gnostic-yyyyMMdd-HHmmss-fff.png` and uses UTC. Accept only that exact form when copying the file.
+
+```json
+{"ok":true,"file":"gnostic-20261123-123456-789.png"}
+```
 
 ## Errors
 
@@ -113,23 +133,25 @@ Use `error` in your code. The `message` text can change.
 |---|---|---|
 | `bad_request` | all | The line is not a valid request, is too long, or did not arrive within 2 seconds. |
 | `unsupported_protocol` | all | The version number is not one the mod supports. The message names the version to use. |
-| `not_ready` | all | The game did not take the request within 2 seconds, or it is shutting down. For TELEPORT and WAYPOINT, also: the player is not in a world. Try again later. |
-| `dead` | TELEPORT, WAYPOINT | The player is dead. |
-| `remote` | TELEPORT, WAYPOINT | This game joined another game or a dedicated server. |
-| `busy` | TELEPORT | The player is still teleporting from an earlier request. |
-| `off_map` | TELEPORT, WAYPOINT | The position is outside the world. |
+| `not_ready` | all | The game did not take the request within 2 seconds, or it is shutting down. For actions other than STATUS, the player may also be outside a world. Try again later. |
+| `dead` | TELEPORT, WAYPOINT, PICTURE | The player is dead. |
+| `remote` | TELEPORT, WAYPOINT, PICTURE | This game joined another game or a dedicated server. |
+| `busy` | TELEPORT, PICTURE | The player is still teleporting from an earlier request. |
+| `off_map` | TELEPORT, WAYPOINT, PICTURE | A position is outside the world bounds for the request. |
 | `poi_not_found` | WAYPOINT | No POI with that name contains the position. |
 | `already_set` | WAYPOINT | That POI already has a temporary waypoint. |
-| `failed` | TELEPORT, WAYPOINT | The game could not do it. The game's log has a line that starts with `[Gnostic Game Link]`. |
+| `failed` | all | The game could not process the request. |
+| `picture_failed` | PICTURE | The game could not capture or write the PNG. |
+| `picture_render_timeout` | PICTURE | The target chunks did not finish drawing within 20 seconds. |
 
 If nothing listens on the port, the connection fails. The game is not running, or the mod is not installed, or EAC stopped the game from loading it. The editor treats that as "Game Link is not available".
 
 ## Timing and good practice
 
-- Connect with a short timeout (the editor uses 1 second), then allow up to about **5 seconds** for the reply. A request waits for the game's main thread. While the game loads, that can take a moment.
+- Connect with a short timeout (the editor uses 1 second), then allow about **5 seconds** for the reply, or **30 seconds** for `PICTURE`. A request waits for the game's main thread. While the game loads, that can take a moment.
 - Send one request per connection. Open a new connection for the next request.
 - The mod serves one connection at a time and queues at most one more. Keep connections short, and poll `STATUS` no more often than about once a second. The editor polls every 3 seconds for its status icon, and once a second while it shows the player arrow.
-- Check `state` from `STATUS` before you send `TELEPORT` or `WAYPOINT`, and compare `world` with the world your tool has open.
+- Check `state` from `STATUS` before you send `TELEPORT`, `WAYPOINT` or `PICTURE`, and compare `world` with the world your tool has open.
 - Treat a missing reply, a reply over 4 KB or a reply that is not valid JSON as an error.
 
 ## Versioning
@@ -150,7 +172,7 @@ def game_link(request: str) -> dict:
     """Sends one Game Link request and returns the reply as a dict."""
     with socket.create_connection(("127.0.0.1", 7790), timeout=1.0) as s:
         s.settimeout(5.0)
-        s.sendall(f"GNOSTICLINK 1 {request}\n".encode("ascii"))
+        s.sendall(f"GNOSTICLINK 2 {request}\n".encode("ascii"))
         data = b""
         while not data.endswith(b"\n") and len(data) < 4096:
             chunk = s.recv(4096)
@@ -176,6 +198,7 @@ else:
 ./test-link.ps1 Status
 ./test-link.ps1 Teleport -X -412 -Z 1880 -Facing se
 ./test-link.ps1 Waypoint -X -412 -Z 1880 -PrefabName farm_16
+./test-link.ps1 Picture -X -412 -Y 115 -Z 1820 -LookX -412 -LookY 65 -LookZ 1880
 ```
 
 ### C#
