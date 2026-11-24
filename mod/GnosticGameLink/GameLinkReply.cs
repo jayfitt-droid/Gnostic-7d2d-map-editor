@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using MapEditor.Core.GameLink;
 using Newtonsoft.Json;
 
@@ -10,6 +11,7 @@ internal static class GameLinkReply
     private static readonly string Version = typeof(GameLinkReply).Assembly.GetName().Version!.ToString(3);
 
     public const string Teleported = "{\"ok\":true}";
+    public const string PinsAcknowledged = "{\"ok\":true}";
     public const string WaypointSet = "{\"ok\":true,\"message\":\"Temporary waypoint added. The game does not save it.\"}";
 
     public static string Error(string error, string message) =>
@@ -18,6 +20,27 @@ internal static class GameLinkReply
     public static string PictureSaved(string file) => ToJson(new { ok = true, file });
 
     public static string Accepted(string id) => ToJson(new { ok = true, id });
+
+    public static string Pins(IEnumerable<GameLinkPin> pins)
+    {
+        const string start = "{\"ok\":true,\"pins\":[";
+        const string end = "]}";
+        int bytes = start.Length + end.Length + 1; // Includes the listener's newline.
+        var reply = new StringBuilder(start);
+        foreach (var pin in pins)
+        {
+            string json = ToJson(new
+            {
+                id = pin.Id.ToString("N"), x = pin.X, y = pin.Y, z = pin.Z, yaw = pin.Yaw,
+                world = pin.World, save = pin.Save, time = pin.Time, note = pin.Note
+            });
+            if (reply.Length > start.Length) json = "," + json;
+            bytes += Encoding.UTF8.GetByteCount(json);
+            if (bytes > GameLinkPinFile.MaxReplyBytes) break;
+            reply.Append(json);
+        }
+        return reply.Append(end).ToString();
+    }
 
     public static string Status(string state, string world, bool hosting, string save, object? op,
         object? blocked, object? player = null) =>

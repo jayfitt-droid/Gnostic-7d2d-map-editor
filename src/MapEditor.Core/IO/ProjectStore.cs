@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using MapEditor.Core.Edit;
+using MapEditor.Core.GameLink;
 using MapEditor.Core.Model;
 
 namespace MapEditor.Core.IO;
@@ -23,6 +24,7 @@ public static class ProjectStore
     /// 4 (v2.1.0): <see cref="Generate.SpawnOptions.NearStarterTrader"/>, on for new projects. Older projects load with it off, so
     /// their spawns stage keeps working as before.
     /// 5 (v2.3.0): <see cref="Ops.LandShapeKind.Drawn"/> and its drawing. Older projects have no drawing.
+    /// 6 (v2.4.0): <see cref="ProjectSettings.Pins"/>, the playtest notes from Game Link. Older projects have none.
     /// </summary>
     /// <remarks>
     /// Users keep projects from every release, and each release must open them all. project.json holds the records
@@ -37,7 +39,7 @@ public static class ProjectStore
     /// SaveCompatibilityTests load a project saved by each release (tests/.../SaveSamples) and fail when a value is
     /// lost or changes meaning. For each release, add a sample with tools/save-samples/make-sample.ps1.
     /// </remarks>
-    public const int FormatVersion = 5;
+    public const int FormatVersion = 6;
 
     private const string ManifestEntry = "project.json";
     private const string HistoryFile = "history.jsonl";
@@ -80,6 +82,12 @@ public static class ProjectStore
         /// </summary>
         public List<Ops.PlacedBridge> Bridges { get; set; } = [];
 
+        /// <summary>Playtest notes collected from Game Link, in collection order.</summary>
+        public List<GameLinkPin> Pins { get; set; } = [];
+
+        /// <summary>Collected batches that can be acknowledged after this project is saved.</summary>
+        public Dictionary<string, Guid> PendingPinAcks { get; set; } = [];
+
         /// <summary>Project events in recording order. Stored separately so a damaged history leaves the map readable.</summary>
         [JsonIgnore]
         public List<HistoryEntry> History { get; set; } = [];
@@ -105,6 +113,8 @@ public static class ProjectStore
             ExportHasChanges = ExportHasChanges,
             Generator = Generator?.Clone(),
             Bridges = [.. Bridges.Select(b => b.Clone())],
+            Pins = [.. Pins],
+            PendingPinAcks = new(PendingPinAcks),
             History = [.. History],
         };
     }
@@ -295,6 +305,13 @@ public static class ProjectStore
         settings.History = ReadHistory(zip, world);
         // Format 3 added the bridge list; a project from before it has none.
         if (manifest.Format < 3 || settings.Bridges is null) settings.Bridges = [];
+        settings.Pins ??= [];
+        settings.PendingPinAcks ??= [];
+        if (manifest.Format < 6)
+        {
+            settings.Pins.Clear();
+            settings.PendingPinAcks.Clear();
+        }
         FillMissing(settings, size);
         // Format 4 added the starter-trader spawns option, on by default; older projects keep the old way.
         if (manifest.Format < 4 && settings.Generator is { } gen) gen.Spawns.NearStarterTrader = false;
@@ -383,6 +400,10 @@ public static class ProjectStore
     private static void FillMissing(ProjectSettings settings, int size)
     {
         settings.Bridges.RemoveAll(b => b is null);
+        settings.Pins.RemoveAll(pin => pin is null || !GameLinkPinFile.IsValid(pin));
+        foreach (var (key, id) in settings.PendingPinAcks.ToArray())
+            if (id == Guid.Empty || !GameLinkPinFile.IsWorldKey(key))
+                settings.PendingPinAcks.Remove(key);
         if (settings.Generator is not { } g) return;
         g.Terrain ??= new();
         g.Terrain.BiomeWeights ??= [];

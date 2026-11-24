@@ -91,6 +91,8 @@ public partial class MainWindow : Window
         DataContext = _vm;
         Overview.Target = Map;
         PlayerOverlay.Target = Map;
+        PinOverlay.Target = Map;
+        PinsList.ItemsSource = _pinRows;
         _gameLinkPollTimer.Tick += PollGameLink_Tick;
         RefreshGameLinkInstallation();
         _gameLinkPollTimer.Start();
@@ -411,6 +413,8 @@ public partial class MainWindow : Window
             SetWorld(world, sourcePath: null, dirty: recovered, recoveryPath: recovered ? path : null);
             _projectPath = recovered ? null : path;
             _projectSettings = settings;
+            if (!recovered) SetSavedPinAcks(settings.PendingPinAcks);
+            RefreshPins();
             BeginHistory(recovered ? $"Recover autosave: {world.Name}" : $"Open project: {Path.GetFileName(path)}");
             _bridgeTools.Refresh();
             LoadGeneratorSettings();
@@ -507,6 +511,7 @@ public partial class MainWindow : Window
         _savePath = sourcePath;
         _projectPath = null;
         _projectSettings = new ProjectStore.ProjectSettings();
+        ResetPins();
         _vm.Issues.Clear();
         ResetIssueSteps();
         _fixedIssues.Clear();
@@ -700,6 +705,7 @@ public partial class MainWindow : Window
             long revision = _revision;
             var position = _undo.Position;
             await Task.Run(() => ProjectStore.Save(world, path, settings));
+            SetSavedPinAcks(settings.PendingPinAcks);
             RecordHistoryEvent(entry);
             _projectPath = path;
             _dirty = _revision != revision;
@@ -1197,6 +1203,7 @@ public partial class MainWindow : Window
         ResetPlayerTracking();
         _sourcePath = _savePath = _projectPath = null;
         _projectSettings = new ProjectStore.ProjectSettings();
+        ResetPins();
         _exportPosition = null;
         _dirty = false;
         _undo.Clear();

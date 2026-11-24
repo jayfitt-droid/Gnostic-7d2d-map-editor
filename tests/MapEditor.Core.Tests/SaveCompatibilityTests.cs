@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using MapEditor.Core.GameLink;
 using MapEditor.Core.Generate;
 using MapEditor.Core.IO;
 using MapEditor.Core.Model;
@@ -41,6 +42,11 @@ public sealed class SaveCompatibilityTests : IDisposable
         ["v2.2.0-rc.2"] = ["$.Format"],
         ["v2.2.0-rc.3"] = ["$.Format"],
         ["v2.2.0"] = ["$.Format"],
+        // Format 6 added playtest pins.
+        ["v2.3.0-rc.1"] = ["$.Format"],
+        ["v2.3.0-rc.2"] = ["$.Format"],
+        ["v2.3.0-rc.3"] = ["$.Format"],
+        ["v2.3.0"] = ["$.Format"],
     };
 
     private readonly string _dir = Directory.CreateTempSubdirectory("mapeditor-compat-").FullName;
@@ -73,6 +79,8 @@ public sealed class SaveCompatibilityTests : IDisposable
         // The Bridge tool's list came in format 3: every older project loads with none.
         Assert.NotNull(settings.Bridges);
         Assert.Empty(settings.Bridges);
+        Assert.Empty(settings.Pins);
+        Assert.Empty(settings.PendingPinAcks);
 
         var house = world.Prefabs[0];
         Assert.Equal(("house_old_01", "model", new Int3(-10, 37, 20), 3, false), (house.Name, house.Type, house.Position, house.Rotation, house.GroundLevel));
@@ -103,13 +111,37 @@ public sealed class SaveCompatibilityTests : IDisposable
     }
 
     [Fact]
-    public void New_project_declares_format_five()
+    public void New_project_declares_format_six()
     {
         var world = ProjectStore.Load(SamplePath("v2.2.0" + ProjectStore.Extension), out var settings);
         string path = Path.Combine(_dir, "current" + ProjectStore.Extension);
         ProjectStore.Save(world, path, settings);
         using var manifest = ReadManifest(path);
-        Assert.Equal(5, manifest.RootElement.GetProperty("Format").GetInt32());
+        Assert.Equal(6, ProjectStore.FormatVersion);
+        Assert.Equal(6, manifest.RootElement.GetProperty("Format").GetInt32());
+    }
+
+    [Fact]
+    public void Project_save_preserves_playtest_pins_and_receipts()
+    {
+        var world = ProjectStore.Load(SamplePath("v2.3.0" + ProjectStore.Extension), out var settings);
+        var pin = new GameLinkPin(Guid.NewGuid(), -18.25f, 62, 49, 225, "Sample", "Test Save",
+            new DateTimeOffset(2026, 11, 23, 12, 34, 56, TimeSpan.Zero), "Check the \"caf\u00e9\".");
+        settings.Pins.Add(pin);
+        string key = GameLinkPins.WorldKey(pin.World);
+        settings.PendingPinAcks.Add(key, pin.Id);
+        var snapshot = settings.Clone();
+        settings.Pins.Clear();
+        settings.PendingPinAcks.Clear();
+
+        string path = Path.Combine(_dir, "pins" + ProjectStore.Extension);
+        ProjectStore.Save(world, path, snapshot);
+        ProjectStore.Load(path, out var loaded);
+
+        var read = Assert.Single(loaded.Pins);
+        Assert.Equal((pin.Id, pin.X, pin.Y, pin.Z, pin.Yaw, pin.World, pin.Save, pin.Time, pin.Note),
+            (read.Id, read.X, read.Y, read.Z, read.Yaw, read.World, read.Save, read.Time, read.Note));
+        Assert.Equal(pin.Id, loaded.PendingPinAcks[key]);
     }
 
     [Theory]

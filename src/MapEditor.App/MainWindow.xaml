@@ -1308,58 +1308,88 @@
                                     <TextBlock Text="Ctrl+Alt+Right · After selection" Style="{StaticResource HintText}" />
                                 </WrapPanel>
                             </StackPanel>
-                            <ListBox x:Name="IssuesList" ItemsSource="{Binding Issues}" Margin="0,8,0,0" MouseDoubleClick="Issue_DoubleClick"
-                                     VirtualizingPanel.VirtualizationMode="Recycling" HorizontalContentAlignment="Stretch"
-                                     KeyDown="Issue_KeyDown" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                     AutomationProperties.Name="Issues" ToolTip="Double-click or press Enter to find it on the map">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Right" Content="Teleport" Click="TeleportIssue_Click" Margin="6,0,0,0"
-                                                    Padding="8,1" FontSize="12" VerticalAlignment="Top"
-                                                    ToolTipService.ShowOnDisabled="True"
-                                                    IsEnabled="{Binding DataContext.CanTeleportIssues, RelativeSource={RelativeSource AncestorType=ListBox}}">
-                                                <Button.Style>
-                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Setter Property="ToolTip" Value="Teleport to this issue in the game" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding DataContext.GameLinkConnected, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="False">
-                                                                <Setter Property="ToolTip" Value="Start 7 Days to Die with Game Link to teleport." />
-                                                            </DataTrigger>
-                                                            <MultiDataTrigger>
-                                                                <MultiDataTrigger.Conditions>
-                                                                    <Condition Binding="{Binding HasLocation}" Value="True" />
-                                                                    <Condition Binding="{Binding DataContext.GameLinkInstalled, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="True" />
-                                                                </MultiDataTrigger.Conditions>
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </MultiDataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
-                                            <!-- A fix, on issues that have one safe answer (#40). -->
-                                            <Button DockPanel.Dock="Right" Content="{Binding Fix.Label}" Click="IssueFix_Click" Margin="6,0,0,0"
-                                                    Padding="8,1" FontSize="12" VerticalAlignment="Top"
-                                                    ToolTip="Fix this as one undo step; Validate runs again after">
-                                                <Button.Style>
-                                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Fix}" Value="{x:Null}">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
-                                            <TextBlock DockPanel.Dock="Left" Width="20" FontWeight="Bold"
-                                                       Text="{Binding Severity, Converter={StaticResource SeverityGlyph}}"
-                                                       Foreground="{Binding Severity, Converter={StaticResource SeverityBrush}}" />
-                                            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="12" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="2*" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <ListBox x:Name="IssuesList" ItemsSource="{Binding Issues}" Margin="0,8,0,0" MouseDoubleClick="Issue_DoubleClick"
+                                         VirtualizingPanel.VirtualizationMode="Recycling" HorizontalContentAlignment="Stretch"
+                                         KeyDown="Issue_KeyDown" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         AutomationProperties.Name="Issues" ToolTip="Double-click or press Enter to find it on the map">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <Button DockPanel.Dock="Right" Content="Teleport" Click="TeleportIssue_Click" Margin="6,0,0,0"
+                                                        Padding="8,1" FontSize="12" VerticalAlignment="Top"
+                                                        ToolTipService.ShowOnDisabled="True"
+                                                        IsEnabled="{Binding DataContext.CanTeleportIssues, RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Setter Property="ToolTip" Value="Teleport to this issue in the game" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.GameLinkConnected, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="False">
+                                                                    <Setter Property="ToolTip" Value="Start 7 Days to Die with Game Link to teleport." />
+                                                                </DataTrigger>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding HasLocation}" Value="True" />
+                                                                        <Condition Binding="{Binding DataContext.GameLinkInstalled, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="True" />
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <!-- A fix, on issues that have one safe answer (#40). -->
+                                                <Button DockPanel.Dock="Right" Content="{Binding Fix.Label}" Click="IssueFix_Click" Margin="6,0,0,0"
+                                                        Padding="8,1" FontSize="12" VerticalAlignment="Top"
+                                                        ToolTip="Fix this as one undo step; Validate runs again after">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Fix}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <TextBlock DockPanel.Dock="Left" Width="20" FontWeight="Bold"
+                                                           Text="{Binding Severity, Converter={StaticResource SeverityGlyph}}"
+                                                           Foreground="{Binding Severity, Converter={StaticResource SeverityBrush}}" />
+                                                <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="12" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <DockPanel Grid.Row="1" Margin="0,8,0,0">
+                                    <TextBlock DockPanel.Dock="Top" Text="Pins" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                    <ListBox x:Name="PinsList" MouseDoubleClick="Pin_DoubleClick" KeyDown="Pin_KeyDown"
+                                             VirtualizingPanel.VirtualizationMode="Recycling" HorizontalContentAlignment="Stretch"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Pins"
+                                             ToolTip="Double-click or press Enter to find it on the map">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel>
+                                                    <Button DockPanel.Dock="Right" Content="Delete" Click="DeletePin_Click" Margin="6,0,0,0"
+                                                            Padding="8,1" FontSize="12" VerticalAlignment="Top" />
+                                                    <Button DockPanel.Dock="Right" Content="Teleport" Click="TeleportPin_Click" Margin="6,0,0,0"
+                                                            Padding="8,1" FontSize="12" VerticalAlignment="Top"
+                                                            IsEnabled="{Binding DataContext.CanTeleportIssues, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Note}" TextWrapping="Wrap" FontSize="12" />
+                                                        <TextBlock Text="{Binding Coordinates}" Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding Time}" Style="{StaticResource HintText}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Grid>
                         </DockPanel>
                     </TabItem>
                     <TabItem Header="Wo_rld">
@@ -2249,6 +2279,7 @@
                          ShowLandGrid="{Binding IsChecked, ElementName=LandGridLayer}"
                          DimMap="{Binding DimMap}"
                          AutomationProperties.Name="Map" />
+            <map:PinMarkerOverlay x:Name="PinOverlay" IsHitTestVisible="False" ClipToBounds="True" />
             <map:PlayerMarkerOverlay x:Name="PlayerOverlay" IsHitTestVisible="False" ClipToBounds="True" />
 
             <!-- Modern theme (#63): the tool's changing help, over the map so the map never moves. Clicks pass through it. -->

@@ -69,9 +69,10 @@ public partial class MainWindow
             bool showPlayer = _vm.ShowPlayer && world is not null;
             bool canShowPlayer = showPlayer && GameLinkWorld.ExportName(folder) is not null;
             if (showPlayer && !canShowPlayer) ReportPlayerTrackingStatus("Export this world to show the player.");
-            if (!_vm.GameLinkInstalled && !canShowPlayer)
+            if (!_vm.GameLinkInstalled && !canShowPlayer && GameLinkWorld.ExportName(folder) is null && _savedPinAcks.Count == 0)
             {
                 _vm.GameLinkConnected = false;
+                _pinsUnsupported = false;
                 return;
             }
 
@@ -84,6 +85,7 @@ public partial class MainWindow
                 _vm.GameLinkConnected = reply.Status is not null;
                 if (canShowPlayer && _vm.ShowPlayer && ReferenceEquals(world, _world) && folder == GameLinkExportFolder)
                     UpdatePlayerMarker(folder, world!.Size, reply);
+                await PollPinsAsync(world, folder, reply.Status, request.Token);
             }
             catch (OperationCanceledException) when (request.IsCancellationRequested)
             {

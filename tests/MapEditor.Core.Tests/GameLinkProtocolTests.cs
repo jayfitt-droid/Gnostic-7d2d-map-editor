@@ -36,6 +36,52 @@ public class GameLinkProtocolTests
         Assert.Equal(GameLinkParseResult.BadRequest, Read(line, out _));
     }
 
+    [Theory]
+    [InlineData("PINS", "Pins")]
+    [InlineData("PINSACK 0123456789abcdef0123456789abcdef", "PinsAck")]
+    public void PinsRequestsAreSupported(string command, string kind)
+    {
+        Assert.Equal(GameLinkParseResult.Ok, Read(Prefix + command + "\n", out var request));
+        Assert.Equal(kind, request.Kind.ToString());
+    }
+
+    [Fact]
+    public void PinsRequestFieldsAreParsed()
+    {
+        string key = new('a', 64);
+        const string id = "0123456789abcdef0123456789abcdef";
+        Assert.Equal(GameLinkParseResult.Ok, Read(Prefix + "PINS\n", out var all));
+        Assert.Null(all.WorldKey);
+        Assert.Equal(GameLinkParseResult.Ok, Read(Prefix + $"PINS {key}\r\n", out var world));
+        Assert.Equal(key, world.WorldKey);
+        Assert.Equal(Guid.Empty, world.PinId);
+        string page = Prefix + $"PINS {key} {id}\r\n";
+        Assert.True(page.Length <= GameLinkProtocol.MaxRequestBytes);
+        Assert.Equal(GameLinkParseResult.Ok, Read(page, out var next));
+        Assert.Equal(key, next.WorldKey);
+        Assert.Equal(Guid.ParseExact(id, "N"), next.PinId);
+        Assert.Equal(GameLinkParseResult.BadRequest, Read(Prefix + $"PINS {key} -1\n", out _));
+        Assert.Equal(GameLinkParseResult.BadRequest, Read(Prefix + $"PINS {key} {id} extra\n", out _));
+        Assert.Equal(GameLinkParseResult.Ok, Read(Prefix + $"PINSACK {id}\n", out var ack));
+        Assert.Equal(Guid.ParseExact(id, "N"), ack.PinId);
+    }
+
+    [Theory]
+    [InlineData("PINS ")]
+    [InlineData("PINS a")]
+    [InlineData("PINSACK")]
+    [InlineData("PINSACK -1")]
+    [InlineData("PINSACK 00000000000000000000000000000000")]
+    [InlineData("PINSACK 0123456789ABCDEF0123456789ABCDEF")]
+    [InlineData("PINSACK 01234567-89ab-cdef-0123-456789abcdef")]
+    [InlineData("PINSACK 0123456789abcdef0123456789abcdef extra")]
+    public void PinsRejectMalformedRequestsAfterCheckingTheToken(string command)
+    {
+        Assert.Equal(GameLinkParseResult.BadRequest, Read(Prefix + command + "\n", out _));
+        Assert.Equal(GameLinkParseResult.InvalidToken,
+            Read("GNOSTICLINK 3 1123456789abcdef0123456789abcdef " + command + "\n", out _));
+    }
+
     [Fact]
     public void ANewSessionRejectsTheLastSessionsToken()
     {

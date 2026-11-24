@@ -39,12 +39,13 @@ public sealed record GameLinkReply(GameLinkError Error, string? Message = null, 
     string? FileName = null, string? OperationId = null)
 {
     public bool Ok => Error == GameLinkError.None;
+    public IReadOnlyList<GameLinkPin>? Pins { get; init; }
 }
 
 /// <summary>Sends one typed request per connection to Gnostic Game Link on IPv4 loopback.</summary>
 public sealed class GameLinkClient
 {
-    private const int MaxReplyBytes = 4096;
+    private const int MaxReplyBytes = GameLinkPinFile.MaxReplyBytes;
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan PictureReplyTimeout = TimeSpan.FromSeconds(GameLinkProtocol.PictureReplyTimeoutSeconds);
     internal static readonly Regex PictureName = new(@"\Agnostic-[0-9]{8}-[0-9]{6}-[0-9]{3}\.png\z");
@@ -83,6 +84,23 @@ public sealed class GameLinkClient
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
+
+    /// <summary>Returns a batch of queued pins, optionally starting after a pin already received for this world.</summary>
+    public Task<GameLinkReply> GetPinsAsync(string? worldKey = null, Guid after = default, CancellationToken cancel = default)
+    {
+        if (worldKey is null ? after != Guid.Empty : !GameLinkPinFile.IsWorldKey(worldKey))
+            return Task.FromResult(new GameLinkReply(GameLinkError.BadRequest));
+
+        string request = worldKey is null ? "PINS" : $"PINS {worldKey}";
+        if (after != Guid.Empty) request += $" {after:N}";
+        return SendAsync(request, GameLinkRequestKind.Pins, cancel);
+    }
+
+    /// <summary>Acknowledges the saved prefix of the queue for the pin's world.</summary>
+    public Task<GameLinkReply> AckPinsAsync(Guid id, CancellationToken cancel = default) =>
+        id == Guid.Empty
+            ? Task.FromResult(new GameLinkReply(GameLinkError.BadRequest))
+            : SendAsync($"PINSACK {id:N}", GameLinkRequestKind.PinsAck, cancel);
 
     public Task<GameLinkReply> TeleportAsync(int x, int z, Facing? facing, CancellationToken cancel = default)
     {
@@ -192,6 +210,8 @@ public sealed class GameLinkClient
                 return StringProperty(root, "id") is { } id && GameLinkProtocol.IsOperationId(id)
                     ? new(GameLinkError.None, message, OperationId: id)
                     : new(GameLinkError.InvalidReply);
+            if (kind == GameLinkRequestKind.Pins)
+                return ParsePins(root, message);
             if (kind == GameLinkRequestKind.Picture)
                 return StringProperty(root, "file") is { } file && PictureName.IsMatch(file)
                     ? new(GameLinkError.None, message, FileName: file)
@@ -202,6 +222,32 @@ public sealed class GameLinkClient
         {
             return new(GameLinkError.InvalidReply);
         }
+    }
+
+    private static GameLinkReply ParsePins(JsonElement root, string? message)
+    {
+        if (!root.TryGetProperty("pins", out var list) || list.ValueKind != JsonValueKind.Array ||
+            list.GetArrayLength() > GameLinkPinFile.MaxBatchSize)
+            return new(GameLinkError.InvalidReply);
+
+        var pins = new List<GameLinkPin>();
+        var ids = new HashSet<Guid>();
+        foreach (var item in list.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object ||
+                StringProperty(item, "id") is not { } textId || !GameLinkPinFile.TryId(textId, out var id) || !ids.Add(id) ||
+                !TryNumber(item, "x", out float x) || !TryNumber(item, "y", out float y) ||
+                !TryNumber(item, "z", out float z) || !TryNumber(item, "yaw", out float yaw) ||
+                StringProperty(item, "world") is not { } world || StringProperty(item, "save") is not { } save ||
+                !item.TryGetProperty("time", out var time) || time.ValueKind != JsonValueKind.String ||
+                !time.TryGetDateTimeOffset(out var timestamp) || StringProperty(item, "note") is not { } note)
+                return new(GameLinkError.InvalidReply);
+
+            var pin = new GameLinkPin(id, x, y, z, yaw, world, save, timestamp, note);
+            if (!GameLinkPinFile.IsValid(pin)) return new(GameLinkError.InvalidReply);
+            pins.Add(pin);
+        }
+        return new(GameLinkError.None, message) { Pins = pins };
     }
 
     private static GameLinkReply ParseStatus(JsonElement root, string? message)

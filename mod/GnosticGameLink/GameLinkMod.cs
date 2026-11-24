@@ -78,6 +78,9 @@ public sealed class GameLinkMod : IModApi
 
     private async Task<string> HandleRequestAsync(GameLinkRequest request)
     {
+        if (request.Kind is GameLinkRequestKind.Pins or GameLinkRequestKind.PinsAck)
+            return GameLinkPinQueue.Handle(request);
+
         GameManager? game = GameManager.Instance;
         World? world = game == null ? null : game.World;
         EntityPlayerLocal? player = world?.GetPrimaryPlayer();
