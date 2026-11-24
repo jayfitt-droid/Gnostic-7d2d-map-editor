@@ -497,6 +497,7 @@ public partial class MainWindow : Window
 
     private void SetWorld(World world, string? sourcePath, bool dirty, string? recoveryPath = null)
     {
+        CancelOpenInGameWait();
         // Prefabs saved at ground level by the game's editor get box Y, which everything here works in.
         GroundLevel.Resolve(world, _vm.Prefabs);
         if (_world is not null || recoveryPath is not null) _autosaves.Discard(recoveryPath);
@@ -738,11 +739,16 @@ public partial class MainWindow : Window
     private async Task<bool> ExportAsync()
     {
         if (_world is not { } world) return false;
+        var destination = PlaytestDestination(world);
+        CancelOpenInGameWait();
+        await _openInGameTask;
+        if (!ReferenceEquals(_world, world) || !IsLoaded || _vm.IsBusy) return false;
         var issues = await ValidateAsync(showPanel: false);
         if (_closeWhenIdle) return false;
         string location = Path.GetDirectoryName(_savePath ?? _sourcePath ?? "") is { Length: > 0 } dir ? dir : GameInstall.UserGeneratedWorldsDir;
         string name = _savePath is { } saved ? Path.GetFileName(saved) : world.Name;
-        var dialog = new ExportDialog(name, location, issues, BoxFormNote(world)) { Owner = this };
+        var install = _install;
+        var dialog = new ExportDialog(name, location, issues, BoxFormNote(world), install, _settings.OpenInGameAfterExport) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.Folder is null)
         {
             // An issue double-clicked in the dialog: show it in the Issues panel (the export filled it) and on the map (#27).
@@ -757,10 +763,20 @@ public partial class MainWindow : Window
             }
             return false;
         }
+        if (dialog.OpenInGamePreference is { } preference)
+        {
+            _settings.OpenInGameAfterExport = preference;
+            _settings.Save();
+        }
+        string exportName = Path.GetFileName(dialog.Folder);
+        string? playtestSave = dialog.OpenInGame && install is not null ? GameLinkPlaytest.SaveName(exportName) : null;
+        bool? leftGame = playtestSave is null ? false : await PreparePlaytestExportAsync(playtestSave);
+        if (leftGame is null || _closeWhenIdle || !IsLoaded || !ReferenceEquals(_world, world)) return false;
         string? previousFolder = GameLinkExportFolder;
         bool exportStatusChanged = ExportHasChanges != false;
-        var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder);
-        if (ok) RecordHistoryEvent($"Export: {Path.GetFileName(dialog.Folder)}");
+        var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder, playtestSave is not null);
+        if (!ok && leftGame == true) _vm.Status += ". The game is at the main menu.";
+        if (ok) RecordHistoryEvent($"Export: {exportName}");
         if (ok && _projectPath is not null)
         {
             // Only a new folder, or an export that changed the world's saved data or export status, makes the project changed.
@@ -772,6 +788,8 @@ public partial class MainWindow : Window
             }
             UpdateTitle();
         }
+        if (ok && IsLoaded && !_closeWhenIdle && install is not null && playtestSave is not null)
+            StartOpenInGame(install, exportName, playtestSave, destination);
         return ok;
     }
 
@@ -794,7 +812,7 @@ public partial class MainWindow : Window
     /// Writes the world as a game world folder. <c>SavedChanged</c> is true when the write also changed data the
     /// project saves: a new level GUID in main.ttw, a main.ttw the world did not have, or an added spawn point.
     /// </summary>
-    private async Task<(bool Ok, bool SavedChanged)> WriteWorldAsync(string folder)
+    private async Task<(bool Ok, bool SavedChanged)> WriteWorldAsync(string folder, bool openAfterExport = false)
     {
         if (_world is not { } world) return (false, false);
         string projectName = world.Name;
@@ -862,7 +880,7 @@ public partial class MainWindow : Window
             _vm.Status = $"Wrote {Path.GetFileName(folder)} in {sw.Elapsed.TotalSeconds:0.0} s. The game rebuilds its caches on first load."
                 + (addedSpawn is null ? "" : $" Added a spawn point at {addedSpawn.X:0}, {addedSpawn.Z:0} because the world had none.")
                 + (keptBoxForm == 0 ? "" : $" {keptBoxForm:N0} prefab{(keptBoxForm == 1 ? "" : "s")} not in the game folder kept RWG's heights.");
-            WarnAboutExistingGames(Path.GetFileName(folder));
+            if (!openAfterExport) WarnAboutExistingGames(Path.GetFileName(folder));
             return (true, savedChanged);
         }
         catch (Exception ex) when (IsWriteError(ex))
@@ -1172,6 +1190,7 @@ public partial class MainWindow : Window
 
     private void ClearWorld()
     {
+        CancelOpenInGameWait();
         _autosaves.Discard();
         _tools.CancelRoad();
         _world = null;
@@ -1258,6 +1277,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        CancelOpenInGameWait();
         ClearWorldStatsRequest();
         StopGameLinkPolling();
         _vm.ShowPlayer = false;
@@ -1286,6 +1306,7 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
+        CancelOpenInGameWait();
         if (_confirmingClose)
         {
             e.Cancel = true;
@@ -3352,6 +3373,11 @@ public partial class MainWindow : Window
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
+        if (e.Key == Key.Escape && CancelOpenInGameWait())
+        {
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.Escape && _pictureBatch is { } pictures)
         {
             pictures.Cancel();

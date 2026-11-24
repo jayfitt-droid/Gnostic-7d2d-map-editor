@@ -17,26 +17,29 @@ internal static class GameLinkReply
 
     public static string PictureSaved(string file) => ToJson(new { ok = true, file });
 
-    public static string Status(string state, string world, bool hosting) =>
-        ToJson(new { ok = true, protocol = GameLinkProtocol.Version, mod = Version, state, world, hosting });
+    public static string Accepted(string id) => ToJson(new { ok = true, id });
 
-    public static string Ready(string world, float x, float z, float yaw) =>
+    public static string Status(string state, string world, bool hosting, string save, object? op,
+        object? blocked, object? player = null) =>
         ToJson(new
         {
             ok = true,
             protocol = GameLinkProtocol.Version,
             mod = Version,
-            state = "ready",
+            state,
             world,
-            hosting = true,
-            player = new { x, z, yaw }
+            hosting,
+            save,
+            op,
+            blocked,
+            player,
         });
 
     private static string ToJson(object reply)
     {
         using var writer = new StringWriter(CultureInfo.InvariantCulture);
         // Other game mods can change JsonConvert.DefaultSettings.
-        JsonSerializer.Create().Serialize(writer, reply);
+        JsonSerializer.Create(new JsonSerializerSettings { NullValueHandling = NullValueHandling.Ignore }).Serialize(writer, reply);
         return writer.ToString();
     }
 }

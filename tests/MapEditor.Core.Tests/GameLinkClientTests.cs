@@ -43,6 +43,69 @@ public class GameLinkClientTests : IDisposable
         Assert.Equal(expected, reply.Status.State);
         Assert.False(reply.Status.Hosting);
         Assert.Null(reply.Status.Player);
+        Assert.Empty(reply.Status.Save);
+        Assert.Null(reply.Status.Operation);
+        Assert.Null(reply.Status.Blocked);
+    }
+
+    [Fact]
+    public async Task StatusReadsTheSaveAndMenuProgress()
+    {
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), Prefix + "STATUS",
+            """{"ok":true,"protocol":2,"mod":"1.1.0","state":"menu","world":"Test","hosting":false,"save":"","op":""",
+            """{"id":"0123456789abcdef","kind":"open","state":"blocked","reason":"older_version"},"blocked":""",
+            """{"world":"Test","save":"Test Playtest","reason":"older_version"}}""" + "\n");
+
+        Assert.True(reply.Ok);
+        Assert.NotNull(reply.Status);
+        Assert.Empty(reply.Status.Save);
+        Assert.Equal(new("0123456789abcdef", "open", "blocked", "older_version"), reply.Status.Operation);
+        Assert.Equal(new("Test", "Test Playtest", "older_version"), reply.Status.Blocked);
+    }
+
+    [Fact]
+    public async Task StatusReadsTheCurrentSave()
+    {
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), Prefix + "STATUS",
+            """{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"Test","hosting":true,"save":"Test Playtest","player":{"x":0,"z":0,"yaw":0}}""" + "\n");
+
+        Assert.Equal("Test Playtest", reply.Status?.Save);
+    }
+
+    [Fact]
+    public async Task LeaveReadsTheOperationId()
+    {
+        var reply = await ExchangeAsync((client, cancel) => client.LeaveAsync(cancel), Prefix + "LEAVE",
+            """{"ok":true,"id":"0123456789abcdef"}""" + "\n");
+
+        Assert.Equal("0123456789abcdef", reply.OperationId);
+    }
+
+    [Fact]
+    public async Task OpenWritesTheTargetBeforeSendingOnlyItsId()
+    {
+        using var server = new TcpListener(IPAddress.Loopback, 0);
+        server.Start();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        const string world = "\u0141u\u017Cyce World";
+        const string save = world + " Playtest";
+        var response = ClientFor(server).OpenAsync(world, save, create: true, deadline.Token);
+        using var accepted = await server.AcceptTcpClientAsync(deadline.Token);
+        using var reader = new StreamReader(accepted.GetStream(), leaveOpen: true);
+        string? line = await reader.ReadLineAsync(deadline.Token);
+        string start = Prefix + "OPEN ";
+        Assert.NotNull(line);
+        Assert.StartsWith(start, line);
+        string id = line[start.Length..];
+        Assert.True(GameLinkProtocol.IsOperationId(id));
+        Assert.Null(GameLinkOpenRequest.Take(Path.GetDirectoryName(_tokenPath)!, id, DateTimeOffset.UtcNow, out var request));
+        Assert.NotNull(request);
+        Assert.Equal((world, save, true), (request.World, request.Save, request.Create));
+
+        var acknowledgment = JsonSerializer.Serialize(new { ok = true, id }) + "\n";
+        await accepted.GetStream().WriteAsync(Encoding.UTF8.GetBytes(acknowledgment), deadline.Token);
+        Assert.Equal(id, (await response).OperationId);
     }
 
     [Theory]
@@ -79,6 +142,11 @@ public class GameLinkClientTests : IDisposable
     [InlineData("already_set", GameLinkError.AlreadySet)]
     [InlineData("picture_failed", GameLinkError.PictureFailed)]
     [InlineData("picture_render_timeout", GameLinkError.PictureRenderTimeout)]
+    [InlineData("players", GameLinkError.Players)]
+    [InlineData("world_not_found", GameLinkError.WorldNotFound)]
+    [InlineData("save_not_found", GameLinkError.SaveNotFound)]
+    [InlineData("save_unplayable", GameLinkError.SaveUnplayable)]
+    [InlineData("expired", GameLinkError.Expired)]
     public async Task ReadsTheModsErrors(string code, GameLinkError expected)
     {
         var reply = await ExchangeAsync((client, cancel) => client.AddWaypointAsync(0, 0, "farm_16", cancel),

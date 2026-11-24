@@ -10,6 +10,7 @@ namespace GnosticGameLink;
 public sealed class GameLinkMod : IModApi
 {
     private readonly GameLinkListener listener = new();
+    private readonly GameLinkMenuFlow menu = new();
     private readonly Func<GameLinkRequest, Task<string>> handle;
     private (IEnumerator<object> Capture, TaskCompletionSource<string> Reply, float Deadline)? activePicture;
 
@@ -47,6 +48,7 @@ public sealed class GameLinkMod : IModApi
             Log.Warning("[Gnostic Game Link] Picture timed out while waiting for the game to render.");
             StopPicture();
         }
+        menu.Update();
         listener.Update(handle);
     }
 
@@ -87,15 +89,25 @@ public sealed class GameLinkMod : IModApi
         if (request.Kind == GameLinkRequestKind.Status)
         {
             string worldName = GamePrefs.GetString(EnumGamePrefs.GameWorld) ?? string.Empty;
+            string save = world == null ? "" : GamePrefs.GetString(EnumGamePrefs.GameName) ?? "";
             if (state == "ready" && player != null)
             {
                 Vector3 position = player.GetPosition();
                 // The game's compass uses rotation.y: north is 0 degrees and east is 90.
-                return GameLinkReply.Ready(worldName, position.x, position.z, Mathf.Repeat(player.rotation.y, 360f));
+                return GameLinkReply.Status(state, worldName, hosting, save, menu.Operation, null,
+                    new { x = position.x, z = position.z, yaw = Mathf.Repeat(player.rotation.y, 360f) });
             }
 
-            return GameLinkReply.Status(state, worldName, hosting);
+            return GameLinkReply.Status(state, worldName, hosting, save, menu.Operation,
+                state == "menu" ? menu.GetBlockedSave() : null);
         }
+
+        if (menu.Busy || activePicture != null && request.Kind is (GameLinkRequestKind.Leave or GameLinkRequestKind.Open))
+            return GameLinkReply.Error("busy", "A Game Link operation is in progress.");
+        if (request.Kind == GameLinkRequestKind.Open)
+            return state == "menu"
+                ? menu.Open(request.OperationId!)
+                : GameLinkReply.Error("not_ready", "The game must be at the main menu.");
 
         if (state == "remote")
             return GameLinkReply.Error("remote", "Game Link works in single-player or when you host the game.");
@@ -106,6 +118,8 @@ public sealed class GameLinkMod : IModApi
             return GameLinkReply.Error("busy", "The player is still teleporting.");
         if (state != "ready" || !hosting || world == null || player == null)
             return GameLinkReply.Error("not_ready", "The player is not in the world.");
+        if (request.Kind == GameLinkRequestKind.Leave)
+            return menu.Leave(game!, world);
 
         if (!world.GetWorldExtent(out Vector3i min, out Vector3i max))
             return GameLinkReply.Error("not_ready", "The world bounds are not available.");
