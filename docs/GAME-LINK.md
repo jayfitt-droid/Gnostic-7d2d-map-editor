@@ -1,6 +1,6 @@
 # Gnostic Game Link: developer guide
 
-Gnostic Game Link is a small mod for 7 Days to Die 3.4. A program on the same PC can use it to open or leave a save, get the player's position, teleport the player, add a temporary waypoint to a POI, and take a picture. Gnostic - 7D2D Map Editor uses it, and any other tool can use it too.
+Gnostic Game Link is a small mod for 7 Days to Die 3.4. A program on the same PC can use it to open or leave a save, get the player's position, teleport the player, add a temporary waypoint to a POI, take a picture, and collect playtest pins. Gnostic - 7D2D Map Editor uses it, and any other tool can use it too.
 
 This guide is for developers. To install and use the mod with the editor, see the [user manual](USER-MANUAL.md#use-gnostic-game-link).
 
@@ -10,7 +10,7 @@ This guide is for developers. To install and use the mod with the editor, see th
 - A client connects, sends **one request line**, reads **one reply line**, and closes the connection. Each connection serves exactly one request.
 - Requests are short ASCII text. Replies are one line of JSON, encoded as UTF-8 and ended with `\n`.
 - The mod serves **one connection at a time**. The game starts each request on Unity's main thread. A picture takes several frames and completes even if the client disconnects.
-- The mod works in single-player and when the game on this PC is the host. When the player joins another game or a dedicated server, requests other than `STATUS` fail with `remote`.
+- The mod works in single-player and when the game on this PC is the host. `STATUS`, `PINS` and `PINSACK` work in any game state.
 - The game does not load the mod when Easy Anti-Cheat (EAC) is on (`SkipWithAntiCheat`).
 
 The current protocol version is **2**, supported by Gnostic Game Link 1.1.0.
@@ -50,6 +50,10 @@ GNOSTICLINK 2 <token> WAYPOINT <x> <z> <prefab>
 GNOSTICLINK 2 <token> PICTURE <camX> <camY> <camZ> <lookX> <lookY> <lookZ>
 GNOSTICLINK 2 <token> LEAVE
 GNOSTICLINK 2 <token> OPEN <id>
+GNOSTICLINK 2 <token> PINS
+GNOSTICLINK 2 <token> PINS <world-key>
+GNOSTICLINK 2 <token> PINS <world-key> <after-id>
+GNOSTICLINK 2 <token> PINSACK <id>
 ```
 
 ### STATUS
@@ -146,6 +150,22 @@ The reply gives the file name. The mod writes the PNG to `%APPDATA%\7DaysToDie\G
 ```json
 {"ok":true,"file":"gnostic-20261123-123456-789.png"}
 ```
+
+### PINS and PINSACK
+
+Enter `pin <note>` in the local game console while playing in single-player or as host. You can also enter `pin` by itself. The mod records the player position, heading, world name, save name, UTC time, and optional note. It removes line breaks and other control characters and keeps up to 200 UTF-16 code units of the note.
+
+`PINS` returns the oldest queued pins. Pass a world key to read only that world's queue. The key is the lowercase hexadecimal SHA-256 digest of the world name converted to invariant uppercase and encoded as UTF-8. Use the exported folder name as the world name. The reply contains up to eight pins and fits within the 4096-byte reply limit, including the newline. An empty queue returns `{"ok":true,"pins":[]}`.
+
+```json
+{"ok":true,"pins":[{"id":"ae0123456789abcdef0123456789abcd","x":-4.5,"y":65,"z":18.25,"yaw":135,"world":"Test World","save":"Test Save","time":"2026-11-23T12:34:56+00:00","note":"Check the \"bridge\""}]}
+```
+
+`PINS` leaves the queue intact. Pass the last received ID as `after-id` to collect later pins from the same world before you save. If that ID is gone from the queue, the reply starts with the oldest remaining pin for that world. Use IDs to skip pins you already collected.
+
+After you save the pins, send `PINSACK <id>` with the last saved pin's ID. The ID is a nonzero GUID represented by 32 lowercase hexadecimal characters. The mod removes that pin and all earlier pins in the same world. To acknowledge an unfiltered batch, send one acknowledgment per saved world. A repeated acknowledgment for a removed ID still returns `{"ok":true}`.
+
+The mod stores the queue in `%APPDATA%\7DaysToDie\GnosticGameLink\pins.tsv`. Each tab-separated line stores the ID, X, Y, Z, heading, ISO 8601 timestamp, and Base64-encoded UTF-8 world name, save name and note. The file survives a game restart. The mod skips damaged lines.
 
 ## Errors
 
