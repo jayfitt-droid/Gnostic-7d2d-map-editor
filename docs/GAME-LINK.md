@@ -1,6 +1,6 @@
 # Gnostic Game Link: developer guide
 
-Gnostic Game Link is a small mod for 7 Days to Die 3.4. A program on the same PC can use it to get the player's position, teleport the player, add a temporary waypoint to a POI, and take a picture. Gnostic - 7D2D Map Editor uses it, and any other tool can use it too.
+Gnostic Game Link is a small mod for 7 Days to Die 3.4. A program on the same PC can use it to open or leave a save, get the player's position, teleport the player, add a temporary waypoint to a POI, and take a picture. Gnostic - 7D2D Map Editor uses it, and any other tool can use it too.
 
 This guide is for developers. To install and use the mod with the editor, see the [user manual](USER-MANUAL.md#use-gnostic-game-link).
 
@@ -48,6 +48,8 @@ GNOSTICLINK 2 <token> STATUS
 GNOSTICLINK 2 <token> TELEPORT <x> <z> <facing>
 GNOSTICLINK 2 <token> WAYPOINT <x> <z> <prefab>
 GNOSTICLINK 2 <token> PICTURE <camX> <camY> <camZ> <lookX> <lookY> <lookZ>
+GNOSTICLINK 2 <token> LEAVE
+GNOSTICLINK 2 <token> OPEN <id>
 ```
 
 ### STATUS
@@ -61,7 +63,7 @@ GNOSTICLINK 2 <token> STATUS
 Reply when the player is in a world:
 
 ```json
-{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"My World","hosting":true,"player":{"x":-412.5,"z":1880.2,"yaw":135.0}}
+{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"My World","save":"My World Playtest","hosting":true,"player":{"x":-412.5,"z":1880.2,"yaw":135.0}}
 ```
 
 | Field | Type | Meaning |
@@ -70,8 +72,11 @@ Reply when the player is in a world:
 | `mod` | string | The mod version, for example `1.1.0`. |
 | `state` | string | One of the states below. |
 | `world` | string | The world name in the game's settings (the world folder name). At the menu it can be empty or the last world selected. |
+| `save` | string | The name of the open save. Empty at the menu. |
 | `hosting` | bool | True when this game is single-player or the host. |
 | `player` | object | Only when `state` is `ready`. `x` and `z` give the player's position. `yaw` gives the direction the player faces, in degrees clockwise from north (0 = north, 90 = east), from 0 to less than 360. |
+| `op` | object | The latest menu operation, with `id`, `kind`, `state` and `reason`. Absent or null when there is no operation. |
+| `blocked` | object | The target on the Continue page when Start is disabled, with `world`, `save` and `reason`. This also reports a blocked save from the game's launch automation. Absent or null when there is no blocked target. |
 
 | `state` | Meaning |
 |---|---|
@@ -80,6 +85,23 @@ Reply when the player is in a world:
 | `ready` | The player is in the world. `TELEPORT`, `WAYPOINT` and `PICTURE` can work. |
 | `dead` | The player is dead. |
 | `remote` | This game joined another game or a dedicated server. |
+
+### LEAVE
+
+Saves and leaves the current hosted game through its normal exit. The game must be ready and safe to leave, with no other players connected and no world save in progress. The reply gives an operation ID, for example `{"ok":true,"id":"0123456789abcdef"}`. The operation's `kind` is `leave`. Poll STATUS until the same ID reaches `at_menu` before writing world files. The intermediate state is `leaving`.
+
+### OPEN
+
+Creates or continues a save from the game menu. The client writes a UTF-8 file named `open-<id>.txt` beside `session-token`, then sends `OPEN <id>`. Use 16 lowercase hexadecimal characters for the ID. The file is at most 4096 bytes and has four lines in this order.
+
+1. Expiry as Unix seconds in UTC, two minutes after the client writes the request.
+2. `create` to allow first-time creation or `continue` to require an existing save. The game continues an exact existing match in either case.
+3. The world folder name.
+4. The save name.
+
+The mod consumes the file once and deletes it before taking action. It uses the game's menu to find the world, select the exact save or set up a new game, and press Start. The reply echoes the operation ID. Poll STATUS for that ID with `kind` set to `open`. Its state is `opening` until the target save is ready, then `done`. Check the returned world and save before sending TELEPORT.
+
+Either operation can report `failed`, with a `reason` such as `players`, `busy`, `world_not_found`, `save_not_found`, or `timeout`. OPEN can also report `blocked` with a reason such as `older_version`, `newer_version`, `world_not_found`, or `start_disabled`.
 
 ### TELEPORT
 
@@ -140,10 +162,12 @@ Use `error` in your code. The `message` text can change.
 | `invalid_token` | all | The session token is missing or incorrect. Read the file again, restart the game, or check that the editor and mod versions match. |
 | `bad_request` | all | The line is not a valid request, is too long, or did not arrive within 2 seconds. |
 | `unsupported_protocol` | all | The version number is not one the mod supports. The message names the version to use. |
-| `not_ready` | all | The game did not take the request within 2 seconds, or it is shutting down. For actions other than STATUS, the player may also be outside a world. Try again later. |
-| `dead` | TELEPORT, WAYPOINT, PICTURE | The player is dead. |
-| `remote` | TELEPORT, WAYPOINT, PICTURE | This game joined another game or a dedicated server. |
-| `busy` | TELEPORT, PICTURE | The player is still teleporting from an earlier request. |
+| `not_ready` | all | The game did not take the request in time, is shutting down, or is in the wrong state for that request. OPEN needs the menu. |
+| `dead` | TELEPORT, WAYPOINT, PICTURE, LEAVE | The player is dead. |
+| `remote` | TELEPORT, WAYPOINT, PICTURE, LEAVE | This game joined another game or a dedicated server. |
+| `busy` | actions | Another operation is in progress, or the game cannot safely leave the current save yet. |
+| `players` | LEAVE | Other players are connected. |
+| `expired` | OPEN | The request file expired. |
 | `off_map` | TELEPORT, WAYPOINT, PICTURE | A position is outside the world bounds for the request. |
 | `poi_not_found` | WAYPOINT | No POI with that name contains the position. |
 | `already_set` | WAYPOINT | That POI already has a temporary waypoint. |

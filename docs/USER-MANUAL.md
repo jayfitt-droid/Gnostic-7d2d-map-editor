@@ -771,6 +771,23 @@ The world then shows under **New Game** in the game.
 
 If you export to the same folder again, the world keeps its ID. Uppercase and lowercase letters in the folder name match.
 
+#### Open the world in the game
+
+Select **Open in the game after export** in **Export World**. The editor remembers this setting. Set the game folder in **Settings > Game Folder** to use this option. In **Export World**, click **Use the game's GeneratedWorlds folder**, or select another world folder that the game uses. The editor disables the option for other folders.
+
+The first export makes a save named `<world> Playtest`. Later exports open the same save. The game keeps chunks that it already made in this save.
+
+The game limits the save name to 50 characters. It also limits which characters you can use. If the editor disables the option for the save name, change the world name.
+
+- If the game does not run, the editor starts it and opens the playtest save.
+- If the game is at the main menu with Gnostic Game Link, the editor writes the world and opens the playtest save.
+- If you have a save open with Game Link, click **OK** to save it and go to the main menu. The editor then writes the world and opens the playtest save. Click **Cancel** to stop the export. If other players share the game, the editor stops the export.
+- If the game is open without Game Link, the editor writes the world. Open it from the game's menu.
+
+With Game Link, the game moves the player to the centre of the map view at the time you click **Export**. Press **Esc** in the editor to stop waiting. The game continues to load. If the editor starts the game without Game Link, it shows the coordinates in the status bar.
+
+If the game cannot open an old playtest save, the editor shows a message. To make a new playtest save, delete the old playtest save on the game's **Continue** page, then export again.
+
 ### Export a picture of the map
 
 Click **File > Export Map Image**. The editor saves the whole map as a PNG, north at the top, with no windows or tools on it. Select the size (1024, 2048, 4096, or 1 pixel for each metre) and the layers, POIs and world grid to show.
