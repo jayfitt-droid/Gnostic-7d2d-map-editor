@@ -173,6 +173,15 @@ Open **Layers** and select **Show player**. When the game has the same world ope
 
 Select **Follow** to keep the player in view. Any change you make to the view turns off **Follow**. You can drag the map, zoom, or go to an issue. If Game Link loses its connection, the arrow fades and the status bar tells you. The arrow comes back when the game replies from the matching world. Clear **Show player** to hide the arrow.
 
+##### Add playtest pins
+
+1. In the game, press **F1** to open the console. Enter `pin Check the bridge` to add a pin with a note. Enter `pin` to add a pin with no note.
+2. In the editor, open the project for the same world. Open **Issues** and find **Pins**. Each row shows the note, coordinates, and time. The map shows a marker for each pin.
+3. Double-click a pin or select it and press **Enter** to find it on the map. Click **Teleport** to go to the pin in the game. Click **Delete** to delete the pin.
+4. Save the project to keep your pins. Game Link keeps its copy of each pin until you save the project.
+
+You can add pins before you open the editor. Game Link keeps the pins when you close the game. Undo does not change pins.
+
 ## 4. Worlds and projects
 
 ### Make a new world
