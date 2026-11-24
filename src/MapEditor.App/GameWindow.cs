@@ -10,6 +10,13 @@ internal static class GameWindow
     private const string GameProcessName = "7DaysToDie";
     private const int Restore = 9;
 
+    public static bool IsRunning()
+    {
+        var games = Process.GetProcessesByName(GameProcessName);
+        foreach (var game in games) game.Dispose();
+        return games.Length != 0;
+    }
+
     /// <summary>Checks whether the foreground window belongs to the game or this editor process.</summary>
     public static bool IsGameOrEditorInForeground()
     {

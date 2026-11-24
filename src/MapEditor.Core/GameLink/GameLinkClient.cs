@@ -14,17 +14,29 @@ public enum GameLinkError
 {
     None, Unavailable, NoReply, InvalidReply, BadRequest, UnsupportedProtocol, NotReady, Dead, Remote,
     OffMap, Busy, Failed, PoiNotFound, AlreadySet, PictureFailed, PictureRenderTimeout,
-    InvalidToken,
+    InvalidToken, Players, WorldNotFound, SaveNotFound, SaveUnplayable, Expired,
 }
 
 /// <summary>The local player's game coordinates and clockwise heading from north, in degrees.</summary>
 public sealed record GameLinkPlayer(float X, float Z, float Yaw);
 
 /// <summary>The running game's status. Player is present only when the game is ready.</summary>
-public sealed record GameLinkStatus(string World, bool Hosting, GameLinkState State, string ModVersion, GameLinkPlayer? Player);
+public sealed record GameLinkStatus(string World, bool Hosting, GameLinkState State, string ModVersion, GameLinkPlayer? Player)
+{
+    public string Save { get; init; } = "";
+    public GameLinkOperation? Operation { get; init; }
+    public GameLinkBlockedSave? Blocked { get; init; }
+}
+
+/// <summary>Progress of the latest menu operation, including its failure reason when available.</summary>
+public sealed record GameLinkOperation(string Id, string Kind, string State, string Reason);
+
+/// <summary>The save selected on the game's Continue page when Start is disabled.</summary>
+public sealed record GameLinkBlockedSave(string World, string Save, string Reason);
 
 /// <summary>A Game Link response or a failed attempt to reach the mod.</summary>
-public sealed record GameLinkReply(GameLinkError Error, string? Message = null, GameLinkStatus? Status = null, string? FileName = null)
+public sealed record GameLinkReply(GameLinkError Error, string? Message = null, GameLinkStatus? Status = null,
+    string? FileName = null, string? OperationId = null)
 {
     public bool Ok => Error == GameLinkError.None;
 }
@@ -51,6 +63,26 @@ public sealed class GameLinkClient
 
     public Task<GameLinkReply> GetStatusAsync(CancellationToken cancel = default) =>
         SendAsync("STATUS", GameLinkRequestKind.Status, cancel);
+
+    public Task<GameLinkReply> LeaveAsync(CancellationToken cancel = default) =>
+        SendAsync("LEAVE", GameLinkRequestKind.Leave, cancel);
+
+    /// <summary>Asks the running game to create or continue the named save from its menu.</summary>
+    public async Task<GameLinkReply> OpenAsync(string world, string save, bool create, CancellationToken cancel = default)
+    {
+        cancel.ThrowIfCancellationRequested();
+        string directory = Path.GetDirectoryName(_sessionTokenPath)!;
+        string id = new GameLinkOpenRequest(world, save, create).Write(directory, DateTimeOffset.UtcNow);
+        try
+        {
+            return await SendAsync("OPEN " + id, GameLinkRequestKind.Open, cancel).ConfigureAwait(false);
+        }
+        finally
+        {
+            try { File.Delete(GameLinkOpenRequest.RequestPath(directory, id)); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
 
     public Task<GameLinkReply> TeleportAsync(int x, int z, Facing? facing, CancellationToken cancel = default)
     {
@@ -156,6 +188,10 @@ public sealed class GameLinkClient
                 return new(ParseError(StringProperty(root, "error")), message);
             if (kind == GameLinkRequestKind.Status)
                 return ParseStatus(root, message);
+            if (kind is GameLinkRequestKind.Leave or GameLinkRequestKind.Open)
+                return StringProperty(root, "id") is { } id && GameLinkProtocol.IsOperationId(id)
+                    ? new(GameLinkError.None, message, OperationId: id)
+                    : new(GameLinkError.InvalidReply);
             if (kind == GameLinkRequestKind.Picture)
                 return StringProperty(root, "file") is { } file && PictureName.IsMatch(file)
                     ? new(GameLinkError.None, message, FileName: file)
@@ -199,7 +235,23 @@ public sealed class GameLinkClient
                 return new(GameLinkError.InvalidReply);
             player = new(x, z, yaw);
         }
-        return new(GameLinkError.None, message, new(world, hosting.GetBoolean(), state.Value, mod, player));
+        GameLinkOperation? operation = null;
+        if (root.TryGetProperty("op", out var op) && op.ValueKind == JsonValueKind.Object &&
+            StringProperty(op, "id") is { } id && GameLinkProtocol.IsOperationId(id) &&
+            StringProperty(op, "kind") is { } kind && StringProperty(op, "state") is { } phase)
+            operation = new(id, kind, phase, StringProperty(op, "reason") ?? "");
+
+        GameLinkBlockedSave? blockedSave = null;
+        if (root.TryGetProperty("blocked", out var blocked) && blocked.ValueKind == JsonValueKind.Object &&
+            StringProperty(blocked, "world") is { } blockedWorld && StringProperty(blocked, "save") is { } blockedName)
+            blockedSave = new(blockedWorld, blockedName, StringProperty(blocked, "reason") ?? "");
+
+        return new(GameLinkError.None, message, new GameLinkStatus(world, hosting.GetBoolean(), state.Value, mod, player)
+        {
+            Save = StringProperty(root, "save") ?? "",
+            Operation = operation,
+            Blocked = blockedSave,
+        });
     }
 
     private static string? StringProperty(JsonElement root, string name) =>
@@ -227,6 +279,11 @@ public sealed class GameLinkClient
         "already_set" => GameLinkError.AlreadySet,
         "picture_failed" => GameLinkError.PictureFailed,
         "picture_render_timeout" => GameLinkError.PictureRenderTimeout,
+        "players" => GameLinkError.Players,
+        "world_not_found" => GameLinkError.WorldNotFound,
+        "save_not_found" => GameLinkError.SaveNotFound,
+        "save_unplayable" => GameLinkError.SaveUnplayable,
+        "expired" => GameLinkError.Expired,
         _ => GameLinkError.InvalidReply,
     };
 }

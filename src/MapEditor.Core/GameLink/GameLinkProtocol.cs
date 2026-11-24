@@ -5,13 +5,13 @@ using System.Text;
 
 namespace MapEditor.Core.GameLink;
 
-internal enum GameLinkRequestKind { Status, Teleport, Waypoint, Picture }
+internal enum GameLinkRequestKind { Status, Teleport, Waypoint, Picture, Leave, Open }
 internal enum GameLinkParseResult { Ok, BadRequest, UnsupportedProtocol, InvalidToken }
 
 /// <summary>A validated request. A teleport's facing is selected from fixed protocol values.</summary>
 internal readonly struct GameLinkRequest(
     GameLinkRequestKind kind, int x = 0, int z = 0, string? facing = null, string? prefabName = null,
-    int y = 0, int lookX = 0, int lookY = 0, int lookZ = 0)
+    int y = 0, int lookX = 0, int lookY = 0, int lookZ = 0, string? operationId = null)
 {
     public GameLinkRequestKind Kind { get; } = kind;
     public int X { get; } = x;
@@ -22,6 +22,7 @@ internal readonly struct GameLinkRequest(
     public int LookZ { get; } = lookZ;
     public string? Facing { get; } = facing;
     public string? PrefabName { get; } = prefabName;
+    public string? OperationId { get; } = operationId;
 }
 
 /// <summary>Game Link request framing and parsing, shared with the game mod.</summary>
@@ -40,9 +41,16 @@ internal static class GameLinkProtocol
     public static readonly string RequestPrefix = RequestName + " " + VersionText + " ";
     private static readonly string[] CompassFacings = new[] { "n", "ne", "e", "se", "s", "sw", "w", "nw" };
 
-    public static string SessionTokenPath =>
+    public static string RequestDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "7DaysToDie", "GnosticGameLink", "session-token");
+            "7DaysToDie", "GnosticGameLink");
+
+    public static string SessionTokenPath => Path.Combine(RequestDirectory, "session-token");
+
+    public static string CreateOperationId() => CreateSessionToken().Substring(0, 16);
+
+    public static bool IsOperationId(string id) =>
+        id.Length == 16 && id.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
 
     public static string CreateSessionToken()
     {
@@ -144,6 +152,18 @@ internal static class GameLinkProtocol
         if (parts.Length == 4 && parts[3] == "STATUS")
         {
             request = new(GameLinkRequestKind.Status);
+            return GameLinkParseResult.Ok;
+        }
+
+        if (parts.Length == 4 && parts[3] == "LEAVE")
+        {
+            request = new(GameLinkRequestKind.Leave);
+            return GameLinkParseResult.Ok;
+        }
+
+        if (parts.Length == 5 && parts[3] == "OPEN" && IsOperationId(parts[4]))
+        {
+            request = new(GameLinkRequestKind.Open, operationId: parts[4]);
             return GameLinkParseResult.Ok;
         }
 

@@ -13,6 +13,7 @@ public sealed class AppSettings
 
     public string? GameFolder { get; set; }
     public string? LastWorldFolder { get; set; }
+    public bool OpenInGameAfterExport { get; set; }
     public bool Autosave { get; set; } = true;
 
     /// <summary>The side panel's width (DIPs); 0 for the default.</summary>

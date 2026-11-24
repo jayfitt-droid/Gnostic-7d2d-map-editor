@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\src\MapEditor.Core\GameLink\GameLinkProtocol.cs" Link="GameLinkProtocol.cs" />
+    <Compile Include="..\..\src\MapEditor.Core\GameLink\GameLinkOpenRequest.cs" Link="GameLinkOpenRequest.cs" />
     <Reference Include="Assembly-CSharp" HintPath="$(ManagedDirectory)\Assembly-CSharp.dll" Private="false" />
     <Reference Include="Assembly-CSharp-firstpass" HintPath="$(ManagedDirectory)\Assembly-CSharp-firstpass.dll" Private="false" />
     <Reference Include="LogLibrary" HintPath="$(ManagedDirectory)\LogLibrary.dll" Private="false" />

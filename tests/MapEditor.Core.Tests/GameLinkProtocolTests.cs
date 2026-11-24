@@ -20,6 +20,22 @@ public class GameLinkProtocolTests
     public void ChecksTheSessionTokenBeforeTheRestOfTheRequest(string line, string expected) =>
         Assert.Equal(expected, Read(line, out _).ToString());
 
+    [Theory]
+    [InlineData(Prefix + "LEAVE\n", "Ok")]
+    [InlineData(Prefix + "OPEN 0123456789abcdef\n", "Ok")]
+    [InlineData(Prefix + "OPEN ../0123456789abc\n", "BadRequest")]
+    [InlineData(Prefix + "OPEN 0123456789abcdeg\n", "BadRequest")]
+    [InlineData("GNOSTICLINK 2 1123456789abcdef0123456789abcdef OPEN invalid\n", "InvalidToken")]
+    public void ParsesMenuRequests(string line, string expected) =>
+        Assert.Equal(expected, Read(line, out _).ToString());
+
+    [Fact]
+    public void OpenRejectsAnOverlongRequest()
+    {
+        string line = Prefix + "OPEN " + new string('0', GameLinkProtocol.MaxRequestBytes) + "\n";
+        Assert.Equal(GameLinkParseResult.BadRequest, Read(line, out _));
+    }
+
     [Fact]
     public void ANewSessionRejectsTheLastSessionsToken()
     {

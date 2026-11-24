@@ -18,6 +18,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TextBlock Grid.ColumnSpan="3" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -36,7 +37,13 @@
         <TextBlock Grid.Row="4" Grid.ColumnSpan="3" x:Name="InfoText" Margin="0,10,0,0" TextWrapping="Wrap"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
-        <StackPanel Grid.Row="5" Grid.ColumnSpan="3" Margin="0,14,0,0">
+        <StackPanel Grid.Row="5" Grid.ColumnSpan="3" Margin="0,12,0,0">
+            <CheckBox x:Name="OpenInGameCheck" Content="Open in the game after export" />
+            <TextBlock x:Name="OpenInGameNote" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="6" Grid.ColumnSpan="3" Margin="0,14,0,0">
             <TextBlock x:Name="PrefabNote" TextWrapping="Wrap" Margin="0,0,0,10" Visibility="Collapsed"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             <TextBlock x:Name="IssuesHeader" FontWeight="SemiBold" />
@@ -56,7 +63,7 @@
             </ListBox>
         </StackPanel>
 
-        <StackPanel Grid.Row="6" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+        <StackPanel Grid.Row="7" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button x:Name="ExportButton" Content="Export" IsDefault="True" MinWidth="110" Margin="0,0,8,0" Click="Export_Click"
                     Style="{DynamicResource AccentButtonStyle}" />
             <Button Content="Cancel" IsCancel="True" MinWidth="90" />

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using MapEditor.Core.GameData;
+using MapEditor.Core.GameLink;
 using MapEditor.Core.IO;
 using MapEditor.Core.Validate;
 using Microsoft.Win32;
@@ -16,11 +17,15 @@ namespace MapEditor.App;
 public partial class ExportDialog : Window
 {
     private readonly bool _hasErrors;
+    private readonly GameInstall? _install;
 
     /// <param name="prefabNote">Shown above the issues, e.g. which prefabs keep RWG's heights; null for none.</param>
-    public ExportDialog(string name, string location, IReadOnlyList<ValidationIssue> issues, string? prefabNote = null)
+    public ExportDialog(string name, string location, IReadOnlyList<ValidationIssue> issues, string? prefabNote,
+        GameInstall? install, bool openInGame)
     {
+        _install = install;
         InitializeComponent();
+        OpenInGameCheck.IsChecked = openInGame;
         if (prefabNote is not null)
         {
             PrefabNote.Text = prefabNote;
@@ -28,6 +33,7 @@ public partial class ExportDialog : Window
         }
         NameBox.Text = name;
         LocationBox.Text = location;
+        UpdateOpenInGame(CurrentFolder());
         IssuesList.ItemsSource = issues;
 
         int errors = issues.Count(i => i.Severity == IssueSeverity.Error);
@@ -79,6 +85,12 @@ public partial class ExportDialog : Window
     /// <summary>The chosen world folder, set when the dialog returns true.</summary>
     public string? Folder { get; private set; }
 
+    /// <summary>True when the chosen folder is available to the game and the checkbox is checked.</summary>
+    public bool OpenInGame => OpenInGameCheck.IsEnabled && OpenInGameCheck.IsChecked == true;
+
+    /// <summary>A disabled checkbox preserves the last choice for eligible exports.</summary>
+    public bool? OpenInGamePreference => OpenInGameCheck.IsEnabled ? OpenInGameCheck.IsChecked : null;
+
     private string? CurrentFolder()
     {
         string name = NameBox.Text.Trim();
@@ -98,6 +110,7 @@ public partial class ExportDialog : Window
     {
         var folder = CurrentFolder();
         ExportButton.IsEnabled = folder is not null;
+        UpdateOpenInGame(folder);
         if (folder is null)
             InfoText.Text = "Enter a name that can be used as a folder name, and a location.";
         else if (File.Exists(Path.Combine(folder, WorldFiles.Height)))
@@ -106,6 +119,18 @@ public partial class ExportDialog : Window
             InfoText.Text = $"{folder} already has files in it; the world files will be added alongside them.";
         else
             InfoText.Text = $"Exports to {folder}";
+    }
+
+    private void UpdateOpenInGame(string? folder)
+    {
+        string? note = null;
+        if (folder is null || !GameLinkPlaytest.CanOpen(folder, _install))
+            note = "Export to the game's GeneratedWorlds folder to open it in the game.";
+        else if (!GameLinkPlaytest.CanEnterSaveName(GameLinkPlaytest.SaveName(Path.GetFileName(folder))))
+            note = "Use a world name that the game can use for the playtest save. The save name can have up to 50 characters.";
+        OpenInGameCheck.IsEnabled = note is null;
+        OpenInGameNote.Text = note;
+        OpenInGameNote.Visibility = note is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)
