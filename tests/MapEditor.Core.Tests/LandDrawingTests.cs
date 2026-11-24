@@ -216,7 +216,7 @@ public sealed class LandDrawingTests
             using (var manifest = JsonDocument.Parse(zip.GetEntry("project.json")!.Open()))
             {
                 var root = manifest.RootElement;
-                Assert.Equal(5, root.GetProperty("Format").GetInt32());
+                Assert.Equal(ProjectStore.FormatVersion, root.GetProperty("Format").GetInt32());
                 // A format 4 reader sees no new enum in Settings before it can reject the format.
                 Assert.Equal(JsonValueKind.Null, root.GetProperty("Settings").ValueKind);
                 Assert.Equal("Drawn", root.GetProperty("DrawnWorldSettings").GetProperty("Generator")

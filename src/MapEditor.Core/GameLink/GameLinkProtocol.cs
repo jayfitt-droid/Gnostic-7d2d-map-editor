@@ -5,13 +5,14 @@ using System.Text;
 
 namespace MapEditor.Core.GameLink;
 
-internal enum GameLinkRequestKind { Status, Teleport, Waypoint, Picture, Leave, Open }
+internal enum GameLinkRequestKind { Status, Teleport, Waypoint, Picture, Leave, Open, Pins, PinsAck }
 internal enum GameLinkParseResult { Ok, BadRequest, UnsupportedProtocol, InvalidToken }
 
 /// <summary>A validated request. A teleport's facing is selected from fixed protocol values.</summary>
 internal readonly struct GameLinkRequest(
     GameLinkRequestKind kind, int x = 0, int z = 0, string? facing = null, string? prefabName = null,
-    int y = 0, int lookX = 0, int lookY = 0, int lookZ = 0, string? operationId = null)
+    int y = 0, int lookX = 0, int lookY = 0, int lookZ = 0, string? operationId = null,
+    string? worldKey = null, Guid pinId = default)
 {
     public GameLinkRequestKind Kind { get; } = kind;
     public int X { get; } = x;
@@ -23,6 +24,8 @@ internal readonly struct GameLinkRequest(
     public string? Facing { get; } = facing;
     public string? PrefabName { get; } = prefabName;
     public string? OperationId { get; } = operationId;
+    public string? WorldKey { get; } = worldKey;
+    public Guid PinId { get; } = pinId;
 }
 
 /// <summary>Game Link request framing and parsing, shared with the game mod.</summary>
@@ -164,6 +167,26 @@ internal static class GameLinkProtocol
         if (parts.Length == 5 && parts[3] == "OPEN" && IsOperationId(parts[4]))
         {
             request = new(GameLinkRequestKind.Open, operationId: parts[4]);
+            return GameLinkParseResult.Ok;
+        }
+
+        if (parts[3] == "PINS" && parts.Length == 4)
+        {
+            request = new(GameLinkRequestKind.Pins);
+            return GameLinkParseResult.Ok;
+        }
+
+        Guid after = default;
+        if (parts[3] == "PINS" && parts.Length is 5 or 6 && GameLinkPinFile.IsWorldKey(parts[4]) &&
+            (parts.Length == 5 || GameLinkPinFile.TryId(parts[5], out after)))
+        {
+            request = new(GameLinkRequestKind.Pins, worldKey: parts[4], pinId: after);
+            return GameLinkParseResult.Ok;
+        }
+
+        if (parts[3] == "PINSACK" && parts.Length == 5 && GameLinkPinFile.TryId(parts[4], out var pinId))
+        {
+            request = new(GameLinkRequestKind.PinsAck, pinId: pinId);
             return GameLinkParseResult.Ok;
         }
 

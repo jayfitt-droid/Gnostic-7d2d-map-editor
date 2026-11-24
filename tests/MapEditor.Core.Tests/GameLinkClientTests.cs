@@ -18,6 +18,41 @@ public class GameLinkClientTests : IDisposable
     public void Dispose() => File.Delete(_tokenPath);
 
     [Fact]
+    public async Task PinsReadsTheBatchAndAcknowledgesById()
+    {
+        const string id = "ae0123456789abcdef0123456789abcd";
+        string key = GameLinkPins.WorldKey("Test World");
+        var after = Guid.ParseExact("fe0123456789abcdef0123456789abcd", "N");
+        var reply = await ExchangeAsync((client, cancel) => client.GetPinsAsync(key, after, cancel), Prefix + $"PINS {key} {after:N}",
+            """
+            {"ok":true,"pins":[{"id":"ae0123456789abcdef0123456789abcd","x":-4.5,"y":65,"z":18.25,"yaw":135,"world":"Test World","save":"Test Save","time":"2026-11-23T12:34:56+00:00","note":"Check \"caf\u00e9\""}]}
+            """ + "\n");
+
+        Assert.True(reply.Ok);
+        var pin = Assert.Single(reply.Pins!);
+        Assert.Equal((Guid.ParseExact(id, "N"), -4.5f, 65f, 18.25f, 135f), (pin.Id, pin.X, pin.Y, pin.Z, pin.Yaw));
+        Assert.Equal(("Test World", "Test Save", new DateTimeOffset(2026, 11, 23, 12, 34, 56, TimeSpan.Zero), "Check \"caf\u00e9\""),
+            (pin.World, pin.Save, pin.Time, pin.Note));
+
+        var ack = await ExchangeAsync((client, cancel) => client.AckPinsAsync(pin.Id, cancel), Prefix + "PINSACK " + id,
+            """{"ok":true}""" + "\n");
+        Assert.True(ack.Ok);
+    }
+
+    [Theory]
+    [InlineData("""{"ok":true,"pins":[]}""", GameLinkError.None)]
+    [InlineData("""{"ok":false,"error":"bad_request"}""", GameLinkError.BadRequest)]
+    [InlineData("""{"ok":true}""", GameLinkError.InvalidReply)]
+    [InlineData("""{"ok":true,"pins":[{"id":"invalid"}]}""", GameLinkError.InvalidReply)]
+    public async Task PinsDistinguishesAnEmptyBatchFromErrors(string json, GameLinkError error)
+    {
+        var reply = await ExchangeAsync((client, cancel) => client.GetPinsAsync(cancel: cancel), Prefix + "PINS", json + "\n");
+        Assert.Equal(error, reply.Error);
+        if (reply.Ok) Assert.Empty(reply.Pins!);
+        else Assert.Null(reply.Pins);
+    }
+
+    [Fact]
     public async Task StatusReadsAReadyPlayerAndUnicodeWorld()
     {
         var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), Prefix + "STATUS",
