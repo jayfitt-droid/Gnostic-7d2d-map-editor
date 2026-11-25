@@ -80,6 +80,44 @@ public sealed class GuidedToursTests
         Assert.Equal("town-sites", runner.Current?.Id);
     }
 
+    [Fact]
+    public void TerrainTipTextFollowsTheBuiltWorldWhileShown()
+    {
+        var state = new HashSet<TourCondition> { TourCondition.WorldOpen, TourCondition.OutsideLandMode };
+        var runner = new TourRunner(GuidedTours.DrawIslands, state.Contains);
+        Assert.Equal("terrain", runner.Current?.Id);
+        var before = runner.Tip;
+
+        state.Add(TourCondition.DrawnTerrainBuilt);
+        runner.Update();
+        Assert.Equal("terrain", runner.Current?.Id);
+        Assert.NotEqual(before, runner.Tip);
+        Assert.Equal("Build World made the terrain. Click Next.", runner.Tip?.Body);
+
+        state.Remove(TourCondition.DrawnTerrainBuilt);
+        runner.Update();
+        Assert.Equal("terrain", runner.Current?.Id);
+        Assert.Equal(before, runner.Tip);
+    }
+
+    [Fact]
+    public void TipDoesNotChangeWhenTheStepTextIgnoresTheWorld()
+    {
+        var state = new HashSet<TourCondition> { TourCondition.WorldOpen };
+        var runner = new TourRunner(GuidedTours.DrawIslands, state.Contains);
+        Assert.Equal("rectangle", runner.Current?.Id);
+        var before = runner.Tip;
+
+        state.Add(TourCondition.OutsideLandMode);
+        runner.Update();
+        Assert.Equal("terrain", runner.Current?.Id);
+
+        var terrain = runner.Tip;
+        runner.Update();
+        Assert.Equal(terrain, runner.Tip);
+        Assert.NotNull(before);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
