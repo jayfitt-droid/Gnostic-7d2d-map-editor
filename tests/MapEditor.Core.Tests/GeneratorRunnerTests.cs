@@ -300,10 +300,10 @@ public sealed class GeneratorRunnerTests : IDisposable
              </rwgmixer>
              """), Size);
         var generator = new GeneratorStages(world, settings, _data with { Mixer = mixer, Prefabs = StageLibrary }, bridges);
-        settings.Sites.Add(new TownSite { Township = "town", Cells = [[3, 2]], Exact = true });
+        settings.Sites.Add(new TownSite { Township = "town", Cells = [[4, 2]], Exact = true });
         var kept = settings.PlacedFeatures.Single();
         var inTheWay = kept.Clone();
-        inTheWay.Cells = [[3, 2]];
+        inTheWay.Cells = [[4, 2]];
         settings.PlacedFeatures.Add(inTheWay);
         var undo = new UndoStack();
         StageRun<TownBuildResult>? run = null;

@@ -236,29 +236,53 @@ public static class TownGenerator
     {
         var township = options.Township;
         var clamped = selection.Clamp(world.Size, world.Size);
-        var plan = new TownPlan { Township = township, Seed = options.Seed, OriginX = clamped.X0, OriginZ = clamped.Z0 };
+        GridRect CellRect((int Cx, int Cz) cell)
+        {
+            int x = clamped.X0 + cell.Cx * Tile, z = clamped.Z0 + cell.Cz * Tile;
+            return new GridRect(x, z, x + Tile, z + Tile);
+        }
 
         // Cells a town may use: wholly selected, dry, and free of prefabs unless they are to be replaced.
         var footprints = world.Prefabs.Select(p => (Prefab: p, Rect: PrefabPlacer.Footprint(world, p, library))).ToList();
+        var streetTiles = footprints.Where(f => Overlaps(clamped, TownBuffer(f.Rect))
+            && library.Find(f.Prefab.Name) is { IsStreetTile: true }).Select(f => f.Rect).ToList();
         var valid = new HashSet<(int, int)>();
         int wet = 0, taken = 0;
         foreach (var cell in CellsIn(world, selection))
         {
-            int x0 = plan.OriginX + cell.Cx * Tile, z0 = plan.OriginZ + cell.Cz * Tile;
-            var rect = new GridRect(x0, z0, x0 + Tile, z0 + Tile);
+            var rect = CellRect(cell);
             if (IsWet(world, rect)) { wet++; continue; }
             if (!options.ReplacePrefabs && footprints.Any(f => Overlaps(f.Rect, rect))) { taken++; continue; }
             valid.Add(cell);
         }
+
+        // Keep a tile's width around every street tile that will still be there. Recheck after clipping: a tile
+        // we expected to replace may now stay, in which case it needs its buffer too.
+        int nearTown = 0;
+        TownPlan plan;
+        Dictionary<(int, int), TownTile> town;
+        while (true)
+        {
+            plan = new TownPlan { Township = township, Seed = options.Seed, OriginX = clamped.X0, OriginZ = clamped.Z0 };
+            town = valid.Count == 0 ? [] : LayOut(plan, mixer, valid, township, options.Seed, world);
+            if (plan.Tiles.Count == 0 || streetTiles.Count == 0) break;
+            var area = plan.Tiles.Select(t => t.Cells).ToList();
+            var buffers = streetTiles.Where(t => !options.ReplacePrefabs || !area.Any(a => Overlaps(a, t)))
+                .Select(TownBuffer).ToList();
+            bool InBuffer(GridRect rect) => buffers.Any(b => Overlaps(b, rect));
+            if (!area.Any(InBuffer)) break;
+            nearTown += valid.RemoveWhere(c => InBuffer(CellRect(c)));
+        }
+
         if (wet > 0) plan.Warnings.Add($"{wet} cells left out for water");
         if (taken > 0) plan.Warnings.Add($"{taken} cells left out for prefabs");
+        if (nearTown > 0) plan.Warnings.Add($"{nearTown} cells left out to keep a 150 m gap from existing street tiles");
         if (valid.Count == 0)
         {
             plan.Warnings.Add("no 150 m cell inside the selection can take a street tile");
             return plan;
         }
 
-        var town = LayOut(plan, mixer, valid, township, options.Seed, world);
         if (plan.Tiles.Count == 0) return plan;
 
         if (plan.Ground == 0) plan.Ground = TownGround(world, CentreTile(plan.Tiles));
@@ -1347,8 +1371,8 @@ public static class TownGenerator
                 for (int z = t.Z0; z < t.Z0 + Tile; z++) roads.Row(z).Slice(t.X0, Tile).Clear();
             }
 
-        // The blend leaves roads that were already there as they are.
-        foreach (var t in plan.Tiles) PrefabPlacer.Flatten(world, t.Cells, plan.Ground, plan.Blend, session);
+        // The blend leaves existing roads and street tiles alone.
+        foreach (var t in plan.Tiles) PrefabPlacer.Flatten(world, t.Cells, plan.Ground, plan.Blend, session, library: library);
         world.Prefabs.AddRange(plan.Prefabs);
 
         foreach (var road in plan.Roads) changed = changed.Union(RoadOp.Draw(world, road, session, library: library));
@@ -1356,6 +1380,8 @@ public static class TownGenerator
     }
 
     // ---- helpers ---------------------------------------------------------------
+
+    private static GridRect TownBuffer(GridRect r) => new(r.X0 - Tile, r.Z0 - Tile, r.X1 + Tile, r.Z1 + Tile);
 
     private static bool Overlaps(GridRect a, GridRect b) => a.X0 < b.X1 && a.X1 > b.X0 && a.Z0 < b.Z1 && a.Z1 > b.Z0;
 

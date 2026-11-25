@@ -122,8 +122,8 @@ public sealed class TownCells
     /// <summary>
     /// StreetTile.IsValidForStreetTile on the world as it is: dry, in one biome, free of radiation, not a mountain
     /// tile (from the terrain stage's plan, or a slope test like RWG's where there is none: a sample 75 m out more
-    /// than 20 m off the middle), and not holding prefabs already there. With <paramref name="crossBorders"/> a cell
-    /// may hold more than one biome, and counts as the biome at its middle.
+    /// than 20 m off the middle), clear of existing prefabs and one cell away from built street tiles.
+    /// With <paramref name="crossBorders"/> a cell may hold more than one biome, and counts as the biome at its middle.
     /// </summary>
     public static TownCells Build(World world, BiomeTable biomes, PrefabLibrary library, TerrainType[]? terrainPlan, bool crossBorders = false)
     {
@@ -136,9 +136,11 @@ public sealed class TownCells
         var taken = new bool[width * width];
         foreach (var p in world.Prefabs)
         {
-            var f = PrefabPlacer.Footprint(world, p, library);
-            for (int cz = Math.Max(0, f.Z0 / TownSiteStage.Cell); cz <= Math.Min(width - 1, (f.Z1 - 1) / TownSiteStage.Cell); cz++)
-                for (int cx = Math.Max(0, f.X0 / TownSiteStage.Cell); cx <= Math.Min(width - 1, (f.X1 - 1) / TownSiteStage.Cell); cx++)
+            var f = PrefabPlacer.Footprint(world, p, library).Clamp(world.Size, world.Size);
+            if (f.IsEmpty) continue;
+            int gap = library.Find(p.Name) is { IsStreetTile: true } ? 1 : 0;
+            for (int cz = Math.Max(0, f.Z0 / TownSiteStage.Cell - gap); cz <= Math.Min(width - 1, (f.Z1 - 1) / TownSiteStage.Cell + gap); cz++)
+                for (int cx = Math.Max(0, f.X0 / TownSiteStage.Cell - gap); cx <= Math.Min(width - 1, (f.X1 - 1) / TownSiteStage.Cell + gap); cx++)
                     taken[cx + cz * width] = true;
         }
 
@@ -262,8 +264,8 @@ public static class TownSiteStage
         var types = mixer.Townships.ToDictionary(t => t.Name, StringComparer.OrdinalIgnoreCase);
         var rows = options.Rows.Where(r => r.Count > 0 && types.ContainsKey(r.Township))
             .Select((r, i) => (Row: r, Index: i)).OrderByDescending(r => r.Row.MaxTiles).ThenBy(r => r.Index).ToList();
-        var occupied = Occupied(sites);
-        var buffers = Buffers(sites);
+        var occupied = Occupied(sites.Where(s => !s.Built));
+        var buffers = Buffers(sites.Where(s => !s.Built));
 
         foreach (var (row, rowIndex) in rows)
         {
@@ -382,9 +384,9 @@ public static class TownSiteStage
         int size, int seed, GridRect? within = null)
     {
         if (mixer.Townships.FirstOrDefault(t => t.Name.Equals(township, StringComparison.OrdinalIgnoreCase)) is not { } type) return null;
-        var occupied = Occupied(others);
-        if (!cells.IsValid(start.Item1, start.Item2) || occupied.Contains(start)) return null;
-        var buffers = Buffers(others);
+        var occupied = Occupied(others.Where(s => !s.Built));
+        var buffers = Buffers(others.Where(s => !s.Built));
+        if (!cells.IsValid(start.Item1, start.Item2) || InBuffer(buffers, start)) return null;
         if (within is { } box)
         {
             // A drawn box is the whole town: the usable cells of the box joined to the start, and no outskirts.
@@ -425,20 +427,23 @@ public static class TownSiteStage
         var quotas = traders == TraderMode.RwgCaps ? TraderQuotas(world, library, mixer, cells, sites.Where(s => !s.Built && types.ContainsKey(s.Township))) : null;
         var planned = new List<PrefabInstance>();
         var result = new List<PlannedTown>();
-        foreach (var site in sites)
+        var earlier = new HashSet<(int, int)>();
+        for (int i = 0; i < sites.Count; i++)
         {
             cancel.ThrowIfCancellationRequested();
+            var site = sites[i];
             if (site.Built || !types.TryGetValue(site.Township, out var type)) continue;
-            // Street tiles only go on cells that can hold one; a site planned before the ground changed may no longer fit.
-            var core = site.Core.Where(c => cells.IsValid(c.Cx, c.Cz)).ToList();
+            // A saved site may no longer fit after the ground or neighbouring towns change.
+            bool Available((int X, int Z) c) => cells.IsValid(c.X, c.Z) && !Touches(earlier, c);
+            var core = site.Core.Where(Available).ToList();
             if (core.Count == 0) continue;
-            // Room for outskirts and gateways: valid cells near the town that no other town takes.
-            var others = Occupied(sites.Where(s => s != site));
+            // Keep the same gap around the sites still to be planned when adding outskirts and gateways.
+            var later = Occupied(sites.Skip(i + 1).Where(s => !s.Built));
             var box = site.CellBounds;
             var valid = new HashSet<(int, int)>();
             for (int cz = box.Z0 - 3; cz < box.Z1 + 3; cz++)
                 for (int cx = box.X0 - 3; cx < box.X1 + 3; cx++)
-                    if (cells.IsValid(cx, cz) && !others.Contains((cx, cz))) valid.Add((cx, cz));
+                    if (Available((cx, cz)) && !Touches(later, (cx, cz))) valid.Add((cx, cz));
             float scale = Math.Max(1f, core.Count / (float)Math.Max(1, type.Tiles.Max));
             var options = new TownOptions(type, site.Seed)
             {
@@ -452,6 +457,7 @@ public static class TownSiteStage
             };
             var plan = TownGenerator.PlanCells(world, library, mixer, biomes, core, valid, options);
             planned.AddRange(plan.Prefabs);
+            earlier.UnionWith(plan.Tiles.Select(t => (t.Cx, t.Cz)));
             // The plan's outskirts and gateways are the cells the town really takes, so later towns keep off them
             // and taking the town down finds all of it.
             var coreSet = core.ToHashSet();
@@ -585,6 +591,14 @@ public static class TownSiteStage
     private static bool Overlaps(GridRect a, GridRect b) => a.X0 < b.X1 && a.X1 > b.X0 && a.Z0 < b.Z1 && a.Z1 > b.Z0;
 
     private static HashSet<(int, int)> Occupied(IEnumerable<TownSite> sites) => sites.SelectMany(s => s.AllCells).ToHashSet();
+
+    private static bool Touches(HashSet<(int, int)> occupied, (int X, int Z) cell)
+    {
+        if (occupied.Contains(cell)) return true;
+        foreach (var d in Dir8)
+            if (occupied.Contains((cell.X + d.X, cell.Z + d.Z))) return true;
+        return false;
+    }
 
     /// <summary>Each town's buffer: its cells' box one cell larger all round (Township.BufferArea).</summary>
     private static List<GridRect> Buffers(IEnumerable<TownSite> sites) => [.. sites.Select(s => Expand(s.CellBounds, 1))];
@@ -725,8 +739,7 @@ public static class TownSiteStage
                     if (cancelIfInvalid) return null;
                     continue;
                 }
-                foreach (var e in Dir8)
-                    if (occupied.Contains((n.Item1 + e.X, n.Item2 + e.Z))) return null;
+                if (Touches(occupied, n)) return null;
                 result.Add(n);
             }
         if (type.OutskirtPercent < 1)

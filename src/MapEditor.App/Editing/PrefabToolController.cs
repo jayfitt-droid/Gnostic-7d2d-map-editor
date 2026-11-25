@@ -242,7 +242,7 @@ public sealed class PrefabToolController
         if (!Run(world, "Place " + info.Name, session =>
             {
                 foreach (var old in covered) PrefabPlacer.Delete(world, Library, old, session);
-                placed = PrefabPlacer.Place(world, info, spot, _vm.PrefabFlatten, session, inLot);
+                placed = PrefabPlacer.Place(world, info, spot, _vm.PrefabFlatten, session, inLot, Library);
                 parts = AddParts(world, info, spot, inLot ? lot!.Tile : null);
             }))
             return;
