@@ -149,7 +149,7 @@ If the editor cannot connect to Game Link, it shows a message. You can still use
 
 Each time you start the game, Game Link makes a new token. The editor uses this token to connect. If you get a token error, start the game again. If the problem continues, install the mod that matches the editor.
 
-If you installed Game Link, a plug icon appears in the status bar. The icon is grey if the game does not reply. It is green if you host the game and the game has this world open. It stays green if the player dies. It is yellow at the main menu, while the game loads, or if the game has a different world open. It is also yellow if you join another player's game or if you have no export folder. Point to the icon to read the connection status.
+If you installed Game Link, a plug icon appears in the status bar. The icon is grey if the game does not reply. It is green if you host the game and the game has this world open. It stays green if the player dies. It is yellow at the main menu, while the game loads, or if the game has a different world open. It is also yellow if you join another player's game or if you have no export folder. It turns red if the game replies but the mod is older than the editor needs, or if the mod rejects the session. Install Gnostic Game Link 1.1.0, or start the game again. Point to the icon to read the connection status.
 
 After a teleport, the status bar tells you if the editor has changes since export. Export again to use the latest terrain. A saved game keeps the terrain in chunks that it already generated.
 
@@ -805,6 +805,9 @@ The game limits the save name to 50 characters. It also limits which characters 
 - If the game is at the main menu with Gnostic Game Link, the editor writes the world and opens the playtest save.
 - If you have a save open with Game Link, click **OK** to save it and go to the main menu. The editor then writes the world and opens the playtest save. Click **Cancel** to stop the export. If other players share the game, the editor stops the export.
 - If the game is open without Game Link, the editor writes the world. Open it from the game's menu.
+- If the game has an older Game Link, the plug turns red. The editor stops the export and does not write the world.
+
+While the editor waits for the game to save and go to the main menu, press **Shift-Esc** to stop waiting. The editor then does not write the world. The editor also stops by itself if the game closes.
 
 With Game Link, the game moves the player to the centre of the map view at the time you click **Export** in **Export World**. The status bar shows the coordinates. When the status bar shows the shortcut, press **Shift-Esc** to cancel the automatic teleport. The game continues to load. If the editor starts the game without Game Link, it shows the coordinates in the status bar.
 
