@@ -20,10 +20,13 @@ public partial class MainWindow
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(1.25));
         try
         {
-            return (await _gameLink.GetStatusAsync(deadline.Token)).Status;
+            var status = (await _gameLink.GetStatusAsync(deadline.Token)).Status;
+            ShowGameLinkStatus(status);
+            return status;
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
         {
+            ShowGameLinkStatus(null);
             return null;
         }
         finally
@@ -49,7 +52,7 @@ public partial class MainWindow
         {
             _vm.Status = "Checking the game...";
             var current = (await _gameLink.GetStatusAsync()).Status;
-            _vm.GameLinkConnected = current is not null;
+            ShowGameLinkStatus(current);
             if (_closeWhenIdle) return null;
             if (GameLinkRebuild.UnavailableReason(folder, install, current, GameLinkExportFolder, ExportHasChanges) is { } unavailable)
             {
@@ -96,7 +99,7 @@ public partial class MainWindow
             }
             _vm.Status = "Checking the game...";
             var confirmed = (await _gameLink.GetStatusAsync()).Status;
-            _vm.GameLinkConnected = confirmed is not null;
+            ShowGameLinkStatus(confirmed);
             if (_closeWhenIdle) return null;
             if (GameLinkRebuild.UnavailableReason(folder, install, confirmed) is { } reason)
             {

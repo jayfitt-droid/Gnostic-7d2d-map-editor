@@ -71,7 +71,7 @@ public partial class MainWindow
             if (showPlayer && !canShowPlayer) ReportPlayerTrackingStatus("Export this world to show the player.");
             if (!_vm.GameLinkInstalled && !canShowPlayer && GameLinkWorld.ExportName(folder) is null && _savedPinAcks.Count == 0)
             {
-                _vm.GameLinkConnected = false;
+                ShowGameLinkStatus(null);
                 _pinsUnsupported = false;
                 return;
             }
@@ -82,7 +82,7 @@ public partial class MainWindow
             {
                 var reply = await _gameLink.GetStatusAsync(request.Token);
                 if (request.IsCancellationRequested || !CanPollGameLink) return;
-                _vm.GameLinkConnected = reply.Status is not null;
+                ShowGameLinkStatus(reply.Status);
                 if (canShowPlayer && _vm.ShowPlayer && ReferenceEquals(world, _world) && folder == GameLinkExportFolder)
                     UpdatePlayerMarker(folder, world!.Size, reply);
                 await PollPinsAsync(world, folder, reply.Status, request.Token);

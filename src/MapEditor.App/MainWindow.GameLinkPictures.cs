@@ -94,7 +94,7 @@ public partial class MainWindow
         async Task<(GameLinkStatus? Game, string? Error)> CheckGameAsync()
         {
             var status = await _gameLink.GetStatusAsync(cancel);
-            _vm.GameLinkConnected = status.Status is not null;
+            ShowGameLinkStatus(status.Status);
             if (status.Status is not { } game) return (null, GameLinkErrorText(status.Error));
             return string.Equals(game.World, gameWorld, StringComparison.OrdinalIgnoreCase)
                 ? (game, null) : (null, "The game changed worlds.");
