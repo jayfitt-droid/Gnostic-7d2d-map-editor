@@ -432,6 +432,55 @@ public sealed class GeneratorRunnerTests : IDisposable
         Assert.Equal(height, world.Height.Data);
     }
 
+    [Fact]
+    public void Clearing_the_town_plan_is_one_undo_step_that_keeps_built_sites()
+    {
+        var world = Forest();
+        var settings = NewSettings();
+        var generator = new GeneratorStages(world, settings, _data);
+        var undo = new UndoStack();
+        var edits = new EditRunner(undo);
+        var built = new TownSite { Township = "town", Seed = 10, Cells = [[2, 2]] };
+        var plan = new TownSiteResult([built, new TownSite { Township = "town", Seed = 20, Cells = [[4, 4]] }], []);
+        Assert.True(edits.Run(world, "Plan towns", session => generator.ApplyTownPlan(session, plan, settings.Towns.Seed)));
+        Assert.Equal(2, settings.Sites.Count);
+        built.Built = true;
+
+        Assert.True(edits.Run(world, "Clear town plan", generator.ClearTownPlan));
+        Assert.Equal("Clear town plan", undo.UndoName);
+        Assert.Equal((2, 2), Assert.Single(Assert.Single(settings.Sites).Core));
+
+        Assert.Equal("Clear town plan", undo.Undo()?.Name);
+        Assert.Equal(2, settings.Sites.Count);
+        Assert.Contains(settings.Sites, s => s.Core.Contains((4, 4)));
+
+        Assert.Equal("Clear town plan", undo.Redo()?.Name);
+        Assert.Equal((2, 2), Assert.Single(Assert.Single(settings.Sites).Core));
+    }
+
+    [Fact]
+    public void Undoing_and_redoing_around_a_cleared_town_plan_loses_nothing()
+    {
+        var world = Forest();
+        var settings = NewSettings();
+        var generator = new GeneratorStages(world, settings, _data);
+        var undo = new UndoStack();
+        var edits = new EditRunner(undo);
+        var plan = new TownSiteResult([new TownSite { Township = "town", Seed = 20, Cells = [[4, 4]] }], []);
+        Assert.True(edits.Run(world, "Plan towns", session => generator.ApplyTownPlan(session, plan, settings.Towns.Seed)));
+        Assert.True(edits.Run(world, "Clear town plan", generator.ClearTownPlan));
+        Assert.Empty(settings.Sites);
+
+        Assert.Equal("Clear town plan", undo.Undo()?.Name);
+        Assert.Equal((4, 4), Assert.Single(Assert.Single(settings.Sites).Core));
+        Assert.Equal("Plan towns", undo.Undo()?.Name);
+        Assert.Empty(settings.Sites);
+        Assert.Equal("Plan towns", undo.Redo()?.Name);
+        Assert.Equal((4, 4), Assert.Single(Assert.Single(settings.Sites).Core));
+        Assert.Equal("Clear town plan", undo.Redo()?.Name);
+        Assert.Empty(settings.Sites);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -1726,11 +1726,19 @@ public partial class MainWindow : Window
 
     private void TownsClear_Click(object sender, RoutedEventArgs e)
     {
-        if (_projectSettings.Generator is not { } gen || _vm.IsBusy) return;
-        gen.Sites.RemoveAll(s => !s.Built);
+        if (_world is not { } world || _projectSettings.Generator is not { } gen || _vm.IsBusy) return;
+        if (gen.Sites.Any(s => !s.Built))
+        {
+            var stages = StagesFor(world, gen);
+            if (!_edits.Run(world, "Clear town plan", session =>
+            {
+                NoteGeneratorState(session);
+                stages.ClearTownPlan(session);
+            })) return;
+        }
         _vm.Generate.Planned = [];
         _vm.Generate.TownStatus = "Plan cleared.";
-        MarkSettingsChanged();
+        _vm.Status = "Town plan cleared. Undo (Ctrl+Z) brings it back.";
         _genTools.Refresh();
     }
 
