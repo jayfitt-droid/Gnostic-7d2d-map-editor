@@ -298,6 +298,7 @@ public sealed class PrefabToolController
     public void NudgeHeight(int blocks)
     {
         if (World is not { } world || _selected is not { } p || Library.Find(p.Name) is null) return;
+        if (Locked(p)) return;
         var spot = new PrefabSpot(p.Position.X, p.Position.Y + blocks, p.Position.Z, p.Rotation);
         // The ground stays as it is; the game copies the prefab's own terrain in on load.
         if (!Run(world, blocks > 0 ? $"Raise {p.Name}" : $"Lower {p.Name}",
