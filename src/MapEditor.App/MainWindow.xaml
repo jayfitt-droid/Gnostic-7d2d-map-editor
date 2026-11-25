@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:map="clr-namespace:MapEditor.App.Map"
         xmlns:local="clr-namespace:MapEditor.App"
+        xmlns:gamelink="clr-namespace:MapEditor.Core.GameLink;assembly=MapEditor.Core"
         xmlns:ops="clr-namespace:MapEditor.Core.Ops;assembly=MapEditor.Core"
         Title="{x:Static local:App.ProductName}" Width="1400" Height="900" MinWidth="1000" MinHeight="480">
     <Window.Resources>
@@ -999,16 +1000,19 @@
         <Border DockPanel.Dock="Bottom" Padding="8,2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Border Width="24" Margin="0,0,8,0" Background="Transparent" ToolTip="{Binding GameLinkConnectionText}"
-                            AutomationProperties.Name="{Binding GameLinkConnectionText}"
+                    <Border Width="24" Margin="0,0,8,0" Background="Transparent" ToolTip="{Binding GameLinkIndicator.Text}"
+                            AutomationProperties.Name="{Binding GameLinkIndicator.Text}"
                             Visibility="{Binding GameLinkInstalled, Converter={StaticResource BoolToVisibility}}">
                         <Path Data="{x:Static local:Icons.GameLink}" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Path.Style>
                                 <Style TargetType="Path" BasedOn="{StaticResource IconPath}">
                                     <Setter Property="Stroke" Value="{DynamicResource TextFillColorSecondaryBrush}" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding GameLinkConnected}" Value="True">
+                                        <DataTrigger Binding="{Binding GameLinkIndicator.State}" Value="{x:Static gamelink:GameLinkIndicatorState.ThisWorld}">
                                             <Setter Property="Stroke" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding GameLinkIndicator.State}" Value="{x:Static gamelink:GameLinkIndicatorState.OtherWorld}">
+                                            <Setter Property="Stroke" Value="{DynamicResource SystemFillColorCautionBrush}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>

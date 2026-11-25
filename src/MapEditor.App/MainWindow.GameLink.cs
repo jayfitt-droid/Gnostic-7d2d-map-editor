@@ -11,6 +11,12 @@ public partial class MainWindow
     private readonly GameLinkClient _gameLink = new();
     private bool _gameLinkActionRunning;
 
+    private void ShowGameLinkStatus(GameLinkStatus? status)
+    {
+        _vm.GameLinkConnected = status is not null;
+        _vm.GameLinkIndicator = GameLinkWorld.Indicator(GameLinkExportFolder, status);
+    }
+
     /// <summary>Checks the running game and sends a teleport or a temporary POI waypoint.</summary>
     private Task RunGameLinkActionAsync(World world, int x, int z, Facing? facing = null,
         string? waypointPrefab = null, ValidationIssue? issue = null, Action? onTeleported = null)
@@ -30,7 +36,7 @@ public partial class MainWindow
             if (!reply.Ok)
             {
                 if (reply.Error is GameLinkError.Unavailable or GameLinkError.NoReply or GameLinkError.InvalidToken)
-                    _vm.GameLinkConnected = false;
+                    ShowGameLinkStatus(null);
                 if (CanUseGameLink(world) && SameExport()) ShowGameLinkError(reply.Error);
                 else _vm.Status = GameLinkErrorText(reply.Error);
                 return;
@@ -83,7 +89,7 @@ public partial class MainWindow
         try
         {
             GameLinkReply status = await _gameLink.GetStatusAsync();
-            _vm.GameLinkConnected = status.Status is not null;
+            ShowGameLinkStatus(status.Status);
             if (!canSend()) return;
             if (status.Status is not { } game)
             {

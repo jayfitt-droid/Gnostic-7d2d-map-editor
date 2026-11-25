@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
+using MapEditor.Core.GameLink;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
 using MapEditor.Core.Rendering;
@@ -24,10 +25,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _showPlayer;
     [ObservableProperty] private bool _followPlayer;
     [ObservableProperty] private bool _gameLinkInstalled;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(GameLinkConnectionText))] private bool _gameLinkConnected;
+    [ObservableProperty] private bool _gameLinkConnected;
+    [ObservableProperty] private GameLinkIndicator _gameLinkIndicator = GameLinkWorld.Indicator(null, null);
     [ObservableProperty] private bool _canTeleportIssues;
-
-    public string GameLinkConnectionText => GameLinkConnected ? "Game Link connected" : "Game Link disconnected";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Layers))]

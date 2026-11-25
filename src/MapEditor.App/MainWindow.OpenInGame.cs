@@ -39,7 +39,7 @@ public partial class MainWindow
         try
         {
             var reply = await _gameLink.GetStatusAsync();
-            _vm.GameLinkConnected = reply.Status is not null;
+            ShowGameLinkStatus(reply.Status);
             if (_closeWhenIdle) return null;
             if (reply.Status is not { } status) return false;
             if (status.Operation?.State is "leaving" or "opening" or "rebuilding" || status is { State: GameLinkState.Menu, Hosting: true })
@@ -69,6 +69,7 @@ public partial class MainWindow
             }
 
             var confirmed = (await _gameLink.GetStatusAsync()).Status;
+            ShowGameLinkStatus(confirmed);
             if (_closeWhenIdle) return null;
             if (confirmed is null)
             {
@@ -145,7 +146,7 @@ public partial class MainWindow
             else
             {
                 var status = await _gameLink.GetStatusAsync(wait.Token);
-                _vm.GameLinkConnected = status.Status is not null;
+                ShowGameLinkStatus(status.Status);
                 if (status.Status is null)
                 {
                     _vm.Status = $"The game is running without Gnostic Game Link. Close the game, or open '{world}' from the game's menu.";
@@ -229,7 +230,7 @@ public partial class MainWindow
             while (!_closeWhenIdle)
             {
                 var reply = await _gameLink.GetStatusAsync(deadline.Token);
-                _vm.GameLinkConnected = reply.Status is not null;
+                ShowGameLinkStatus(reply.Status);
                 linked |= reply.Status is not null;
                 var result = decide(reply.Status, false);
                 if (result.State != GameLinkWaitState.Waiting) return (result, linked);

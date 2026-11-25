@@ -9,6 +9,12 @@ public readonly record struct GameLinkWaypoint(string Name, int X, int Z);
 /// <summary>The player in north-up map coordinates, with a clockwise heading from north.</summary>
 public readonly record struct GameLinkPlayerMarker(double MapX, double MapY, float Yaw);
 
+/// <summary>The status-bar plug's connection and world match.</summary>
+public enum GameLinkIndicatorState { Disconnected, OtherWorld, ThisWorld }
+
+/// <summary>The status-bar plug's state and the text that explains it.</summary>
+public readonly record struct GameLinkIndicator(GameLinkIndicatorState State, string Text);
+
 /// <summary>Relates Game Link's world and positions to the editor's map.</summary>
 public static class GameLinkWorld
 {
@@ -23,6 +29,28 @@ public static class GameLinkWorld
     /// <summary>Checks the game world against the folder this world was written to.</summary>
     public static bool Matches(string? exportFolder, string gameWorld) =>
         ExportName(exportFolder) is { } name && string.Equals(name, gameWorld, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Describes the latest game status for the editor's status-bar plug.</summary>
+    public static GameLinkIndicator Indicator(string? exportFolder, GameLinkStatus? status)
+    {
+        if (status is null) return new(GameLinkIndicatorState.Disconnected, "Game Link disconnected");
+
+        const string connected = "Game Link connected: ";
+        return status switch
+        {
+            { State: GameLinkState.Menu } => new(GameLinkIndicatorState.OtherWorld, connected + "the game is at the main menu."),
+            { State: GameLinkState.Loading } => new(GameLinkIndicatorState.OtherWorld, connected + "the game is loading."),
+            { State: GameLinkState.Remote } or { Hosting: false } =>
+                new(GameLinkIndicatorState.OtherWorld, connected + "you joined another player's game."),
+            _ when ExportName(exportFolder) is null =>
+                new(GameLinkIndicatorState.OtherWorld, connected + "export this world to compare it with the game."),
+            _ when !Matches(exportFolder, status.World) =>
+                new(GameLinkIndicatorState.OtherWorld, connected + $"the game has '{status.World}' loaded, not this world."),
+            { State: GameLinkState.Ready } => new(GameLinkIndicatorState.ThisWorld, connected + "the game has this world loaded."),
+            { State: GameLinkState.Dead } => new(GameLinkIndicatorState.ThisWorld, connected + "the player is dead in this world."),
+            _ => new(GameLinkIndicatorState.OtherWorld, connected + "the game is not ready."),
+        };
+    }
 
     /// <summary>The local player on this map, when the game has its exported world open.</summary>
     public static GameLinkPlayerMarker? PlayerMarker(string? exportFolder, int size, GameLinkStatus status)
