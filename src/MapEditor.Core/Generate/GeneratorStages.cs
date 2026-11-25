@@ -92,6 +92,13 @@ public sealed class GeneratorStages(World world, GeneratorSettings settings, Gen
         TownSiteStage.MarkBuilt(world, data.Prefabs, settings.Sites);
     }
 
+    /// <summary>Drops the planned sites that aren't built yet as an edit. Built sites stay.</summary>
+    public void ClearTownPlan(EditSession session)
+    {
+        GeneratorEditState.Touch(session, settings);
+        ReplaceSites([.. settings.Sites.Where(s => s.Built)], session);
+    }
+
     /// <summary>Plans a preview on the given sites against the current world.</summary>
     public List<PlannedTown> PlanTowns(TownCells cells, IReadOnlyList<TownSite> sites, TraderMode traders,
         CancellationToken cancel = default) =>
