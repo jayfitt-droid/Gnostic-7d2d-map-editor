@@ -48,6 +48,7 @@ Also town presets, a world grid in map images, project icons in File Explorer an
 
 **Play-test in the game**
 - Install the optional Gnostic Game Link mod. Then teleport to any spot or issue, add a waypoint to a POI, and see your player on the map.
+- **Rebuild the area around the player** changes your save for good. Use the playtest save, or back up your save first. The Game Link page explains how.
 
 **Safe to use**
 - Undo and redo for every edit.
