@@ -763,7 +763,7 @@ Validate also checks:
 Some issues have a **Fix** button. Click it to fix the issue. Then Validate runs again. Press **Ctrl+Z** to undo a fix.
 
 - **A POI does not meet the road level**: **Level road** sets the road and the ground near the POI to the height of the POI.
-  The road then changes height gradually over 20 m.
+  The road then changes height gradually over 20 m. Validate skips this warning for bridges.
 - **A spawn point is under water or outside the world**: **Move spawn** moves it to the nearest dry ground. That ground is in the world and not in a prefab.
 
 Other issues need you to decide what to do, so they have no **Fix** button.
