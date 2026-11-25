@@ -3302,6 +3302,11 @@ public partial class MainWindow : Window
     /// </summary>
     private async Task InstallUpdateAsync(Updates.Result result)
     {
+        if (_vm.IsBusy || _autosaving || _opening || _closeWhenIdle || _confirmingClose || !IsVisible)
+        {
+            _vm.Status = "The editor is busy or closing. Try the update again when the editor is idle.";
+            return;
+        }
         if (_vm.IsLandMode && !ConfirmCloseLand()) return;
         if (!await ConfirmDiscardAsync()) return;
         _vm.Status = "Downloading the update...";
