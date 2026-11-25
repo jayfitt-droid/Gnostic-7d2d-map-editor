@@ -66,7 +66,7 @@ public class GameLinkPlaytestTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void OpenRequestKeepsLongUnicodeNamesAndIsUsedOnce(bool create)
+    public void OpenRequestCanBeLoggedBeforeItIsUsedOnce(bool create)
     {
         string folder = AppContext.BaseDirectory;
         string world = new string('\u754C', 140) + " Test World";
@@ -76,11 +76,16 @@ public class GameLinkPlaytestTests
         string path = GameLinkOpenRequest.RequestPath(folder, id);
         try
         {
+            var target = GameLinkOpenRequest.Peek(folder, id);
+            Assert.NotNull(target);
+            Assert.Equal((world, save, create), (target.World, target.Save, target.Create));
+            Assert.True(File.Exists(path));
             Assert.Null(GameLinkOpenRequest.Take(folder, id, now.AddSeconds(119), out var request));
             Assert.NotNull(request);
             Assert.Equal((world, save, create), (request.World, request.Save, request.Create));
             Assert.False(File.Exists(path));
             Assert.Equal("bad_request", GameLinkOpenRequest.Take(folder, id, now, out _));
+            Assert.Null(GameLinkOpenRequest.Peek(folder, id));
         }
         finally { File.Delete(path); }
     }
@@ -90,11 +95,14 @@ public class GameLinkPlaytestTests
     {
         string folder = AppContext.BaseDirectory;
         var now = DateTimeOffset.UtcNow;
-        string id = new GameLinkOpenRequest(World, Save, true).Write(folder, now);
+        string id = new GameLinkOpenRequest(World, Save, true).Write(folder, now.AddMinutes(-2));
         string path = GameLinkOpenRequest.RequestPath(folder, id);
         try
         {
-            Assert.Equal("expired", GameLinkOpenRequest.Take(folder, id, now.AddMinutes(2), out var request));
+            var target = GameLinkOpenRequest.Peek(folder, id);
+            Assert.NotNull(target);
+            Assert.Equal((World, Save), (target.World, target.Save));
+            Assert.Equal("expired", GameLinkOpenRequest.Take(folder, id, now, out var request));
             Assert.Null(request);
             Assert.False(File.Exists(path));
         }

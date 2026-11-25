@@ -6,6 +6,8 @@ namespace MapEditor.App;
 
 public partial class MainWindow
 {
+    private bool _rebuildWaitActive;
+
     private async Task<GameLinkStatus?> ReadExportGameStatusAsync()
     {
         if (_gameLinkActionRunning) return null;
@@ -81,8 +83,9 @@ public partial class MainWindow
 
     private async Task RebuildAreaAsync(GameLinkStatus target, int radius, CancellationTokenSource wait)
     {
-        string rebuilding = $"Rebuilding around the player in '{target.Save}'... Esc cancels the wait.";
+        string rebuilding = $"Rebuilding around the player in '{target.Save}'... Press Shift-Esc to stop waiting.";
         _vm.Status = rebuilding;
+        _rebuildWaitActive = true;
         try
         {
             var reply = await _gameLink.RebuildAsync(target.World, target.Save, target.Player!, radius, wait.Token);
@@ -119,6 +122,7 @@ public partial class MainWindow
         }
         finally
         {
+            _rebuildWaitActive = false;
             _openInGameWait = null;
             wait.Dispose();
             EndPlaytestAction();

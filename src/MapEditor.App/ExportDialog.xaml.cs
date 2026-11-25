@@ -170,9 +170,12 @@ public partial class ExportDialog : Window
 
     private void GameFolder_Click(object sender, RoutedEventArgs e) => LocationBox.Text = GameInstall.UserGeneratedWorldsDir;
 
+    internal Action? ExportClicked { get; init; }
+
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         if (CurrentFolder() is not { } folder) return;
+        ExportClicked?.Invoke();
         if (_hasErrors &&
             ThemedMessageBox.Show(this, "The world has errors, so the game may not load it properly. Export it anyway?", "Export World",
                 MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)

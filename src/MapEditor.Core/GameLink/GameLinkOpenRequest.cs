@@ -37,15 +37,28 @@ internal sealed class GameLinkOpenRequest(string world, string save, bool create
     }
 
     /// <summary>Claims the file once and deletes it before returning a target to the game.</summary>
-    public static string? Take(string directory, string id, DateTimeOffset now, out GameLinkOpenRequest? request)
+    public static string? Take(string directory, string id, DateTimeOffset now, out GameLinkOpenRequest? request) =>
+        Read(directory, id, now, out request);
+
+    /// <summary>Reads a target for logging without claiming the request.</summary>
+    public static GameLinkOpenRequest? Peek(string directory, string id)
+    {
+        Read(directory, id, null, out var request);
+        return request;
+    }
+
+    private static string? Read(string directory, string id, DateTimeOffset? claimTime,
+        out GameLinkOpenRequest? request)
     {
         request = null;
         if (!GameLinkProtocol.IsOperationId(id)) return "bad_request";
         string path = RequestPath(directory, id);
+        bool consume = claimTime.HasValue;
         try
         {
-            using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None,
-                bufferSize: 4096, FileOptions.DeleteOnClose);
+            using var file = new FileStream(path, FileMode.Open, FileAccess.Read,
+                consume ? FileShare.None : FileShare.Read, bufferSize: 4096,
+                consume ? FileOptions.DeleteOnClose : FileOptions.None);
             if (file.Length > MaxBytes) return "bad_request";
             using var reader = new StreamReader(file, Utf8, detectEncodingFromByteOrderMarks: false);
             string? expires = reader.ReadLine();
@@ -56,7 +69,7 @@ internal sealed class GameLinkOpenRequest(string world, string save, bool create
                 mode is not ("create" or "continue") || world is null || save is null ||
                 !IsFolderName(world) || !IsFolderName(save) || reader.ReadLine() is not null)
                 return "bad_request";
-            if (expiry <= now.ToUnixTimeSeconds() || expiry > now.Add(Lifetime).ToUnixTimeSeconds())
+            if (claimTime is { } now && (expiry <= now.ToUnixTimeSeconds() || expiry > now.Add(Lifetime).ToUnixTimeSeconds()))
                 return "expired";
 
             request = new(world, save, mode == "create");
