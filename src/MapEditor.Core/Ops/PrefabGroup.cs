@@ -262,6 +262,7 @@ public sealed class PrefabGroup
         var yDeltas = roots.ToDictionary(t => t.Prefab,
             t => PrefabPlacer.PrefabY(t.Info, ground[t.Prefab]) + (_prefabHeightOffsets?.GetValueOrDefault(t.Prefab) ?? 0)
                 - t.Prefab.Position.Y);
+        var pastedTiles = new Dictionary<PrefabInstance, PrefabInstance>();
         if (targets.Length > 0)
         {
             TouchPrefabs(session, moving.Concat(removed), targets.Select(t => t.Cells));
@@ -273,6 +274,7 @@ public sealed class PrefabGroup
                 prefab.Position = t.Spot.Position with { Y = prefab.Position.Y + yDeltas[root] };
                 prefab.Rotation = t.Spot.Rotation;
                 pastedPrefabs?.Add(prefab);
+                if (paste && t.Info.IsStreetTile) pastedTiles.Add(t.Prefab, prefab);
             }
             if (pastedPrefabs is not null) _world.Prefabs.AddRange(pastedPrefabs);
         }
@@ -282,17 +284,12 @@ public sealed class PrefabGroup
             var surfaces = roots.Where(t => !t.Info.IsPart).ToArray();
             foreach (var t in surfaces)
                 PrefabPlacer.Flatten(_world, t.Cells, ground[t.Prefab],
-                    t.Info.IsStreetTile ? PrefabPlacer.StreetTileBlend : PrefabPlacer.PoiBlend, session);
-            // A blend from one member can reach inside another. Restore their footprints, with tiles last.
+                    t.Info.IsStreetTile ? PrefabPlacer.StreetTileBlend : PrefabPlacer.PoiBlend, session, library: _library,
+                    ownTile: pastedTiles.GetValueOrDefault(t.Prefab, t.Prefab));
+            // Blends can reach into another POI. Restore the POI footprints, still sparing street tiles.
             if (surfaces.Length > 1)
-                foreach (var t in surfaces)
-                {
-                    var cells = t.Cells.Clamp(_world.Size, _world.Size);
-                    if (cells.IsEmpty) continue;
-                    ushort height = World.MetresToHeight(ground[t.Prefab]);
-                    for (int z = cells.Z0; z < cells.Z1; z++)
-                        _world.Height.Row(z)[cells.X0..cells.X1].Fill(height);
-                }
+                foreach (var t in surfaces.Where(t => !t.Info.IsStreetTile))
+                    PrefabPlacer.Flatten(_world, t.Cells, ground[t.Prefab], 0, session, library: _library);
         }
 
         foreach (var (spawn, x, z, rotation) in layout.Spawns)

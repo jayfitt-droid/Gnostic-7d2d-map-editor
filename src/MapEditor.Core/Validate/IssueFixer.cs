@@ -59,7 +59,7 @@ public static class IssueFixer
         int ground = info.RoadLevelAbove(prefab.Position.Y);
         int touch = PrefabPlacer.RoadTouch + 1;
         var band = new GridRect(cells.X0 - touch, cells.Z0 - touch, cells.X1 + touch, cells.Z1 + touch).Clamp(world.Size, world.Size);
-        PrefabPlacer.Flatten(world, band, ground, RoadBlend, session, spareRoads: false);
+        PrefabPlacer.Flatten(world, band, ground, RoadBlend, session, spareRoads: false, library: library, ownTile: prefab);
         return $"Levelled the road and ground beside {prefab.Name} to {ground} m.";
     }
 

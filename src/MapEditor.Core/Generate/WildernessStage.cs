@@ -609,7 +609,8 @@ public static class WildernessStage
         var spot = new PrefabSpot(poi.X, PrefabPlacer.PrefabY(info, ground), poi.Z, poi.Rotation);
         int blend = PrefabPlacer.PoiBlend;
         var area = new GridRect(rect.X0 - blend - 1, rect.Z0 - blend - 1, rect.X1 + blend + 1, rect.Z1 + blend + 1);
-        poi.Ground = HighwayStage.Capture(world, [area], () => PrefabPlacer.Flatten(world, rect, ground, blend, ctx.Session));
+        poi.Ground = HighwayStage.Capture(world, [area],
+            () => PrefabPlacer.Flatten(world, rect, ground, blend, ctx.Session, library: ctx.Library));
         poi.Order = ctx.NextOrder++;
 
         var made = new List<PrefabInstance> { new() { Name = info.Name, Position = spot.Position, Rotation = spot.Rotation } };

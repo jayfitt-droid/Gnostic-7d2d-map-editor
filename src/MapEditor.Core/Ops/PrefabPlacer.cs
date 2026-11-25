@@ -68,45 +68,92 @@ public static class PrefabPlacer
     /// <summary>How far (in metres) from a road the blend around a flattened footprint fades in, so roads keep their shape.</summary>
     public const int RoadClearance = 6;
 
+    /// <summary>How far from another street tile the blend fades in.</summary>
+    private const int StreetTileClearance = 6;
+
     /// <summary>
     /// Sets the ground in <paramref name="cells"/> to <paramref name="height"/> metres and blends it back into
     /// the surrounding terrain with a smoothstep over <paramref name="blend"/> metres. Roads outside the cells are
     /// left as they are, the blend easing in over <see cref="RoadClearance"/> m beside them, unless
-    /// <paramref name="spareRoads"/> is false (levelling a road to a prefab, #40). Returns the cells changed.
+    /// <paramref name="spareRoads"/> is false (levelling a road to a prefab, #40). With a prefab library, other
+    /// street tiles keep their ground and the blend eases in beside them. Returns the cells changed.
     /// </summary>
-    public static GridRect Flatten(World world, GridRect cells, int height, int blend, EditSession session, bool spareRoads = true)
+    public static GridRect Flatten(World world, GridRect cells, int height, int blend, EditSession session, bool spareRoads = true,
+        PrefabLibrary? library = null, PrefabInstance? ownTile = null)
     {
         var area = new GridRect(cells.X0 - blend - 1, cells.Z0 - blend - 1, cells.X1 + blend + 1, cells.Z1 + blend + 1)
             .Clamp(world.Size, world.Size);
         if (area.IsEmpty) return GridRect.Empty;
         session.Touch(world.Height, area);
         ushort flat = World.MetresToHeight(height);
-        var roadDistance = spareRoads ? RoadDistance(world, area, RoadClearance) : null;
+        var roadDistance = spareRoads && blend > 0 ? RoadDistance(world, area, RoadClearance) : null;
+        var tileDistance = library is null ? null : StreetTileDistance(world, area, library, ownTile);
+        int width = area.X1 - area.X0;
         for (int z = area.Z0; z < area.Z1; z++)
         {
             int dz = z < cells.Z0 ? cells.Z0 - z : z >= cells.Z1 ? z - (cells.Z1 - 1) : 0;
             for (int x = area.X0; x < area.X1; x++)
             {
+                int i = (z - area.Z0) * width + x - area.X0;
+                float tile = tileDistance?[i] ?? float.MaxValue;
+                if (tile == 0) continue;
                 int dx = x < cells.X0 ? cells.X0 - x : x >= cells.X1 ? x - (cells.X1 - 1) : 0;
                 if (dx == 0 && dz == 0)
                 {
                     world.Height[x, z] = flat;
                     continue;
                 }
+                if (blend == 0) continue;
                 float t = MathF.Sqrt(dx * dx + dz * dz) / blend;
                 if (t >= 1) continue;
                 float s = t * t * (3 - 2 * t);
-                if (roadDistance is not null)
+                float r = Math.Min((roadDistance?[i] ?? float.MaxValue) / RoadClearance, tile / StreetTileClearance);
+                if (r <= 0) continue;
+                if (roadDistance is not null || r < 1)
                 {
-                    float r = Math.Clamp(roadDistance[(z - area.Z0) * (area.X1 - area.X0) + x - area.X0] / RoadClearance, 0, 1);
-                    if (r <= 0) continue;
+                    r = Math.Min(r, 1);
                     s = 1 - (1 - s) * r * r * (3 - 2 * r);
                 }
-                float current = World.HeightToMetres(world.Height[x, z]);
+                ushort raw = world.Height[x, z];
+                if (raw == flat) continue;
+                float current = World.HeightToMetres(raw);
                 world.Height[x, z] = World.MetresToHeight(current * s + height * (1 - s));
             }
         }
         return area;
+    }
+
+    /// <summary>The distance to the nearest protected street tile, zero inside its footprint.</summary>
+    private static float[]? StreetTileDistance(World world, GridRect area, PrefabLibrary library, PrefabInstance? ownTile)
+    {
+        int reach = StreetTileClearance;
+        int width = area.X1 - area.X0;
+        float[]? result = null;
+        foreach (var prefab in world.Prefabs)
+        {
+            if (ReferenceEquals(prefab, ownTile) || library.Find(prefab.Name) is not { IsStreetTile: true } info) continue;
+            var cells = Footprint(world, info, prefab.Position.X, prefab.Position.Z, prefab.Rotation).Clamp(world.Size, world.Size);
+            if (cells.IsEmpty) continue;
+            var near = new GridRect(Math.Max(area.X0, cells.X0 - reach), Math.Max(area.Z0, cells.Z0 - reach),
+                Math.Min(area.X1, cells.X1 + reach), Math.Min(area.Z1, cells.Z1 + reach));
+            if (near.IsEmpty) continue;
+            if (result is null)
+            {
+                result = new float[width * (area.Z1 - area.Z0)];
+                Array.Fill(result, float.MaxValue);
+            }
+            for (int z = near.Z0; z < near.Z1; z++)
+            {
+                int dz = Math.Max(0, Math.Max(cells.Z0 - z, z - cells.Z1 + 1));
+                for (int x = near.X0; x < near.X1; x++)
+                {
+                    int dx = Math.Max(0, Math.Max(cells.X0 - x, x - cells.X1 + 1));
+                    int i = (z - area.Z0) * width + x - area.X0;
+                    result[i] = Math.Min(result[i], MathF.Sqrt(dx * dx + dz * dz));
+                }
+            }
+        }
+        return result;
     }
 
     /// <summary>
@@ -489,13 +536,13 @@ public static class PrefabPlacer
     /// street-tile lot is left on the tile's ground.
     /// </summary>
     public static PrefabInstance Place(World world, PrefabInfo info, PrefabSpot spot, bool flatten, EditSession session,
-        bool snappedToLot = false)
+        bool snappedToLot = false, PrefabLibrary? library = null)
     {
         var instance = new PrefabInstance { Name = info.Name, Position = spot.Position, Rotation = spot.Rotation };
         var cells = Footprint(world, info, spot.X, spot.Z, spot.Rotation);
         session.TouchList(world.Prefabs, p => p.Clone(), cells.Clamp(world.Size, world.Size));
         world.Prefabs.Add(instance);
-        if (flatten && !snappedToLot && !info.IsPart) FlattenUnder(world, info, cells, spot, session);
+        if (flatten && !snappedToLot && !info.IsPart) FlattenUnder(world, info, cells, instance, session, library);
         return instance;
     }
 
@@ -553,17 +600,18 @@ public static class PrefabPlacer
 
         var after = Footprint(world, info, spot.X, spot.Z, spot.Rotation);
         session.TouchList(world.Prefabs, p => p.Clone(), after.Clamp(world.Size, world.Size));
-        if (flatten && !snappedToLot && !info.IsPart) FlattenUnder(world, info, after, spot, session);
+        if (flatten && !snappedToLot && !info.IsPart) FlattenUnder(world, info, after, prefab, session, library);
     }
 
     /// <summary>
     /// Flattens a placed prefab's footprint and blends it into the ground around; roads outside it are left as drawn
     /// (the prefab takes a road's height instead, in <see cref="SpotAt"/>).
     /// </summary>
-    private static void FlattenUnder(World world, PrefabInfo info, GridRect cells, PrefabSpot spot, EditSession session)
+    private static void FlattenUnder(World world, PrefabInfo info, GridRect cells, PrefabInstance prefab, EditSession session,
+        PrefabLibrary? library)
     {
-        int ground = GroundUnder(info, spot.Y);
-        Flatten(world, cells, ground, info.IsStreetTile ? StreetTileBlend : PoiBlend, session);
+        int ground = GroundUnder(info, prefab.Position.Y);
+        Flatten(world, cells, ground, info.IsStreetTile ? StreetTileBlend : PoiBlend, session, library: library, ownTile: prefab);
     }
 
     /// <summary>Removes a prefab and everything on it (<see cref="Contents"/>). Returns how many were removed.</summary>
@@ -615,7 +663,7 @@ public static class PrefabPlacer
                 world.GridToWorld((int)MathF.Round(cz - sz / 2f)), rotation);
         }
 
-        var placed = Place(world, info, spot, flatten, session, inLot is not null);
+        var placed = Place(world, info, spot, flatten, session, inLot is not null, library);
         // Keep its place in the list, so prefabs.xml only changes on that line.
         world.Prefabs.Remove(placed);
         world.Prefabs.Insert(Math.Clamp(index, 0, world.Prefabs.Count), placed);

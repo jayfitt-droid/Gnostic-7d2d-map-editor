@@ -86,6 +86,75 @@ public sealed class TownTests
     private static readonly (int X, int Z)[] Dirs = [(0, 1), (1, 0), (0, -1), (-1, 0)];
 
     [Fact]
+    public void Flattening_eases_into_the_blend_beside_an_existing_street_tile()
+    {
+        var world = Flat();
+        var tile = new TownTile(3, 3);
+        world.Prefabs.Add(StreetTileAt(world, tile, 40));
+        var edits = new EditRunner(new UndoStack());
+
+        Assert.True(edits.Run(world, "Flatten", s =>
+            PrefabPlacer.Flatten(world, new GridRect(410, 500, 430, 520), 64, 50, s, library: Library)));
+
+        AssertTileGround(world, tile, 40);
+        ushort near = world.Height[449, 510], farther = world.Height[444, 510];
+        Assert.True(World.MetresToHeight(40) < near && near < farther && farther < World.MetresToHeight(64));
+    }
+
+    [Fact]
+    public void A_town_blend_leaves_the_tiles_of_a_touching_town_at_their_own_level()
+    {
+        var world = Flat();
+        var first = new TownPlan { Township = Town, Ground = 45 };
+        first.Tiles.Add(new TownTile(3, 3));
+        first.Prefabs.Add(StreetTileAt(world, first.Tiles[0], first.Ground));
+        var next = new TownPlan { Township = Town, Ground = 69 };
+        next.Tiles.AddRange([new(2, 3), new(2, 4), new(3, 4)]);
+        next.Prefabs.AddRange(next.Tiles.Select(t => StreetTileAt(world, t, next.Ground)));
+        var edits = new EditRunner(new UndoStack());
+
+        Assert.True(edits.Run(world, "First town", s => TownGenerator.Apply(world, Library, first, s)));
+        Assert.True(edits.Run(world, "Next town", s => TownGenerator.Apply(world, Library, next, s)));
+
+        AssertTileGround(world, first.Tiles[0], first.Ground);
+        Assert.All(next.Tiles, t => AssertTileGround(world, t, next.Ground));
+    }
+
+    [Fact]
+    public void Placing_a_poi_beside_a_street_tile_leaves_the_tile_at_its_own_level()
+    {
+        var world = Flat();
+        var tile = new TownTile(3, 3);
+        world.Prefabs.Add(StreetTileAt(world, tile, 40));
+        var house = Library.Find("house_01")!;
+        var spot = new PrefabSpot(world.GridToWorld(430), PrefabPlacer.PrefabY(house, 55), world.GridToWorld(500), 0);
+        var edits = new EditRunner(new UndoStack());
+
+        Assert.True(edits.Run(world, "Place POI", s => PrefabPlacer.Place(world, house, spot, true, s, library: Library)));
+
+        Assert.Equal(World.MetresToHeight(55), world.Height[449, 510]);
+        AssertTileGround(world, tile, 40);
+    }
+
+    private static PrefabInstance StreetTileAt(World world, TownTile tile, int ground)
+    {
+        var info = Library.Find("rwg_tile_downtown_cap")!;
+        return new PrefabInstance
+        {
+            Name = info.Name,
+            Position = new Int3(world.GridToWorld(tile.X0), PrefabPlacer.PrefabY(info, ground), world.GridToWorld(tile.Z0)),
+        };
+    }
+
+    private static void AssertTileGround(World world, TownTile tile, int ground)
+    {
+        ushort raw = World.MetresToHeight(ground);
+        var cells = tile.Cells;
+        for (int z = cells.Z0; z < cells.Z1; z++)
+            Assert.True(world.Height.Row(z)[cells.X0..cells.X1].IndexOfAnyExcept(raw) < 0, $"Tile ground changed on row {z}");
+    }
+
+    [Fact]
     public void Road_shapes_turn_clockwise_and_cover_every_exit_set()
     {
         Assert.Equal((0, 0), TownGenerator.ShapeFor(0b0101)); // straight north-south
@@ -237,6 +306,52 @@ public sealed class TownTests
         var keep = TownGenerator.Plan(world, Library, Mixer, Biomes, sel, new TownOptions(Town, 1) { ReplacePrefabs = false });
         Assert.Empty(keep.Removed);
         Assert.Null(Covering(keep, 620, 620));
+    }
+
+    [Theory]
+    [InlineData(600, 450, false)]
+    [InlineData(600, 600, true)]
+    [InlineData(749, 475, true)]
+    public void A_drawn_town_keeps_a_full_tile_gap_from_a_generated_town(int x, int z, bool replace)
+    {
+        var world = Flat();
+        var generated = TownGenerator.PlanCells(world, Library, Mixer, Biomes, [(3, 3)], new HashSet<(int, int)>(),
+            new TownOptions(Town, 1));
+        var edits = new EditRunner(new UndoStack());
+        Assert.True(edits.Run(world, "Build generated town", s => TownGenerator.Apply(world, Library, generated, s)));
+        var existing = Assert.Single(world.Prefabs, p => Library.Find(p.Name)!.IsStreetTile);
+        var options = new TownOptions(Town, 2) { ReplacePrefabs = replace, ConnectRoads = false };
+        var tooClose = TownGenerator.Plan(world, Library, Mixer, Biomes, new GridRect(x, z, x + 150, z + 150), options);
+
+        Assert.Empty(tooClose.Tiles);
+        Assert.Empty(tooClose.Removed);
+        Assert.Contains(tooClose.Warnings, warning => warning.Contains("150 m gap"));
+
+        var resized = TownGenerator.Plan(world, Library, Mixer, Biomes, new GridRect(600, 450, 900, 600), options);
+        var tile = Assert.Single(resized.Tiles);
+        Assert.Equal(750, tile.X0);
+        Assert.True(edits.Run(world, "Build drawn town", s => TownGenerator.Apply(world, Library, resized, s)));
+        Assert.Contains(existing, world.Prefabs);
+        AssertTileGround(world, Assert.Single(generated.Tiles), generated.Ground);
+    }
+
+    [Fact]
+    public void Replacing_a_whole_drawn_town_still_works_but_partial_replacement_keeps_the_gap()
+    {
+        var world = Flat();
+        var west = StreetTileAt(world, new TownTile(3, 3), 40);
+        var east = StreetTileAt(world, new TownTile(4, 3), 40);
+        world.Prefabs.AddRange([west, east]);
+        var options = new TownOptions(Town, 1) { ReplacePrefabs = true, ConnectRoads = false };
+
+        var partial = TownGenerator.Plan(world, Library, Mixer, Biomes, new GridRect(450, 450, 600, 600), options);
+        Assert.Empty(partial.Tiles);
+        Assert.Empty(partial.Removed);
+        Assert.Contains(partial.Warnings, warning => warning.Contains("150 m gap"));
+
+        var whole = TownGenerator.Plan(world, Library, Mixer, Biomes, new GridRect(450, 450, 750, 600), options);
+        Assert.Equal(2, whole.Tiles.Count);
+        Assert.Equal([west, east], whole.Removed);
     }
 
     [Fact]

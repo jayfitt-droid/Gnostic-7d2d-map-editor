@@ -268,9 +268,9 @@ public sealed class TownSiteTests
         var towns = TownSiteStage.PlanTowns(world, Library, Mixer, BiomeTable.Vanilla, cells, sites, TestContext.Current.CancellationToken);
         Assert.Equal(sites.Count, towns.Count);
         Assert.All(towns, t => Assert.NotEmpty(t.Plan.Tiles));
-        // Planned together, the towns never share a cell.
         var tiles = towns.SelectMany(t => t.Plan.Tiles.Select(x => (x.Cx, x.Cz))).ToList();
-        Assert.Equal(tiles.Count, tiles.Distinct().Count());
+        for (int i = 0; i < towns.Count; i++)
+            AssertTownGap(towns[i].Plan, towns.Skip(i + 1).SelectMany(t => t.Plan.Tiles));
 
         var runner = new EditRunner(new UndoStack());
         Assert.True(runner.Run(world, "Build towns", s => TownSiteStage.Build(world, Library, towns, s)));
@@ -284,6 +284,40 @@ public sealed class TownSiteTests
         Assert.All(sites, s => Assert.False(s.Built));
         session.Rollback();
         Assert.Equal(built, world.Prefabs.Count);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Gateways_keep_a_gap_from_planned_and_built_towns(bool built)
+    {
+        var world = Desert(2400);
+        var first = new TownSite { Township = "town", Seed = 3, Cells = [[5, 5]] };
+        var second = new TownSite { Township = "town", Seed = 5, Cells = [[8, 5]] };
+        if (built)
+        {
+            // An existing street tile with no saved town site, one cell east of the old gateway position.
+            var tile = Library.Find("rwg_tile_downtown_cap")!;
+            world.Prefabs.Add(new PrefabInstance
+            {
+                Name = tile.Name,
+                Position = new Int3(world.GridToWorld(7 * TownSiteStage.Cell), PrefabPlacer.PrefabY(tile, 40),
+                    world.GridToWorld(5 * TownSiteStage.Cell)),
+            });
+        }
+
+        var towns = TownSiteStage.PlanTowns(world, Library, Mixer, BiomeTable.Vanilla, Cells(world),
+            built ? [first] : [first, second], TestContext.Current.CancellationToken);
+
+        Assert.Equal(built ? 1 : 2, towns.Count);
+        Assert.All(towns, t => Assert.Contains(t.Plan.Tiles, tile => tile.IsGateway));
+        AssertTownGap(towns[0].Plan, built ? [new TownTile(7, 5)] : towns[1].Plan.Tiles);
+    }
+
+    private static void AssertTownGap(TownPlan town, IEnumerable<TownTile> others)
+    {
+        foreach (var b in others)
+            Assert.DoesNotContain(town.Tiles, a => Math.Abs(a.Cx - b.Cx) <= 1 && Math.Abs(a.Cz - b.Cz) <= 1);
     }
 
     [Fact]
