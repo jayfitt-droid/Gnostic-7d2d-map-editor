@@ -41,10 +41,18 @@ To uninstall the mod, delete the `GnosticGameLink` folder.
 
 The [user manual](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/USER-MANUAL.md#use-gnostic-game-link) explains each step.
 
+## Back up your save before a rebuild
+
+**Rebuild the area around the player** changes your save, and you cannot undo it. In the rebuilt area, the game removes player buildings, loot, land claims, bedrolls, vehicles and dropped backpacks. The area can be larger than the radius, because it includes whole POIs at the edge.
+
+- Use the playtest save that the editor makes (`<world> Playtest`), not a save that you play for real.
+- Before you rebuild in any other save, close the game and copy the save folder: `%AppData%\7DaysToDie\Saves\<world>\<save>`. To go back, put the copy back.
+- Read the warning before you click **OK**. Click **Cancel** if you are not sure.
+
 ## Safe by design
 
 - The mod listens only on your own PC (127.0.0.1, port 7790). Other computers cannot connect to it.
-- It accepts only three short requests: status, teleport and waypoint. It does not change your world, your saves or other players.
+- It does not change your world or other players. Only **Rebuild the area around the player** changes your save (see above).
 - Waypoints are temporary. The game does not save them.
 - It needs no other mods and changes no game files.
 
