@@ -801,11 +801,11 @@ If the game cannot open an old playtest save, the editor shows a message. To mak
 
 #### Rebuild the area around the player
 
-Start the game with Gnostic Game Link. Open a save that uses the world you export to. Play alone in this save. Select **Rebuild the area around the player** in **Export World**. The editor shows the save name. If you cannot select this option, read the note below it.
+Start the game with Gnostic Game Link. Open a save that uses the world you export to. Play alone in this save. Move the player to the area to rebuild. Select **Rebuild the area around the player** in **Export World**. The editor shows the save name. The option is unavailable if the map has no changes since the last export to that folder. If you cannot select this option, read the note below it.
 
 Set **Radius** from 16 to 512 m. The default is 128 m. The editor keeps the radius for the next export. The game rebuilds a square around the player, not a circle. The radius is the distance from the player to each side of the square. A 128 m radius gives a square of 256 m by 256 m. The game uses whole 16 m chunks. It includes whole POIs that cross the edge, so the area can extend farther than the radius.
 
-Read the warning before you click **OK**. You lose player buildings, loot, bedrolls and land claims in the chunks that the game rebuilds. This includes the full area of POIs near the edge. Click **Cancel** to stop the export and keep the save as it is.
+Read the warning before you click **OK**. The warning shows the number of chunks and how far the area extends from the player along the map axes. It tells you if POIs make the area much larger than the square. You lose player buildings, loot, bedrolls and land claims in the chunks that the game rebuilds. This includes the full area of POIs near the edge. Click **Cancel** to stop the export and keep the save as it is.
 
 The game saves, goes to the main menu, and opens the same save after the export. The player goes back to the same map position, at the new ground height. Press **Shift-Esc** in the editor to stop waiting. The game can still finish the rebuild.
 
