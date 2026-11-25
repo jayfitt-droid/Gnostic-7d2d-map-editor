@@ -38,7 +38,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private WorldStatsViewModel? _worldStats;
     [ObservableProperty] private string _worldStatsStatus = "";
     [ObservableProperty] private string _gameFolderText = "";
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanBuildLand))] private bool _isBusy;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanBuildLand), nameof(CanCheckForUpdates))] private bool _isBusy;
 
     /// <summary>An update check or install is running. Only one runs at a time.</summary>
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanCheckForUpdates))] private bool _isUpdateRunning;
@@ -50,7 +50,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool IsWorldMode => !IsLandMode;
     public bool CanBuildLand => IsLandMode && !IsBusy;
-    public bool CanCheckForUpdates => IsWorldMode && !IsUpdateRunning;
+    public bool CanCheckForUpdates => IsWorldMode && !IsBusy && !IsUpdateRunning;
 
     public BiomeTable Biomes
     {
