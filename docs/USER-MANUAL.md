@@ -148,7 +148,7 @@ If the editor cannot connect to Game Link, it shows a message. You can still use
 
 Each time you start the game, Game Link makes a new token. The editor uses this token to connect. If you get a token error, start the game again. If the problem continues, install the mod that matches the editor.
 
-If you installed Game Link, a plug icon appears in the status bar. It turns green when the game replies. Point to the icon to read the connection status.
+If you installed Game Link, a plug icon appears in the status bar. The icon is grey if the game does not reply. It is green if you host the game and the game has this world open. It stays green if the player dies. It is yellow at the main menu, while the game loads, or if the game has a different world open. It is also yellow if you join another player's game or if you have no export folder. Point to the icon to read the connection status.
 
 After a teleport, the status bar tells you if the editor has changes since export. Export again to use the latest terrain. A saved game keeps the terrain in chunks that it already generated.
 
