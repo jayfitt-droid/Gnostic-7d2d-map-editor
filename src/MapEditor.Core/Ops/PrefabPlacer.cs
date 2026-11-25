@@ -169,7 +169,7 @@ public static class PrefabPlacer
         for (int z = around.Z0; z < around.Z1; z++)
             for (int x = around.X0; x < around.X1; x++)
             {
-                if (roads[x, z] == 0) continue;
+                if (!RoadPaint.IsRoad(roads[x, z])) continue;
                 if (result is null)
                 {
                     result = new float[w * d];
@@ -202,7 +202,7 @@ public static class PrefabPlacer
         for (int z = near.Z0; z < near.Z1; z++)
             for (int x = near.X0; x < near.X1; x++)
             {
-                if (roads[x, z] == 0) continue;
+                if (!RoadPaint.IsRoad(roads[x, z])) continue;
                 int dx = x < cells.X0 ? cells.X0 - x : x >= cells.X1 ? x - (cells.X1 - 1) : 0;
                 int dz = z < cells.Z0 ? cells.Z0 - z : z >= cells.Z1 ? z - (cells.Z1 - 1) : 0;
                 if (dx * dx + dz * dz > RoadTouch * RoadTouch) continue;
@@ -233,7 +233,7 @@ public static class PrefabPlacer
         for (int z = near.Z0; z < near.Z1; z++)
             for (int x = near.X0; x < near.X1; x++)
             {
-                if (roads[x, z] == 0) continue;
+                if (!RoadPaint.IsRoad(roads[x, z])) continue;
                 int dx = x < cells.X0 ? cells.X0 - x : x >= cells.X1 ? x - (cells.X1 - 1) : 0;
                 int dz = z < cells.Z0 ? cells.Z0 - z : z >= cells.Z1 ? z - (cells.Z1 - 1) : 0;
                 if (dx * dx + dz * dz > RoadTouch * RoadTouch) continue;

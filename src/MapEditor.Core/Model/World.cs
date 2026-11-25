@@ -13,6 +13,13 @@ public enum RoadType : byte
     Water = 3,
 }
 
+/// <summary>Classifies paint stored in the road layer.</summary>
+public static class RoadPaint
+{
+    /// <summary>Returns true for asphalt or gravel road paint.</summary>
+    public static bool IsRoad(byte paint) => paint is (byte)RoadType.Asphalt or (byte)RoadType.Gravel;
+}
+
 public readonly record struct Int3(int X, int Y, int Z)
 {
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{X},{Y},{Z}");

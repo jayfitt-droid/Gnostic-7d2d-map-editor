@@ -11,8 +11,8 @@ public sealed class PrefabRoadTests
 {
     private static float H(World world, int x, int z) => World.HeightToMetres(world.Height[x, z]);
 
-    /// <summary>A flat 40 m world with an east-west asphalt road along z = 300, raised to 43 m.</summary>
-    private static World WorldWithRoad()
+    /// <summary>A flat 40 m world with an east-west strip of road-layer paint along z = 300.</summary>
+    private static World WorldWithStrip(RoadType paint = RoadType.Asphalt, int height = 43)
     {
         var world = new World { Name = "T", Size = 600, Height = new Grid<ushort>(600, 600) };
         Array.Fill(world.Height.Data, World.MetresToHeight(40));
@@ -20,8 +20,8 @@ public sealed class PrefabRoadTests
         for (int z = 295; z < 305; z++)
             for (int x = 0; x < 600; x++)
             {
-                world.Roads[x, z] = (byte)RoadType.Asphalt;
-                world.Height[x, z] = World.MetresToHeight(43);
+                world.Roads[x, z] = (byte)paint;
+                world.Height[x, z] = World.MetresToHeight(height);
             }
         return world;
     }
@@ -29,7 +29,7 @@ public sealed class PrefabRoadTests
     [Fact]
     public void Flattening_beside_a_road_leaves_the_road_as_it_was()
     {
-        var world = WorldWithRoad();
+        var world = WorldWithStrip();
         PrefabPlacer.Flatten(world, new GridRect(200, 308, 240, 348), 46, PrefabPlacer.StreetTileBlend, new EditSession("Place"));
 
         for (int x = 150; x < 300; x += 5)
@@ -45,7 +45,7 @@ public sealed class PrefabRoadTests
     [Fact]
     public void A_poi_that_meets_a_road_takes_its_height()
     {
-        var world = WorldWithRoad();
+        var world = WorldWithStrip();
         var poi = new PrefabInfo("trader_joel", "POIs", new Int3(40, 20, 40), -2, 0, 0, ["trader"], null);
         var library = PrefabLibrary.Of([poi]);
 
@@ -63,7 +63,7 @@ public sealed class PrefabRoadTests
     [Fact]
     public void A_road_level_with_the_prefab_is_not_flagged()
     {
-        var world = WorldWithRoad();
+        var world = WorldWithStrip();
         Assert.Equal(0, PrefabPlacer.RoadMismatch(world, new GridRect(200, 305, 240, 345), 43), 2);
         Assert.Equal(0, PrefabPlacer.RoadMismatch(world, new GridRect(200, 320, 240, 360), 40), 2); // no road within 3 m
     }
@@ -72,7 +72,7 @@ public sealed class PrefabRoadTests
     public void A_one_block_step_to_the_road_is_not_flagged()
     {
         // RWG leaves many 1 m steps between a POI and the road beside it; only bigger ones are worth fixing.
-        var world = WorldWithRoad();
+        var world = WorldWithStrip();
         var cells = new GridRect(200, 305, 240, 345);
         Assert.False(PrefabPlacer.RoadMismatch(world, cells, 42) > PrefabPlacer.RoadStep);
         Assert.False(PrefabPlacer.RoadMismatch(world, cells, 44) > PrefabPlacer.RoadStep);
@@ -83,7 +83,7 @@ public sealed class PrefabRoadTests
     [Fact]
     public void Validate_skips_the_road_level_warning_for_a_bridge_over_a_road()
     {
-        var world = WorldWithRoad();
+        var world = WorldWithStrip();
         var bridge = new PrefabInfo(BridgeOp.Tile, "POIs", new Int3(14, 14, 9), -1, 0, 0, ["rwgonly"], null);
         var poi = new PrefabInfo("plain_poi", "POIs", bridge.Size, -1, 0, 0, [], null);
         var library = PrefabLibrary.Of([bridge, poi]);
@@ -104,7 +104,7 @@ public sealed class PrefabRoadTests
     [Fact]
     public void A_road_sloping_past_the_prefab_is_flagged()
     {
-        var world = WorldWithRoad();
+        var world = WorldWithStrip();
         // The road climbs 5% eastwards: 40 m long frontage, 2 m rise.
         for (int z = 295; z < 305; z++)
             for (int x = 0; x < 600; x++) world.Height[x, z] = World.MetresToHeight(30 + x * 0.05f);
@@ -113,5 +113,37 @@ public sealed class PrefabRoadTests
         Assert.Equal(41, ground);
         Assert.InRange(PrefabPlacer.RoadMismatch(world, cells, ground), 1.0f, 1.2f);
         Assert.True(PrefabPlacer.RoadMismatch(world, cells, ground) > PrefabPlacer.RoadStep);
+    }
+
+    [Fact]
+    public void A_river_path_does_not_set_prefab_ground()
+    {
+        var world = WorldWithStrip(RoadType.Water, 35);
+        var cells = new GridRect(200, 305, 240, 345);
+
+        Assert.Null(PrefabPlacer.RoadGround(world, cells));
+    }
+
+    [Fact]
+    public void A_river_path_does_not_cause_a_road_mismatch()
+    {
+        var world = WorldWithStrip(RoadType.Water, 35);
+        var cells = new GridRect(200, 305, 240, 345);
+
+        Assert.Equal(0f, PrefabPlacer.RoadMismatch(world, cells, 40));
+    }
+
+    [Fact]
+    public void Flattening_beside_a_river_path_blends_across_it()
+    {
+        var world = WorldWithStrip(RoadType.Water, 35);
+        var unpainted = world.Clone();
+        unpainted.Roads = new Grid<byte>(world.Size, world.Size);
+        var cells = new GridRect(200, 305, 240, 345);
+
+        PrefabPlacer.Flatten(unpainted, cells, 40, PrefabPlacer.PoiBlend, new EditSession("Place"));
+        PrefabPlacer.Flatten(world, cells, 40, PrefabPlacer.PoiBlend, new EditSession("Place"));
+
+        Assert.Equal(unpainted.Height.Data, world.Height.Data);
     }
 }
