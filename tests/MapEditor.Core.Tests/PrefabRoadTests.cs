@@ -2,6 +2,7 @@ using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
+using MapEditor.Core.Validate;
 
 namespace MapEditor.Core.Tests;
 
@@ -77,6 +78,27 @@ public sealed class PrefabRoadTests
         Assert.False(PrefabPlacer.RoadMismatch(world, cells, 44) > PrefabPlacer.RoadStep);
         Assert.True(PrefabPlacer.RoadMismatch(world, cells, 41) > PrefabPlacer.RoadStep);
         Assert.True(PrefabPlacer.RoadMismatch(world, cells, 45) > PrefabPlacer.RoadStep);
+    }
+
+    [Fact]
+    public void Validate_skips_the_road_level_warning_for_a_bridge_over_a_road()
+    {
+        var world = WorldWithRoad();
+        var bridge = new PrefabInfo(BridgeOp.Tile, "POIs", new Int3(14, 14, 9), -1, 0, 0, ["rwgonly"], null);
+        var poi = new PrefabInfo("plain_poi", "POIs", bridge.Size, -1, 0, 0, [], null);
+        var library = PrefabLibrary.Of([bridge, poi]);
+        var position = new Int3(world.GridToWorld(220), 65, world.GridToWorld(297));
+        world.Prefabs.Add(new PrefabInstance { Name = bridge.Name, Position = position });
+
+        Assert.DoesNotContain(WorldValidator.Validate(world, library), i => i.Fix?.Kind == FixKind.LevelRoad);
+
+        world.Prefabs.Clear();
+        var ordinary = new PrefabInstance { Name = poi.Name, Position = position };
+        world.Prefabs.Add(ordinary);
+
+        var issue = Assert.Single(WorldValidator.Validate(world, library), i => i.Fix?.Kind == FixKind.LevelRoad);
+        Assert.Equal(IssueSeverity.Warning, issue.Severity);
+        Assert.Equal(new IssueFix(FixKind.LevelRoad, ordinary), issue.Fix);
     }
 
     [Fact]

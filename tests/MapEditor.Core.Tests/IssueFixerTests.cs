@@ -63,6 +63,23 @@ public sealed class IssueFixerTests
     }
 
     [Fact]
+    public void A_stale_road_fix_for_a_bridge_leaves_the_heights_alone()
+    {
+        var world = Flat();
+        var tile = new PrefabInfo(BridgeOp.Tile, "POIs", new Int3(14, 14, 9), -1, 0, 0, ["rwgonly"], null);
+        var library = PrefabLibrary.Of([tile, Trader]);
+        var bridge = new PrefabInstance { Name = tile.Name, Position = new Int3(world.GridToWorld(500), Ground + 20, world.GridToWorld(500)) };
+        world.Prefabs.Add(bridge);
+        for (int x = 450; x < 570; x++) world.Roads![x, 504] = (byte)RoadType.Asphalt;
+        var before = (ushort[])world.Height.Data.Clone();
+
+        var result = IssueFixer.Apply(world, library, new IssueFix(FixKind.LevelRoad, bridge), new EditSession("Fix", world));
+
+        Assert.Equal(before, world.Height.Data);
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void A_road_fix_is_one_step_that_rolls_back()
     {
         var (world, _) = HouseBelowRoad();
