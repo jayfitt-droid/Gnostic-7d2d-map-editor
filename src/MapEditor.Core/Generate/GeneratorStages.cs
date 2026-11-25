@@ -44,9 +44,12 @@ public sealed class GeneratorStages(World world, GeneratorSettings settings, Gen
         options ??= settings.Terrain.Clone();
         GeneratorEditState.Touch(session, settings);
         var (taken, changes) = TakeDownForRun(GeneratorStage.Highways, session);
-        GridRect? areaMetres = area?.Scale(TerrainStage.TileSize);
-        int features = _addOnly ? 0 : FeatureStage.TakeDown(world, settings.PlacedFeatures, areaMetres, data.Stamps, session);
-        int towns = _addOnly ? 0 : TakeDownTowns(settings.Sites, areaMetres, session);
+        int tiles = world.Size / TerrainStage.TileSize;
+        GridRect? blendRegion = area is { } selection
+            ? TerrainStage.BlendRegion(selection.Clamp(tiles, tiles).Scale(TerrainStage.TileSize), world.Size)
+            : null;
+        int features = _addOnly ? 0 : FeatureStage.TakeDown(world, settings.PlacedFeatures, blendRegion, data.Stamps, session);
+        int towns = _addOnly ? 0 : TakeDownTowns(settings.Sites, blendRegion, session);
         var result = TerrainStage.Run(world, options, data.Stamps, data.Mixer, _addOnly ? settings.PaintedTerrain : null,
             area, previousMask, session, progress, cancel, replan);
         changes = RestoreBridges(taken, session, changes with { Features = features, Towns = towns });
@@ -54,7 +57,6 @@ public sealed class GeneratorStages(World world, GeneratorSettings settings, Gen
         // An area run keeps the old plan on tiles it did not generate.
         if (area is { } selected && settings.TerrainPlan is { } last && last.Length == result.Plan.Length)
         {
-            int tiles = world.Size / TerrainStage.TileSize;
             for (int i = 0; i < last.Length; i++)
                 if (!selected.Contains(i % tiles, i / tiles)) result.Plan[i] = last[i];
         }

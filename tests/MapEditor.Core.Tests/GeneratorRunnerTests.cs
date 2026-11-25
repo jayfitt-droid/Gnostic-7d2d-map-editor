@@ -519,7 +519,57 @@ public sealed class GeneratorRunnerTests : IDisposable
     }
 
     [Fact]
-    public void An_area_terrain_run_preserves_towns_features_and_plan_tiles_outside_the_area()
+    public void An_area_terrain_run_takes_down_a_town_in_the_blend_band()
+    {
+        var (world, settings, _, generator) = WithCompletedStages();
+        settings.Terrain.Weights = new TerrainWeights(1, 0, 0);
+        var town = Assert.Single(settings.Sites);
+        var area = new GridRect(0, 1, 1, 2);
+        Assert.InRange(town.Bounds.X0 - area.Scale(TerrainStage.TileSize).X1, 1, TerrainStage.Feather - 1);
+        Assert.Contains(world.Prefabs, p => p.Name == "rwg_tile_downtown_cap");
+        StageRun<TerrainRunResult>? run = null;
+
+        Assert.True(new EditRunner(new UndoStack()).Run(world, "Generate area", session =>
+            run = generator.Terrain(session, area: area, cancel: TestContext.Current.CancellationToken)));
+
+        Assert.False(town.Built);
+        Assert.Same(town, Assert.Single(settings.Sites));
+        Assert.DoesNotContain(world.Prefabs, p => p.Name == "rwg_tile_downtown_cap");
+        Assert.NotNull(run);
+        Assert.Equal(1, run.Changes.Towns);
+        Assert.Equal(0, run.Result.SitesCleared);
+        Assert.Equal(0, run.Result.SitesUnusable);
+    }
+
+    [Fact]
+    public void An_area_terrain_run_takes_out_a_drawn_feature_in_the_blend_band()
+    {
+        var world = Forest();
+        var settings = NewSettings();
+        var generator = new GeneratorStages(world, settings, _data);
+        var edits = new EditRunner(new UndoStack());
+        var feature = new Feature { Kind = FeatureKind.Crater, Stamp = "plains_01", Pinned = true, X = 585, Z = 375, Size = 60, Cells = [[3, 2]] };
+        settings.PlacedFeatures.Add(feature);
+        var area = new GridRect(1, 1, 2, 2);
+        Assert.InRange(feature.Reach(world.Size).X0 - area.Scale(TerrainStage.TileSize).X1, 1, TerrainStage.Feather - 1);
+        var cancel = TestContext.Current.CancellationToken;
+        Assert.True(edits.Run(world, "Draw feature", session =>
+            FeatureStage.Run(world, settings.Features, settings.PlacedFeatures, _data.Stamps, _data.Mixer, _data.Prefabs,
+                settings.Sites, null, 35, session, cancel: cancel)));
+        Assert.True(feature.Drawn);
+        StageRun<TerrainRunResult>? run = null;
+
+        Assert.True(edits.Run(world, "Generate area", session =>
+            run = generator.Terrain(session, area: area, cancel: cancel)));
+
+        Assert.False(feature.Drawn);
+        Assert.Same(feature, Assert.Single(settings.PlacedFeatures));
+        Assert.NotNull(run);
+        Assert.Equal(1, run.Changes.Features);
+    }
+
+    [Fact]
+    public void An_area_terrain_run_preserves_towns_and_features_beyond_the_blend_band_and_keeps_outside_plan_tiles()
     {
         var (world, settings, _, generator) = WithCompletedStages();
         settings.TerrainPlan![0] = TerrainType.Mountains;
@@ -539,6 +589,7 @@ public sealed class GeneratorRunnerTests : IDisposable
         Assert.Equal(new StageChanges(1, 1, 1, 1, 1, BridgesRebuilt: 1), run.Changes);
         Assert.True(outsideTown.Built);
         Assert.Contains(outsideTown, settings.Sites);
+        Assert.True(outsideFeature.Drawn);
         Assert.Same(outsideFeature, Assert.Single(settings.PlacedFeatures));
         Assert.Equal(TerrainType.Mountains, settings.TerrainPlan[0]);
         Assert.Equal([GeneratorStage.Terrain, GeneratorStage.TownSites, GeneratorStage.Features], settings.Done.Order());

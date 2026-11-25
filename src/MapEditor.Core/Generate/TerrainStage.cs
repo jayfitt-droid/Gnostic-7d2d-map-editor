@@ -129,6 +129,11 @@ public static class TerrainStage
 
     private static readonly (int X, int Z)[] Directions = [(0, 1), (1, 0), (0, -1), (-1, 0)];
 
+    /// <summary>The selected area in metres, including its blend band and limited to the world.</summary>
+    internal static GridRect BlendRegion(GridRect areaMetres, int worldSize) =>
+        new GridRect(areaMetres.X0 - Feather, areaMetres.Z0 - Feather, areaMetres.X1 + Feather, areaMetres.Z1 + Feather)
+            .Clamp(worldSize, worldSize);
+
     /// <summary>
     /// Generates the terrain into <paramref name="world"/> as part of <paramref name="session"/>.
     /// </summary>
@@ -189,8 +194,7 @@ public static class TerrainStage
 
         // Where the stamps are drawn: the world itself, or for an area a scratch copy blended in afterwards.
         var region = area is null ? new GridRect(0, 0, world.Size, world.Size)
-            : new GridRect(areaMetres.X0 - Feather, areaMetres.Z0 - Feather, areaMetres.X1 + Feather, areaMetres.Z1 + Feather)
-                .Clamp(world.Size, world.Size);
+            : BlendRegion(areaMetres, world.Size);
         session.Touch(world.Height, region);
 
         Grid<ushort> target;
