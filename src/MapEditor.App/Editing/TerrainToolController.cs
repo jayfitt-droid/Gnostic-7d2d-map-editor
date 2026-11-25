@@ -43,10 +43,9 @@ public sealed class TerrainToolController
     private void OnToolInput(object? sender, ToolInputEventArgs e)
     {
         if (World is not { } world) return;
-        // The selection, Prefabs, Trader, Spawn points, Town, Bridge and Generate tools have their own controllers.
-        if (_vm.SelectedTool is EditorTool.Select or EditorTool.MultiSelect or EditorTool.Prefab or EditorTool.Trader or EditorTool.Spawn or EditorTool.Town
-            or EditorTool.GenerateArea or EditorTool.Features
-            or EditorTool.Bridge) return;
+        // Only the terrain, paint and road tools act here. Every other tool, the Ruler included, has its own controller.
+        if (_vm.SelectedTool is not (EditorTool.Raise or EditorTool.Lower or EditorTool.Flatten or EditorTool.Smooth or EditorTool.Noise
+            or EditorTool.Stamp or EditorTool.Biome or EditorTool.Radiation or EditorTool.Water or EditorTool.Road)) return;
         // No edits while the world is being saved or replaced; a stroke already under way may finish.
         if (_vm.IsBusy && e.Phase == ToolPhase.Down) return;
         var grid = new Point(e.MapPoint.X, world.Size - e.MapPoint.Y);
