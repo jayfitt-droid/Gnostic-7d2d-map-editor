@@ -18,6 +18,7 @@ public partial class MainWindow
         _vm.SelectedTool = EditorTool.Select;
         _newLandWorld = newWorld;
         _vm.IsLandMode = true;
+        UpdateLandOutline();
         _landTools.Begin(world.Size, shape.Drawing);
         UpdateToolState();
         Map.Focus();
@@ -29,9 +30,23 @@ public partial class MainWindow
         _landTools.End();
         _vm.IsLandMode = false;
         _newLandWorld = false;
+        UpdateLandOutline();
         UpdateUndoText();
         UpdateToolState();
         Map.Focus();
+    }
+
+    /// <summary>
+    /// Shows the saved land boxes on the map outside Land mode while the ground isn't built from them, for example after
+    /// Build World is undone. Once the terrain is built, the ground shows the land.
+    /// </summary>
+    private void UpdateLandOutline()
+    {
+        if (!_vm.IsLandMode && _world is { } world && !_vm.Generate.TerrainDone
+            && _projectSettings.Generator?.Terrain.Shape is { Kind: LandShapeKind.Drawn, Drawing: { Boxes.Count: > 0 } drawing })
+            Map.LandOutline = drawing.Boxes.Select(b => (new Rect(b.X0, world.Size - b.Z1, b.X1 - b.X0, b.Z1 - b.Z0), b.CutsWater)).ToArray();
+        else
+            Map.LandOutline = null;
     }
 
     private void EditLand_Click(object sender, RoutedEventArgs e)
@@ -91,6 +106,7 @@ public partial class MainWindow
     private void UndoLand(bool redo)
     {
         if (CanUndoLand(redo)) _landTools.UndoOrRedo(redo);
+        else if (redo && CanRedoBuildWorld) Redo_Executed(this, null!);
     }
 
     private bool HandleLandKey(KeyEventArgs e)

@@ -41,6 +41,33 @@ public sealed class EditTransactionTests
     }
 
     [Fact]
+    public void Build_World_step_is_marked_when_undone_and_redone()
+    {
+        var world = Flat();
+        var (runner, undo, _, _) = Runner();
+
+        Assert.True(runner.Run(world, "Raise", s => { s.Touch(world.Height, new GridRect(0, 0, 10, 10)); world.Height[0, 0] = 1; }));
+        Assert.True(runner.Run(world, "Build World", s =>
+        {
+            s.BuildsWorld = true;
+            s.Touch(world.Height, new GridRect(0, 0, 10, 10));
+            world.Height[1, 1] = 2;
+        }));
+        Assert.False(undo.RedoBuildsWorld);
+
+        Assert.True(undo.Undo()!.BuildsWorld);
+        Assert.True(undo.RedoBuildsWorld);
+        Assert.Equal("Build World", undo.RedoName);
+
+        Assert.True(undo.Redo()!.BuildsWorld);
+        Assert.False(undo.RedoBuildsWorld);
+
+        Assert.True(undo.Undo()!.BuildsWorld);
+        Assert.False(undo.Undo()!.BuildsWorld);
+        Assert.False(undo.RedoBuildsWorld);
+    }
+
+    [Fact]
     public async Task State_touched_before_a_stage_is_undone_and_redone_with_it()
     {
         var world = Flat();

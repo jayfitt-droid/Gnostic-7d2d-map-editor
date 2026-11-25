@@ -1231,6 +1231,7 @@ public partial class MainWindow : Window
         _autosaves.Discard();
         _tools.CancelRoad();
         _world = null;
+        Map.LandOutline = null;
         ResetPlayerTracking();
         _sourcePath = _savePath = _projectPath = null;
         _projectSettings = new ProjectStore.ProjectSettings();
@@ -2519,6 +2520,7 @@ public partial class MainWindow : Window
 
         bool hasBuilt = world.Prefabs.Count > 0 || world.Roads?.Data.AsSpan().ContainsAnyExcept((byte)0) == true;
         var options = g.Settings.Terrain.Clone();
+        var drawingBefore = g.Settings.Terrain.Shape.Drawing;
         if (drawing is not null) options.Shape.Drawing = drawing;
         var mask = g.LastMask;
         var replan = area is null && (g.ReplanBiomes || drawing is not null && !options.Shape.SameLand(g.Settings.Biomes?.PlannedFor))
@@ -2573,9 +2575,8 @@ public partial class MainWindow : Window
                 run = stages.Terrain(session, options, area, mask, replan, drawing is not null, progress, cancel.Token);
             }, session =>
             {
-                if (drawing is not null)
-                    session.TouchState(_landTools, () => g.Settings.Terrain.Shape.Drawing,
-                        previous => g.Settings.Terrain.Shape.Drawing = (LandDrawing?)previous, ReferenceEquals);
+                // The drawing stays in the settings after undo, so undoing Build World can go back to Land mode with it.
+                session.BuildsWorld = drawing is not null;
                 NoteGeneratorState(session, drawing is null ? $"seed {options.Seed}"
                     : $"{drawing.Boxes.Count} land {(drawing.Boxes.Count == 1 ? "box" : "boxes")}");
                 if (drawing is not null) g.Settings.Terrain.Shape.Drawing = drawing;
@@ -2589,7 +2590,8 @@ public partial class MainWindow : Window
         }
         if (!ok || run is null || ran is null)
         {
-            // A cancelled or failed run rolled the towns back up.
+            // A cancelled or failed run rolled the towns back up. The drawing was not built, so the settings keep the old one.
+            if (drawing is not null) g.Settings.Terrain.Shape.Drawing = drawingBefore;
             if (gen is not null) TownSiteStage.MarkBuilt(world, library, gen.Sites);
             g.RefreshFeatures();
             CloseIfWaiting();
@@ -2780,7 +2782,7 @@ public partial class MainWindow : Window
         if (_vm.IsLandMode || !CanChangeUndoHistory || e.Parameter is not HistoryEntry entry || _vm.History is not { } history) return;
         var action = history.ActionFor(entry);
         if (history.MoveTo(entry, action) is { } move)
-            AfterUndoRedo(move.Bounds, move.LastStep.Name, redo: action == HistoryAction.Redo);
+            AfterUndoRedo(move.Bounds, move.LastStep.Name, redo: action == HistoryAction.Redo, move.LastStep.BuildsWorld);
     }
 
     // ---- undo --------------------------------------------------------------
@@ -2792,21 +2794,29 @@ public partial class MainWindow : Window
         e.CanExecute = _vm.IsLandMode ? _landTools is not null && CanUndoLand(redo: false) : _undo.CanUndo && CanChangeUndoHistory;
 
     private void Redo_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _vm.IsLandMode ? _landTools is not null && CanUndoLand(redo: true) : _undo.CanRedo && CanChangeUndoHistory;
+        e.CanExecute = _vm.IsLandMode ? _landTools is not null && (CanUndoLand(redo: true) || CanRedoBuildWorld) : _undo.CanRedo && CanChangeUndoHistory;
 
     private void Undo_Executed(object sender, ExecutedRoutedEventArgs e)
     {
         if (_vm.IsLandMode) { UndoLand(redo: false); return; }
-        if (_vm.History?.Undo() is { } step) AfterUndoRedo(step.Bounds, step.Name, redo: false);
+        if (_vm.History?.Undo() is { } step) AfterUndoRedo(step.Bounds, step.Name, redo: false, step.BuildsWorld);
     }
 
     private void Redo_Executed(object sender, ExecutedRoutedEventArgs e)
     {
-        if (_vm.IsLandMode) { UndoLand(redo: true); return; }
-        if (_vm.History?.Redo() is { } step) AfterUndoRedo(step.Bounds, step.Name, redo: true);
+        if (_vm.IsLandMode && !CanRedoBuildWorld) { UndoLand(redo: true); return; }
+        if (_vm.History?.Redo() is { } step) AfterUndoRedo(step.Bounds, step.Name, redo: true, step.BuildsWorld);
     }
 
-    private void AfterUndoRedo(GridRect bounds, string editName, bool redo)
+    /// <summary>
+    /// In Land mode, Redo builds the world again when Land mode has nothing of its own to undo or redo and the next
+    /// step in the history is the Build World that was undone.
+    /// </summary>
+    private bool CanRedoBuildWorld => _vm.IsLandMode && !_vm.IsBusy && !_landTools.IsDragging
+        && _landTools.UndoName is null && _landTools.RedoName is null && _undo.RedoBuildsWorld;
+
+    /// <param name="buildsWorld">The step was Build World: undo goes back to Land mode, redo leaves it.</param>
+    private void AfterUndoRedo(GridRect bounds, string editName, bool redo, bool buildsWorld = false)
     {
         _vm.RefreshHistory();
         _townCells = null;
@@ -2824,6 +2834,11 @@ public partial class MainWindow : Window
         _prefabTools.Refresh();
         _townTools.Refresh();
         OnWorldEdited();
+        if (buildsWorld)
+        {
+            if (!redo) EnterLandMode(newWorld: false);
+            else if (_vm.IsLandMode) ExitLandMode();
+        }
         _vm.Status = $"{(redo ? "Redid" : "Undid")} {editName}";
     }
 
@@ -2837,6 +2852,7 @@ public partial class MainWindow : Window
     private void OnWorldEdited()
     {
         _clipboard.Cancel();
+        UpdateLandOutline();
         QueueWorldStats();
         _townCells = null;
         // Edits, undo and redo move the history; Dirty compares it with the save point.
