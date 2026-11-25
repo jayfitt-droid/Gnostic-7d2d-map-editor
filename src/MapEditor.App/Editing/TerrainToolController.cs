@@ -14,6 +14,7 @@ public sealed class TerrainToolController
     private readonly MapView _map;
     private readonly MainViewModel _vm;
     private readonly EditRunner _edits;
+    private World? _world;
     private EditSession? _session;
     private EditorTool _strokeTool;
     private Point _last; // grid coords (x east, z north) of the previous dab
@@ -30,7 +31,16 @@ public sealed class TerrainToolController
         _map.ToolInput += OnToolInput;
     }
 
-    public World? World { get; set; }
+    public World? World
+    {
+        get => _world;
+        set
+        {
+            if (ReferenceEquals(_world, value)) return;
+            EndStroke();
+            _world = value;
+        }
+    }
 
     /// <summary>Every bridge end a road can snap to (the Bridge tool's bridges and the Highways stage's), asked for as the mouse moves.</summary>
     public Func<IReadOnlyList<BridgeEnd>>? BridgeEnds { get; set; }
@@ -42,18 +52,31 @@ public sealed class TerrainToolController
 
     private void OnToolInput(object? sender, ToolInputEventArgs e)
     {
+        if (e.Phase == ToolPhase.Up)
+        {
+            EndStroke();
+            return;
+        }
         if (World is not { } world) return;
+        var grid = new Point(e.MapPoint.X, world.Size - e.MapPoint.Y);
+        if (e.Phase == ToolPhase.Move)
+        {
+            if (_session is not null && _strokeTool is not (EditorTool.Stamp or EditorTool.Water))
+                StrokeTo(world, grid);
+            return;
+        }
+
         // Only the terrain, paint and road tools act here. Every other tool, the Ruler included, has its own controller.
-        if (_vm.SelectedTool is not (EditorTool.Raise or EditorTool.Lower or EditorTool.Flatten or EditorTool.Smooth or EditorTool.Noise
+        var tool = _vm.SelectedTool;
+        if (tool is not (EditorTool.Raise or EditorTool.Lower or EditorTool.Flatten or EditorTool.Smooth or EditorTool.Noise
             or EditorTool.Stamp or EditorTool.Biome or EditorTool.Radiation or EditorTool.Water or EditorTool.Road)) return;
         // No edits while the world is being saved or replaced; a stroke already under way may finish.
-        if (_vm.IsBusy && e.Phase == ToolPhase.Down) return;
-        var grid = new Point(e.MapPoint.X, world.Size - e.MapPoint.Y);
+        if (_vm.IsBusy) return;
 
         // Ctrl+click samples the height under the cursor into the Flatten target (or the water level).
-        if (e.Phase == ToolPhase.Down && e.Modifiers.HasFlag(ModifierKeys.Control))
+        if (e.Modifiers.HasFlag(ModifierKeys.Control))
         {
-            if (_vm.SelectedTool == EditorTool.Water)
+            if (tool == EditorTool.Water)
                 SampleWaterLevel(world, grid);
             else if (world.Height.Contains((int)grid.X, (int)grid.Y))
             {
@@ -64,32 +87,20 @@ public sealed class TerrainToolController
         }
 
         // Road clicks add points; Shift+drag with the road tool erases roads like a brush.
-        if (_vm.SelectedTool == EditorTool.Road && e.Phase == ToolPhase.Down && !e.Modifiers.HasFlag(ModifierKeys.Shift))
+        bool erase = e.Modifiers.HasFlag(ModifierKeys.Shift);
+        if (tool == EditorTool.Road && !erase)
         {
             if (e.ClickCount >= 2) FinishRoad();
             else AddRoadPoint(world, grid, e.Modifiers);
             return;
         }
 
-        switch (e.Phase)
-        {
-            case ToolPhase.Down:
-                _erase = e.Modifiers.HasFlag(ModifierKeys.Shift);
-                BeginStroke(world, grid);
-                break;
-            case ToolPhase.Move when _session is not null && _vm.SelectedTool is not (EditorTool.Stamp or EditorTool.Water):
-                StrokeTo(world, grid);
-                break;
-            case ToolPhase.Up when _session is not null:
-                EndStroke();
-                break;
-        }
+        BeginStroke(world, grid, tool, erase);
     }
 
-    private void BeginStroke(World world, Point grid)
+    private void BeginStroke(World world, Point grid, EditorTool tool, bool erase)
     {
-        var tool = _vm.SelectedTool;
-        if (tool == EditorTool.Select) return;
+        EndStroke();
         if (tool == EditorTool.Biome && _vm.SelectedBiome is { } biome && LayerPaint.CantPaintBiome(world, biome.Color) is { } why)
         {
             _vm.Status = why;
@@ -101,6 +112,7 @@ public sealed class TerrainToolController
             return;
         }
         string label = _vm.Tools.First(t => t.Tool == tool).Label;
+        _erase = erase;
         if (_erase && tool == EditorTool.Radiation) label = "Erase radiation";
         if (_erase && tool == EditorTool.Water) label = "Drain water";
         if (tool == EditorTool.Road) label = "Erase road";
@@ -153,7 +165,7 @@ public sealed class TerrainToolController
     private void Dab(World world, Point grid)
     {
         var tip = _vm.BrushTip;
-        switch (_vm.SelectedTool)
+        switch (_strokeTool)
         {
             case EditorTool.Biome:
                 if (_vm.SelectedBiome is { } biome)
@@ -167,7 +179,7 @@ public sealed class TerrainToolController
                 return;
         }
 
-        var mode = _vm.SelectedTool switch
+        var mode = _strokeTool switch
         {
             EditorTool.Raise => BrushMode.Raise,
             EditorTool.Lower => BrushMode.Lower,
@@ -401,9 +413,10 @@ public sealed class TerrainToolController
     private static string Area(long cells) =>
         cells >= 1_000_000 ? $"{cells / 1e6:0.00} km²" : $"{cells:N0} m²";
 
-    private void EndStroke()
+    /// <summary>Commits the open stroke as one undo step if it changed anything.</summary>
+    public void EndStroke()
     {
-        var session = _session!;
+        if (_session is not { } session) return;
         _session = null;
         _noise = null;
         if (_edits.Commit(session) && _strokeTool is EditorTool.Raise or EditorTool.Smooth)
