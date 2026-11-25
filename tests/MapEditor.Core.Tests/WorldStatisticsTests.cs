@@ -105,6 +105,37 @@ public sealed class WorldStatisticsTests
         Assert.Equal(2, stats.SpawnPoints);
     }
 
+    private static int TownsOf(params (string Name, int X, int Z)[] tiles)
+    {
+        var world = Blank(2048);
+        var library = PrefabLibrary.Of(
+        [
+            new("rwg_tile_residential_straight", "", new Int3(150, 20, 150), 0, 0, 0, [], null),
+            new("rwg_tile_downtown_big", "", new Int3(300, 20, 300), 0, 0, 0, [], null),
+        ]);
+        foreach (var (name, x, z) in tiles)
+            world.Prefabs.Add(new PrefabInstance { Name = name, Position = new Int3(x, 0, z), Rotation = 0 });
+        return Measure(world, library).Towns;
+    }
+
+    [Fact]
+    public void Offset_tiles_that_share_part_of_an_edge_are_one_town()
+    {
+        Assert.Equal(1, TownsOf(("rwg_tile_residential_straight", 0, 0), ("rwg_tile_residential_straight", 150, 50)));
+    }
+
+    [Fact]
+    public void Tiles_of_mixed_sizes_that_share_part_of_an_edge_are_one_town()
+    {
+        Assert.Equal(1, TownsOf(("rwg_tile_downtown_big", 0, 0), ("rwg_tile_residential_straight", 300, 200)));
+    }
+
+    [Fact]
+    public void Tiles_that_touch_only_at_a_corner_are_separate_towns()
+    {
+        Assert.Equal(2, TownsOf(("rwg_tile_residential_straight", 0, 0), ("rwg_tile_residential_straight", 150, 150)));
+    }
+
     [Fact]
     public void Empty_world_has_land_but_no_features()
     {

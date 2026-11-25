@@ -166,23 +166,38 @@ public sealed record WorldStatistics(
             world.ExtraFiles.Keys.Order(StringComparer.OrdinalIgnoreCase).ToArray(), [.. world.Warnings]);
     }
 
+    /// <summary>Counts groups of street tiles whose footprints share part of an edge, allowing a one-metre gap.</summary>
     private static int CountTowns(Dictionary<(int, int), GridRect> tiles)
     {
-        Func<(int, int), bool> hasTile = tiles.ContainsKey;
-        var seen = new HashSet<(int, int)>();
-        var queue = new Queue<GridRect>();
+        var all = tiles.Values.ToArray();
+        var seen = new bool[all.Length];
+        var queue = new Queue<int>();
         int towns = 0;
-        foreach (var start in tiles.Values.OrderBy(t => t.Z0).ThenBy(t => t.X0))
+        for (int start = 0; start < all.Length; start++)
         {
-            if (!seen.Add((start.X0, start.Z0))) continue;
+            if (seen[start]) continue;
+            seen[start] = true;
             towns++;
             queue.Enqueue(start);
-            while (queue.TryDequeue(out var tile))
-                for (int dir = 0; dir < 4; dir++)
-                    if (HighwayStage.AdjacentStreetTile(tile, dir, hasTile) is { } next && seen.Add(next))
-                        queue.Enqueue(tiles[next]);
+            while (queue.TryDequeue(out int current))
+                for (int i = 0; i < all.Length; i++)
+                    if (!seen[i] && SharesEdge(all[current], all[i]))
+                    {
+                        seen[i] = true;
+                        queue.Enqueue(i);
+                    }
         }
         return towns;
+    }
+
+    private static bool SharesEdge(GridRect a, GridRect b)
+    {
+        const int Tolerance = 1;
+        int overlapX = Math.Min(a.X1, b.X1) - Math.Max(a.X0, b.X0);
+        int overlapZ = Math.Min(a.Z1, b.Z1) - Math.Max(a.Z0, b.Z0);
+        bool sideBySide = Math.Abs(a.X1 - b.X0) <= Tolerance || Math.Abs(b.X1 - a.X0) <= Tolerance;
+        bool endToEnd = Math.Abs(a.Z1 - b.Z0) <= Tolerance || Math.Abs(b.Z1 - a.Z0) <= Tolerance;
+        return (sideBySide && overlapZ > 0) || (endToEnd && overlapX > 0);
     }
 
     /// <summary>Reads rows in order, retaining one band when the grid is frozen.</summary>
