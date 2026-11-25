@@ -3407,6 +3407,7 @@ public partial class MainWindow : Window
                 KeepPlayerInView(centre: true);
                 break;
             case nameof(MainViewModel.SelectedTool):
+                _prefabTools.FinishDrag();
                 _clipboard.Cancel();
                 if (_vm.IsWorldMode && !_vm.IsModernTheme) Map.PreservePositionOnNextLayout();
                 if (_vm.SelectedTool == EditorTool.Prefab)
@@ -3602,8 +3603,8 @@ public partial class MainWindow : Window
     /// <summary>
     /// Esc, as in CAD programs (#35), one step at a time. In any other tool a first Esc stops what that tool is doing (a
     /// road, a bridge or a town being drawn, a pick in the browser, its selection) and stays in the tool; an Esc with
-    /// nothing to stop goes back to Select and clears the selection. In Select it steps back one thing: the browser's
-    /// replacement pick first, then the selection.
+    /// nothing to stop goes back to Select and clears the selection. Esc finishes a prefab or spawn drag like a mouse
+    /// release. In Select, the next Esc clears the browser's replacement pick or the selection.
     /// </summary>
     private void Escape()
     {

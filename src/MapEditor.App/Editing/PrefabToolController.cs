@@ -111,6 +111,11 @@ public sealed class PrefabToolController
     private void OnToolInput(object? sender, ToolInputEventArgs e)
     {
         if (World is not { } world) return;
+        if (e.CaptureLost && IsDragging)
+        {
+            Refresh();
+            return;
+        }
         if (_vm.IsBusy && e.Phase == ToolPhase.Down) return;
         var grid = new Point(e.MapPoint.X, world.Size - e.MapPoint.Y);
         if (_vm.IsPrefabTool) PrefabInput(world, e, grid);
@@ -495,9 +500,19 @@ public sealed class PrefabToolController
         SelectSpawn(null);
     }
 
-    /// <summary>Esc: drops a pick shown on the card, else stops placing, else clears the selection. Returns false if there was nothing to cancel.</summary>
+    /// <summary>Finishes an active drag as if the mouse button was released.</summary>
+    internal bool FinishDrag()
+    {
+        if (_spawnGrabbed) EndSpawnDrag();
+        else if (_dragging is not null && World is { } world) EndDrag(world);
+        else return false;
+        return true;
+    }
+
+    /// <summary>Esc: finishes a drag, drops a pick shown on the card, stops placing, or clears the selection.</summary>
     public bool Cancel()
     {
+        if (FinishDrag()) return true;
         // The card shows the browser's pick as a replacement: drop the pick, back to the map prefab.
         if (_vm.CardShowsPick && _selected is not null && !_vm.IsTraderTool && _vm.SelectedPrefabInfo is not null)
         {
@@ -693,14 +708,21 @@ public sealed class PrefabToolController
     private static string Where(PrefabSpot s) =>
         $"{(s.X >= 0 ? $"{s.X} E" : $"{-s.X} W")}, {(s.Z >= 0 ? $"{s.Z} N" : $"{-s.Z} S")}, y {s.Y}";
 
-    /// <summary>After undo/redo or a new world: drops selections that are no longer in the world.</summary>
+    /// <summary>Discards any unfinished drag and drops selections that are no longer in the world.</summary>
     public void Refresh()
     {
         _dragging = null;
         _dragTurns = 0;
+        _dropSpot = null;
+        _dropCovered = [];
         _map.HiddenPrefabs = null;
         _spawnGrabbed = false;
-        _spawnSession = null;
+        if (_spawnSession is { } session)
+        {
+            _spawnSession = null;
+            session.Rollback();
+            _map.InvalidateRegion(session.Bounds);
+        }
         if (World is not { } world || _selected is not null && !world.ShownPrefabs.Contains(_selected)) _selected = null;
         if (World is null || _selectedSpawn is not null && !World.Spawns.Contains(_selectedSpawn)) _selectedSpawn = null;
         // Each tool shows only its own selection.
