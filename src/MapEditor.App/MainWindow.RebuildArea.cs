@@ -77,7 +77,8 @@ public partial class MainWindow
             GameLinkRebuildArea.Summary summary;
             try
             {
-                summary = await Task.Run(() => GameLinkRebuild.SummarizeExport(folder, world, library, player, radius));
+                summary = await Task.Run(() => GameLinkRebuild.SummarizeExport(folder, world, library, player, radius,
+                    _loadedLayouts.Read(folder)));
             }
             catch (Exception ex) when (IsBadInput(ex))
             {
@@ -134,10 +135,11 @@ public partial class MainWindow
         }
     }
 
-    private void StartRebuild(GameLinkStatus target, int radius) =>
-        StartExportGameWait(wait => RebuildAreaAsync(target, radius, wait));
+    private void StartRebuild(GameLinkStatus target, int radius, string exportFolder) =>
+        StartExportGameWait(wait => RebuildAreaAsync(target, radius, exportFolder, wait));
 
-    private async Task RebuildAreaAsync(GameLinkStatus target, int radius, CancellationTokenSource wait)
+    private async Task RebuildAreaAsync(GameLinkStatus target, int radius, string exportFolder,
+        CancellationTokenSource wait)
     {
         string rebuilding = $"Rebuilding around the player in '{target.Save}'... Press Shift-Esc to stop waiting.";
         _vm.Status = rebuilding;
@@ -154,6 +156,8 @@ public partial class MainWindow
             var (result, _) = await PollPlaytestAsync(
                 (status, expired) => GameLinkRebuild.Wait(status, target.World, target.Save, id, expired), wait.Token);
             wait.Token.ThrowIfCancellationRequested();
+            // The game loaded the folder's current files, so it holds no older layout (#245).
+            if (result.State == GameLinkWaitState.Rebuilt) _loadedLayouts.Forget(exportFolder);
             _vm.Status = result switch
             {
                 { State: GameLinkWaitState.Rebuilt, Chunks: > 0 } =>

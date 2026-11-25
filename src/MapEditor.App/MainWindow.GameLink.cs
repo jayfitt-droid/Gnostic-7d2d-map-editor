@@ -16,6 +16,9 @@ public partial class MainWindow
     {
         _vm.GameLinkConnected = status is not null || GameLinkWorld.IsModMismatch(error);
         _vm.GameLinkIndicator = GameLinkWorld.Indicator(GameLinkExportFolder, status, error);
+        // At the main menu or in another world, the game's next load reads the current files (#245).
+        if (GameLinkExportFolder is { } exportFolder && GameLinkLoadedLayouts.ShouldForget(status, exportFolder))
+            _loadedLayouts.Forget(exportFolder);
     }
 
     /// <summary>Checks the running game and sends a teleport or a temporary POI waypoint.</summary>

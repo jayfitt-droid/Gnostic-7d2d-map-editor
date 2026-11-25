@@ -82,6 +82,8 @@ public partial class MainWindow : Window
     private static readonly string AutosaveFolder = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7D2DMapEditor", "autosave");
     private readonly AutosaveStore _autosaves = new(AutosaveFolder);
+    private readonly GameLinkLoadedLayouts _loadedLayouts = new(Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "7D2DMapEditor", "loaded-layouts"));
     private readonly System.Windows.Threading.DispatcherTimer _autosaveTimer = new() { Interval = TimeSpan.FromMinutes(5) };
     private bool _autosaving;
 
@@ -798,6 +800,14 @@ public partial class MainWindow : Window
         if (leftGame is null || _closeWhenIdle || !IsLoaded || !ReferenceEquals(_world, world)) return false;
         string? previousFolder = GameLinkExportFolder;
         bool exportStatusChanged = ExportHasChanges != false;
+        // The game keeps the layout this export replaces until it loads the folder again (#245). It is kept before the
+        // write, so a failed or partial write never leaves the game's layout uncounted; an extra kept layout only
+        // makes the warning count a few more chunks, until the game loads the folder or leaves the world.
+        if (dialog.Action == AfterExportAction.None && GameLinkLoadedLayouts.HasWorldOpen(gameStatus, dialog.Folder))
+        {
+            try { _loadedLayouts.KeepCurrent(dialog.Folder); }
+            catch (Exception ex) when (IsBadInput(ex)) { }
+        }
         var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder, rebuild || playtestSave is not null);
         if (!ok && leftGame == true)
         {
@@ -822,9 +832,9 @@ public partial class MainWindow : Window
         }
         if (ok && IsLoaded && !_closeWhenIdle && ReferenceEquals(_world, world))
         {
-            if (rebuildTarget is not null) StartRebuild(rebuildTarget, dialog.Radius);
+            if (rebuildTarget is not null) StartRebuild(rebuildTarget, dialog.Radius, dialog.Folder);
             else if (install is not null && playtestSave is not null)
-                StartOpenInGame(install, exportName, playtestSave, destination);
+                StartOpenInGame(install, exportName, playtestSave, destination, dialog.Folder);
         }
         return ok;
     }

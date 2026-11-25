@@ -147,8 +147,9 @@ public partial class MainWindow
         return true;
     }
 
-    private void StartOpenInGame(GameInstall install, string world, string save, (int X, int Z)? destination)
-        => StartExportGameWait(wait => OpenInGameAsync(install, world, save, destination, wait));
+    private void StartOpenInGame(GameInstall install, string world, string save, (int X, int Z)? destination,
+        string exportFolder)
+        => StartExportGameWait(wait => OpenInGameAsync(install, world, save, destination, exportFolder, wait));
 
     private void StartExportGameWait(Func<CancellationTokenSource, Task> run)
     {
@@ -159,7 +160,7 @@ public partial class MainWindow
     }
 
     private async Task OpenInGameAsync(GameInstall install, string world, string save, (int X, int Z)? destination,
-        CancellationTokenSource wait)
+        string exportFolder, CancellationTokenSource wait)
     {
         string arrival = destination is { } planned ? $" at {planned.X}, {planned.Z}" : "";
         string opening = $"Opening '{save}' in the game{arrival}...";
@@ -217,6 +218,8 @@ public partial class MainWindow
             var (result, linked) = await PollPlaytestAsync(
                 (game, expired) => GameLinkPlaytest.WaitForSave(game, world, save, operationId, expired), wait.Token);
             wait.Token.ThrowIfCancellationRequested();
+            // The game loaded the folder's current files, so it holds no older layout (#245).
+            if (result.State == GameLinkWaitState.Teleport) _loadedLayouts.Forget(exportFolder);
             switch (result.State)
             {
                 case GameLinkWaitState.Teleport when destination is { } point:
