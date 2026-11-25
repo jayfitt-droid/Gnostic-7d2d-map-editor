@@ -17,6 +17,7 @@ public partial class MainWindow
     private bool _tourUpdateQueued;
     private readonly HashSet<TourCondition> _tourActions = [];
     private FrameworkElement? _lastTownTarget;
+    private TourTipContent? _shownTourTip;
 
     private void InitializeTours()
     {
@@ -165,6 +166,11 @@ public partial class MainWindow
         var previous = _tour.Current;
         _tour.Update();
         if (_tour.Current != previous) ShowTourStep();
+        else if (_tour.Tip is { } tip && tip != _shownTourTip)
+        {
+            ShowTourTip(tip);
+            PositionTourTip();
+        }
         else if (previous?.Target == TourTarget.TownSites && TownsTourTarget() != _lastTownTarget)
             RevealTourTarget(previous);
     }
@@ -184,9 +190,15 @@ public partial class MainWindow
             _vm.SidePanelTab = MainViewModel.GenerateTab;
             _vm.Generate.OpenStage = stage;
         }
-        TourTip.ShowStep(step.Title, step.Body(TourConditionHolds), _tour.CanGoBack);
+        if (_tour.Tip is { } tip) ShowTourTip(tip);
         RevealTourTarget(step);
         PositionTourTip();
+    }
+
+    private void ShowTourTip(TourTipContent tip)
+    {
+        _shownTourTip = tip;
+        TourTip.ShowStep(tip.Title, tip.Body, tip.CanGoBack);
     }
 
     private void RevealTourTarget(TourStep step)

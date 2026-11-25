@@ -1,5 +1,8 @@
 namespace MapEditor.Core.Tours;
 
+/// <summary>The title, body and Back availability of a tour tip.</summary>
+public sealed record TourTipContent(string Title, string Body, bool CanGoBack);
+
 /// <summary>Moves through a tour using the current editor state supplied by its host.</summary>
 public sealed class TourRunner
 {
@@ -18,6 +21,9 @@ public sealed class TourRunner
     public TourStep? Current => IsFinished ? null : _tour.Steps[_index];
     public bool IsFinished => _index == _tour.Steps.Count;
     public bool CanGoBack => !IsFinished && PreviousIndex() >= 0;
+
+    /// <summary>What the tip shows now, or null when the tour is finished. It changes with the editor state.</summary>
+    public TourTipContent? Tip => Current is { } step ? new TourTipContent(step.Title, step.Body(_holds), CanGoBack) : null;
 
     /// <summary>Moves forward past completed or unavailable steps.</summary>
     public void Next()
