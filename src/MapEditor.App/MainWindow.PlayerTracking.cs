@@ -82,7 +82,7 @@ public partial class MainWindow
             {
                 var reply = await _gameLink.GetStatusAsync(request.Token);
                 if (request.IsCancellationRequested || !CanPollGameLink) return;
-                ShowGameLinkStatus(reply.Status);
+                ShowGameLinkStatus(reply.Status, reply.Error);
                 if (canShowPlayer && _vm.ShowPlayer && ReferenceEquals(world, _world) && folder == GameLinkExportFolder)
                     UpdatePlayerMarker(folder, world!.Size, reply);
                 await PollPinsAsync(world, folder, reply.Status, request.Token);

@@ -229,6 +229,12 @@ public class GameLinkRebuildTests
             Assert.StartsWith("Set the game folder", GameLinkRebuild.UnavailableReason(folder, null, Ready));
             Assert.StartsWith("Export to a world folder", GameLinkRebuild.UnavailableReason(Path.Combine(root, World), install, Ready));
             Assert.StartsWith("Start the game with", GameLinkRebuild.UnavailableReason(folder, install, null));
+            Assert.StartsWith("Start the game with",
+                GameLinkRebuild.UnavailableReason(folder, install, null, statusError: GameLinkError.Unavailable));
+            Assert.Contains("install Gnostic Game Link 1.1.0",
+                GameLinkRebuild.UnavailableReason(folder, install, null, statusError: GameLinkError.UnsupportedProtocol));
+            Assert.Contains("restart the game",
+                GameLinkRebuild.UnavailableReason(folder, install, null, statusError: GameLinkError.InvalidToken));
             Assert.StartsWith("Enter a save", Reason(Ready with { State = GameLinkState.Menu, Player = null }));
             Assert.StartsWith("Enter a save", Reason(Ready with { Save = "" }));
             Assert.StartsWith("The current save uses a different world", Reason(Ready with { World = "Other World" }));

@@ -757,12 +757,12 @@ public partial class MainWindow : Window
         string location = Path.GetDirectoryName(_savePath ?? _sourcePath ?? "") is { Length: > 0 } dir ? dir : GameInstall.UserGeneratedWorldsDir;
         string name = _savePath is { } saved ? Path.GetFileName(saved) : world.Name;
         var install = _install;
-        var gameStatus = install is null ? null : await ReadExportGameStatusAsync();
+        var (gameStatus, gameError) = install is null ? (null, GameLinkError.None) : await ReadExportGameStatusAsync();
         if (_closeWhenIdle || !IsLoaded || !ReferenceEquals(_world, world)) return false;
         (int X, int Z)? destination = null;
         var dialog = new ExportDialog(name, location, issues, BoxFormNote(world), install,
             _settings.AfterExport ?? AfterExportAction.None, _settings.RebuildRadius, gameStatus,
-            GameLinkExportFolder, ExportHasChanges)
+            GameLinkExportFolder, ExportHasChanges, gameError)
         {
             Owner = this,
             ExportClicked = () => destination = PlaytestDestination(world),

@@ -39,8 +39,13 @@ public partial class MainWindow
         try
         {
             var reply = await _gameLink.GetStatusAsync();
-            ShowGameLinkStatus(reply.Status);
+            ShowGameLinkStatus(reply.Status, reply.Error);
             if (_closeWhenIdle) return null;
+            if (reply.Status is null && GameLinkWorld.IsModMismatch(reply.Error))
+            {
+                _vm.Status = GameLinkErrorText(reply.Error);
+                return null;
+            }
             if (reply.Status is not { } status) return false;
             if (status.Operation?.State is "leaving" or "opening" or "rebuilding" || status is { State: GameLinkState.Menu, Hosting: true })
             {
@@ -68,12 +73,15 @@ public partial class MainWindow
                 return null;
             }
 
-            var confirmed = (await _gameLink.GetStatusAsync()).Status;
-            ShowGameLinkStatus(confirmed);
+            var confirmReply = await _gameLink.GetStatusAsync();
+            var confirmed = confirmReply.Status;
+            ShowGameLinkStatus(confirmed, confirmReply.Error);
             if (_closeWhenIdle) return null;
             if (confirmed is null)
             {
-                _vm.Status = "Export cancelled. Game Link could not verify the current save.";
+                _vm.Status = GameLinkWorld.IsModMismatch(confirmReply.Error)
+                    ? GameLinkErrorText(confirmReply.Error)
+                    : "Export cancelled. Game Link could not verify the current save.";
                 return null;
             }
             if (confirmed.State != GameLinkState.Ready ||
@@ -146,7 +154,12 @@ public partial class MainWindow
             else
             {
                 var status = await _gameLink.GetStatusAsync(wait.Token);
-                ShowGameLinkStatus(status.Status);
+                ShowGameLinkStatus(status.Status, status.Error);
+                if (status.Status is null && GameLinkWorld.IsModMismatch(status.Error))
+                {
+                    _vm.Status = "The world was exported. " + GameLinkErrorText(status.Error);
+                    return;
+                }
                 if (status.Status is null)
                 {
                     _vm.Status = $"The game is running without Gnostic Game Link. Close the game, or open '{world}' from the game's menu.";
@@ -230,7 +243,7 @@ public partial class MainWindow
             while (!_closeWhenIdle)
             {
                 var reply = await _gameLink.GetStatusAsync(deadline.Token);
-                ShowGameLinkStatus(reply.Status);
+                ShowGameLinkStatus(reply.Status, reply.Error);
                 linked |= reply.Status is not null;
                 var result = decide(reply.Status, false);
                 if (result.State != GameLinkWaitState.Waiting) return (result, linked);

@@ -36,14 +36,15 @@ public static class GameLinkRebuild
         legacyOpen == true ? AfterExportAction.Playtest : AfterExportAction.None;
 
     public static string? UnavailableReason(string? folder, GameInstall? install, GameLinkStatus? status,
-        string? previousExportFolder = null, bool? exportHasChanges = null)
+        string? previousExportFolder = null, bool? exportHasChanges = null, GameLinkError statusError = GameLinkError.None)
     {
         if (install is null) return "Set the game folder to rebuild an area.";
         if (!GameLinkPlaytest.CanOpen(folder, install))
             return "Export to a world folder the game uses, such as GeneratedWorlds.";
         if (exportHasChanges == false && WorldFiles.SameFolder(folder!, previousExportFolder))
             return "There are no map changes since the last export to this folder.";
-        if (status is null) return "Start the game with Gnostic Game Link to rebuild an area.";
+        if (status is null)
+            return GameLinkWorld.ModMismatchText(statusError) ?? "Start the game with Gnostic Game Link to rebuild an area.";
         if (status.State == GameLinkState.Remote)
             return "Host the save to rebuild an area.";
         if (status.State != GameLinkState.Ready || status.Player is null ||

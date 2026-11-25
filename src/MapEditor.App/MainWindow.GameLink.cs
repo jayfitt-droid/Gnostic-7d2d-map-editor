@@ -11,10 +11,11 @@ public partial class MainWindow
     private readonly GameLinkClient _gameLink = new();
     private bool _gameLinkActionRunning;
 
-    private void ShowGameLinkStatus(GameLinkStatus? status)
+    /// <param name="error">The error of the status reply. A mod mismatch still counts as a connection, so Teleport can explain it.</param>
+    private void ShowGameLinkStatus(GameLinkStatus? status, GameLinkError error = GameLinkError.None)
     {
-        _vm.GameLinkConnected = status is not null;
-        _vm.GameLinkIndicator = GameLinkWorld.Indicator(GameLinkExportFolder, status);
+        _vm.GameLinkConnected = status is not null || GameLinkWorld.IsModMismatch(error);
+        _vm.GameLinkIndicator = GameLinkWorld.Indicator(GameLinkExportFolder, status, error);
     }
 
     /// <summary>Checks the running game and sends a teleport or a temporary POI waypoint.</summary>
@@ -35,8 +36,9 @@ public partial class MainWindow
                 : await _gameLink.AddWaypointAsync(x, z, waypointPrefab);
             if (!reply.Ok)
             {
-                if (reply.Error is GameLinkError.Unavailable or GameLinkError.NoReply or GameLinkError.InvalidToken)
-                    ShowGameLinkStatus(null);
+                if (reply.Error is GameLinkError.Unavailable or GameLinkError.NoReply ||
+                    GameLinkWorld.IsModMismatch(reply.Error))
+                    ShowGameLinkStatus(null, reply.Error);
                 if (CanUseGameLink(world) && SameExport()) ShowGameLinkError(reply.Error);
                 else _vm.Status = GameLinkErrorText(reply.Error);
                 return;
@@ -89,7 +91,7 @@ public partial class MainWindow
         try
         {
             GameLinkReply status = await _gameLink.GetStatusAsync();
-            ShowGameLinkStatus(status.Status);
+            ShowGameLinkStatus(status.Status, status.Error);
             if (!canSend()) return;
             if (status.Status is not { } game)
             {
