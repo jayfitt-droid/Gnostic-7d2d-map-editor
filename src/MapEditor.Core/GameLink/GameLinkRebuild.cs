@@ -9,9 +9,12 @@ public enum AfterExportAction { None, Playtest, Rebuild }
 /// <summary>Editor-side preparation and progress checks for rebuilding a save.</summary>
 public static class GameLinkRebuild
 {
-    /// <summary>Summarizes the rebuild using prefabs from the current export folder and the edited world.</summary>
+    /// <summary>
+    /// Summarizes the rebuild using prefabs from the current export folder, the edited world and
+    /// <paramref name="kept"/>, a layout the game may still have loaded (#245). It never counts fewer chunks than the game rebuilds.
+    /// </summary>
     public static GameLinkRebuildArea.Summary SummarizeExport(string folder, World world, PrefabLibrary library,
-        GameLinkPlayer player, int radius)
+        GameLinkPlayer player, int radius, IEnumerable<PrefabInstance>? kept = null)
     {
         string path = Path.Combine(folder, WorldFiles.Prefabs);
         List<PrefabInstance> previous;
@@ -20,7 +23,7 @@ public static class GameLinkRebuild
         catch (DirectoryNotFoundException) { previous = []; }
         int min = world.GridToWorld(0), max = world.GridToWorld(world.Size);
         return GameLinkRebuildArea.Summarize(player.X, player.Z, radius, new(min, min, max, max),
-            previous.Concat(world.Prefabs).Select(prefab => PrefabFootprint(prefab, library.Find(prefab.Name))));
+            previous.Concat(kept ?? []).Concat(world.Prefabs).Select(prefab => PrefabFootprint(prefab, library.Find(prefab.Name))));
     }
 
     /// <summary>Uses the prefab's corner and rotated size, or one block if its size is unknown.</summary>
