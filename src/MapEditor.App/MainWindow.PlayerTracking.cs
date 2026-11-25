@@ -128,7 +128,7 @@ public partial class MainWindow
 
     private void ReportPlayerTrackingStatus(string? message)
     {
-        if (message == _playerTrackingStatus) return;
+        if (message == _playerTrackingStatus || ShowingRebuildResult) return;
         if (message is not null) _vm.Status = message;
         else if (_vm.Status == _playerTrackingStatus) _vm.Status = string.Empty;
         _playerTrackingStatus = message;

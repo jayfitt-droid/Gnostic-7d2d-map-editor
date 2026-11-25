@@ -17,6 +17,18 @@ public static class GameLinkRebuildArea
         public int MaxZ { get; } = maxZ;
     }
 
+    /// <summary>
+    /// The full and radius-only chunk counts. Reach is the greatest distance along either map axis from the
+    /// player to an outer edge of any selected chunk, rounded up to a whole metre.
+    /// </summary>
+    public readonly struct Summary(int chunkCount, int squareChunkCount, int reachMetres)
+    {
+        public int ChunkCount { get; } = chunkCount;
+        public int SquareChunkCount { get; } = squareChunkCount;
+        public int ReachMetres { get; } = reachMetres;
+        public bool IsMuchLarger => ChunkCount > 2L * SquareChunkCount;
+    }
+
     public static int ClampRadius(int radius) => Math.Min(MaxRadius, Math.Max(MinRadius, radius));
 
     internal static bool IsValidPosition(float value) =>
@@ -24,9 +36,29 @@ public static class GameLinkRebuildArea
 
     /// <summary>Rounds the square outward and keeps all POIs that share a selected chunk whole.</summary>
     public static HashSet<(int X, int Z)> Chunks(float x, float z, int radius, Footprint world,
-        IEnumerable<Footprint> prefabs)
+        IEnumerable<Footprint> prefabs) => Chunks(x, z, radius, world, prefabs, out _);
+
+    /// <summary>Summarizes the same chunk selection the game uses for the rebuild.</summary>
+    public static Summary Summarize(float x, float z, int radius, Footprint world, IEnumerable<Footprint> prefabs)
+    {
+        var chunks = Chunks(x, z, radius, world, prefabs, out int squareChunkCount);
+        double reach = 0;
+        const int chunkSize = 1 << ChunkShift;
+        foreach (var chunk in chunks)
+        {
+            int minX = chunk.X << ChunkShift, minZ = chunk.Z << ChunkShift;
+            double dx = Math.Max((double)x - minX, (double)minX + chunkSize - x);
+            double dz = Math.Max((double)z - minZ, (double)minZ + chunkSize - z);
+            reach = Math.Max(reach, Math.Max(dx, dz));
+        }
+        return new Summary(chunks.Count, squareChunkCount, (int)Math.Ceiling(reach));
+    }
+
+    private static HashSet<(int X, int Z)> Chunks(float x, float z, int radius, Footprint world,
+        IEnumerable<Footprint> prefabs, out int squareChunkCount)
     {
         var chunks = new HashSet<(int X, int Z)>();
+        squareChunkCount = 0;
         if (!IsValidPosition(x) || !IsValidPosition(z) ||
             x < world.MinX || x >= world.MaxX || z < world.MinZ || z >= world.MaxZ)
             return chunks;
@@ -38,6 +70,7 @@ public static class GameLinkRebuildArea
             (int)Math.Min(world.MaxX, Math.Ceiling((double)x + radius)),
             (int)Math.Min(world.MaxZ, Math.Ceiling((double)z + radius)));
         chunks.UnionWith(InBounds(first, world));
+        squareChunkCount = chunks.Count;
 
         var prefabsByChunk = new Dictionary<(int X, int Z), List<(int X, int Z)[]>>();
         foreach (var prefab in prefabs)

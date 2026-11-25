@@ -19,13 +19,18 @@ public partial class ExportDialog : Window
     private readonly bool _hasErrors;
     private readonly GameInstall? _install;
     private readonly GameLinkStatus? _gameStatus;
+    private readonly string? _previousExportFolder;
+    private readonly bool? _exportHasChanges;
 
     /// <param name="prefabNote">Shown above the issues, e.g. which prefabs keep RWG's heights; null for none.</param>
     public ExportDialog(string name, string location, IReadOnlyList<ValidationIssue> issues, string? prefabNote,
-        GameInstall? install, AfterExportAction choice, int radius, GameLinkStatus? gameStatus)
+        GameInstall? install, AfterExportAction choice, int radius, GameLinkStatus? gameStatus,
+        string? previousExportFolder, bool? exportHasChanges)
     {
         _install = install;
         _gameStatus = gameStatus;
+        _previousExportFolder = previousExportFolder;
+        _exportHasChanges = exportHasChanges;
         ActionPreference = choice;
         Radius = radius;
         InitializeComponent();
@@ -144,7 +149,8 @@ public partial class ExportDialog : Window
         OpenInGameNote.Text = note;
         OpenInGameNote.Visibility = note is null ? Visibility.Collapsed : Visibility.Visible;
 
-        string? rebuildReason = GameLinkRebuild.UnavailableReason(folder, _install, _gameStatus);
+        string? rebuildReason = GameLinkRebuild.UnavailableReason(folder, _install, _gameStatus,
+            _previousExportFolder, _exportHasChanges);
         RebuildRadio.IsEnabled = rebuildReason is null;
         if (RebuildRadio.IsEnabled && ActionPreference == AfterExportAction.Rebuild)
             RebuildRadio.IsChecked = true;

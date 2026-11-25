@@ -1,12 +1,15 @@
 using System.Windows;
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
+using MapEditor.Core.Model;
 
 namespace MapEditor.App;
 
 public partial class MainWindow
 {
     private bool _rebuildWaitActive;
+    private string? _rebuildResultStatus;
+    private bool ShowingRebuildResult => _rebuildResultStatus is not null && _vm.Status == _rebuildResultStatus;
 
     private async Task<GameLinkStatus?> ReadExportGameStatusAsync()
     {
@@ -31,7 +34,8 @@ public partial class MainWindow
         }
     }
 
-    private async Task<bool?> PrepareRebuildExportAsync(string folder, GameInstall install, GameLinkStatus initial, int radius)
+    private async Task<GameLinkStatus?> PrepareRebuildExportAsync(string folder, World world, GameInstall install,
+        GameLinkStatus initial, int radius)
     {
         if (_gameLinkActionRunning)
         {
@@ -43,9 +47,45 @@ public partial class MainWindow
         _vm.IsBusy = true;
         try
         {
-            string message = $"The game will save '{initial.Save}', go to the main menu, and load the same save again. " +
-                $"The game will rebuild the area within {radius} m of the player from the exported world files. " +
-                "This includes whole chunks and any points of interest that cross the edge. " +
+            _vm.Status = "Checking the game...";
+            var current = (await _gameLink.GetStatusAsync()).Status;
+            _vm.GameLinkConnected = current is not null;
+            if (_closeWhenIdle) return null;
+            if (GameLinkRebuild.UnavailableReason(folder, install, current, GameLinkExportFolder, ExportHasChanges) is { } unavailable)
+            {
+                _vm.Status = "Export cancelled. " + unavailable;
+                return null;
+            }
+            if (current is not { Player: { } player } || !GameLinkRebuild.IsSameSave(initial, current))
+            {
+                _vm.Status = "Export cancelled. The game changed saves.";
+                return null;
+            }
+
+            _vm.Status = "Calculating the rebuild area...";
+            var library = _vm.Prefabs;
+            GameLinkRebuildArea.Summary summary;
+            try
+            {
+                summary = await Task.Run(() => GameLinkRebuild.SummarizeExport(folder, world, library, player, radius));
+            }
+            catch (Exception ex) when (IsBadInput(ex))
+            {
+                _vm.Status = "Export cancelled. Could not calculate the rebuild area.";
+                if (!_closeWhenIdle)
+                    ThemedMessageBox.Show(this, ex.Message, "Rebuild the area around the player",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                return null;
+            }
+            if (_closeWhenIdle) return null;
+
+            string larger = summary.IsMuchLarger
+                ? $"Points of interest at the edge make this area much larger than the {2 * radius} m square, as can happen in a town. "
+                : "";
+            string message = $"The game will save '{current.Save}', go to the main menu, and load the same save again. " +
+                $"The game will rebuild {summary.ChunkCount:N0} chunks from the exported world files. " +
+                $"The area reaches up to {summary.ReachMetres:N0} m from the player along a map axis. " +
+                "This includes whole chunks and any points of interest that cross the edge. " + larger +
                 "Player buildings, loot, bedrolls and land claims in the rebuilt area are lost. " +
                 "The game can also remove vehicles and dropped backpacks there.";
             if (ThemedMessageBox.Show(this, message, "Rebuild the area around the player",
@@ -63,12 +103,12 @@ public partial class MainWindow
                 _vm.Status = "Export cancelled. " + reason;
                 return null;
             }
-            if (!GameLinkRebuild.IsSameSave(initial, confirmed!))
+            if (!GameLinkRebuild.IsSameSave(current, confirmed!))
             {
                 _vm.Status = "Export cancelled. The game changed saves.";
                 return null;
             }
-            return await LeaveForExportAsync(initial.Save);
+            return await LeaveForExportAsync(current.Save) == true ? current : null;
         }
         finally
         {
@@ -91,7 +131,7 @@ public partial class MainWindow
             var reply = await _gameLink.RebuildAsync(target.World, target.Save, target.Player!, radius, wait.Token);
             if (reply.OperationId is not { } id)
             {
-                _vm.Status = "World exported. Could not start the rebuild. " + GameLinkErrorText(reply.Error);
+                _vm.Status = "World exported. Could not start the rebuild. " + (reply.Message ?? GameLinkErrorText(reply.Error));
                 return;
             }
 
@@ -122,6 +162,7 @@ public partial class MainWindow
         }
         finally
         {
+            _rebuildResultStatus = _vm.Status;
             _rebuildWaitActive = false;
             _openInGameWait = null;
             wait.Dispose();
