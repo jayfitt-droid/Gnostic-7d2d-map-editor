@@ -25,7 +25,7 @@ public static class WorldReader
         {
             world.MapInfo = WorldXml.ReadMapInfo(P(WorldFiles.MapInfo));
             string? declared = WorldXml.GetProperty(world.MapInfo, "HeightMapSize");
-            if (declared is not null && declared.Replace(" ", "") != $"{world.Size},{world.Size}")
+            if (declared is not null && declared.Replace(" ", "") != WorldXml.FormatHeightMapSize(world.Size))
                 world.Warnings.Add($"map_info.xml says HeightMapSize={declared} but dtm.raw is {world.Size}x{world.Size}.");
         }
         else

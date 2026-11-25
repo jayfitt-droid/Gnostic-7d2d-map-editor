@@ -84,7 +84,7 @@ public static class NewWorldGenerator
 
         world.MapInfo = new XDocument(new XElement("MapInfo",
             Property("Scale", "1"),
-            Property("HeightMapSize", $"{size},{size}"),
+            Property("HeightMapSize", IO.WorldXml.FormatHeightMapSize(size)),
             Property("Modes", "Survival,SurvivalSP,SurvivalMP,Creative"),
             Property("FixedWaterLevel", "false"),
             Property("RandomGeneratedWorld", "true")));

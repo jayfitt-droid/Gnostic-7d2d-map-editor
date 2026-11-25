@@ -145,11 +145,13 @@ public static class WorldXml
     {
         var doc = new XDocument(mapInfo);
         if (doc.Root is null) doc.Add(new XElement("MapInfo"));
-        SetProperty(doc, "HeightMapSize", $"{worldSize},{worldSize}");
+        SetProperty(doc, "HeightMapSize", FormatHeightMapSize(worldSize));
         if (GetProperty(doc, "Scale") is null) SetProperty(doc, "Scale", "1");
         using var w = XmlWriter.Create(path, WriterSettings);
         doc.Save(w);
     }
+
+    internal static string FormatHeightMapSize(int size) => string.Create(CultureInfo.InvariantCulture, $"{size},{size}");
 
     public static string? GetProperty(XDocument doc, string name) =>
         doc.Root?.Elements("property").FirstOrDefault(p => (string?)p.Attribute("name") == name)?.Attribute("value")?.Value;
