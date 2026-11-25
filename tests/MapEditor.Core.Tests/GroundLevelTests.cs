@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
@@ -95,6 +96,31 @@ public sealed class GroundLevelTests : IDisposable
         // Without the library (CLI export of a project) the YOffset it was converted with is used.
         WorldXml.WritePrefabs(output, world.Prefabs);
         Assert.Equal(expected, XDocument.Load(output).Root!.Elements().Select(e => e.ToString()).ToList());
+    }
+
+    [Fact]
+    public void Negative_prefab_coordinates_round_trip_under_swedish_culture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("sv-SE");
+            var position = new Int3(-120, 45, -300);
+            string output = Path.Combine(_dir, WorldFiles.Prefabs);
+
+            WorldXml.WritePrefabs(output, [new PrefabInstance { Name = Poi.Name, Position = position }]);
+
+            string xml = File.ReadAllText(output);
+            Assert.Contains("position=\"-120,45,-300\"", xml);
+            Assert.DoesNotContain("\u2212", xml);
+            var prefab = Assert.Single(WorldXml.ReadPrefabs(output));
+            Assert.Equal(Poi.Name, prefab.Name);
+            Assert.Equal(position, prefab.Position);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 
     [Fact]

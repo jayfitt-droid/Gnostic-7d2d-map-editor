@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml.Linq;
 
 namespace MapEditor.Core.Model;
@@ -14,7 +15,7 @@ public enum RoadType : byte
 
 public readonly record struct Int3(int X, int Y, int Z)
 {
-    public override string ToString() => $"{X},{Y},{Z}";
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{X},{Y},{Z}");
 }
 
 /// <summary>One &lt;decoration&gt; from prefabs.xml. Position is the bounding-box min corner in world coords.</summary>
