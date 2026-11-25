@@ -551,7 +551,7 @@
                         <MenuItem Header="Stages and tools together" Click="StagesAndToolsTour_Click" />
                     </MenuItem>
                     <MenuItem Header="_Keyboard Shortcuts" InputGestureText="F1" Click="Shortcuts_Click" IsEnabled="{Binding IsWorldMode}" />
-                    <MenuItem Header="Check for _Updates..." Click="CheckUpdates_Click" IsEnabled="{Binding IsWorldMode}" />
+                    <MenuItem Header="Check for _Updates..." Click="CheckUpdates_Click" IsEnabled="{Binding CanCheckForUpdates}" />
                     <MenuItem Header="_About" Click="About_Click" IsEnabled="{Binding IsWorldMode}" />
                 </MenuItem>
             </Menu>
