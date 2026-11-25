@@ -566,7 +566,7 @@ public partial class MainWindow : Window
     // ---- save --------------------------------------------------------------
 
     private void HasWorld_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
-        e.CanExecute = _world is not null && !_vm.IsBusy && !_vm.IsLandMode && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging;
+        e.CanExecute = _world is not null && !_vm.IsBusy && !_vm.IsLandMode && !_tools.IsStroking && !_prefabTools.IsDragging && !_multiSelect.IsDragging && !_townTools.IsDragging && !_bridgeTools.IsDragging;
 
     /// <summary>
     /// True (and says so) while a save, export or load is running. Saves write the live world on another thread,
@@ -1146,7 +1146,7 @@ public partial class MainWindow : Window
     private async Task AutosaveAsync()
     {
         if (!_vm.Autosave || _autosaving || !Dirty || _world is not { } world || _vm.IsBusy || _newLandWorld
-            || _tools.IsStroking || _prefabTools.IsDragging || _multiSelect.IsDragging || _townTools.IsDragging)
+            || _tools.IsStroking || _prefabTools.IsDragging || _multiSelect.IsDragging || _townTools.IsDragging || _bridgeTools.IsDragging)
             return;
         _autosaving = true;
         try
@@ -2788,7 +2788,8 @@ public partial class MainWindow : Window
     // ---- undo --------------------------------------------------------------
 
     private bool CanChangeUndoHistory => !_vm.IsBusy && _tools is { IsStroking: false }
-        && _prefabTools is { IsDragging: false } && _multiSelect is { IsDragging: false } && _townTools is { IsDragging: false };
+        && _prefabTools is { IsDragging: false } && _multiSelect is { IsDragging: false } && _townTools is { IsDragging: false }
+        && _bridgeTools is { IsDragging: false };
 
     private void Undo_CanExecute(object sender, CanExecuteRoutedEventArgs e) =>
         e.CanExecute = _vm.IsLandMode ? _landTools is not null && CanUndoLand(redo: false) : _undo.CanUndo && CanChangeUndoHistory;

@@ -90,6 +90,13 @@ public sealed class BridgeToolController
     private void OnToolInput(object? sender, ToolInputEventArgs e)
     {
         if (World is not { } world || _vm.SelectedTool != EditorTool.Bridge) return;
+        // A lost capture (a dialog or another window took the mouse) or a busy editor drops the drag: no change, no undo step.
+        if (e.Phase == ToolPhase.Up && IsDragging && (e.CaptureLost || _vm.IsBusy))
+        {
+            DropDrag();
+            Refresh();
+            return;
+        }
         var grid = ToGrid(world, e.MapPoint);
         switch (e.Phase)
         {
@@ -181,6 +188,13 @@ public sealed class BridgeToolController
         };
     }
 
+    /// <summary>Drops the drag and its ghost without changing the bridge.</summary>
+    private void DropDrag()
+    {
+        _drag = null;
+        _dragLine = null;
+    }
+
     private void Release(World world, Vector2 grid, bool moved)
     {
         // Work out where it was dragged to before the drag is dropped: DraggedLine reads the drag's kind.
@@ -258,10 +272,7 @@ public sealed class BridgeToolController
     public bool Cancel()
     {
         if (IsDragging)
-        {
-            _drag = null;
-            _dragLine = null;
-        }
+            DropDrag();
         else if (_first is not null || _plan is not null)
         {
             _first = null;
