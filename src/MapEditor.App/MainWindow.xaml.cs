@@ -510,6 +510,7 @@ public partial class MainWindow : Window
         CancelOpenInGameWait("A different world was opened.");
         // Prefabs saved at ground level by the game's editor get box Y, which everything here works in.
         GroundLevel.Resolve(world, _vm.Prefabs);
+        _tools.World = world;
         if (_world is not null || recoveryPath is not null) _autosaves.Discard(recoveryPath);
         _world = world;
         ResetPlayerTracking();
@@ -527,7 +528,6 @@ public partial class MainWindow : Window
         _exportPosition = _undo.Position;
         _projectSettings.ExportHasChanges = sourcePath is null ? null : false;
         _tools.CancelRoad();
-        _tools.World = world;
         _prefabTools.World = world;
         _prefabTools.Refresh();
         _multiSelect.SetWorld(world);
@@ -1238,6 +1238,7 @@ public partial class MainWindow : Window
     private void ClearWorld()
     {
         EndTour();
+        _tools.World = null;
         _autosaves.Discard();
         _tools.CancelRoad();
         _world = null;
@@ -1250,7 +1251,6 @@ public partial class MainWindow : Window
         _dirty = false;
         _undo.Clear();
         _vm.History = null;
-        _tools.World = null;
         _prefabTools.World = null;
         _prefabTools.Refresh();
         _multiSelect.SetWorld(null);
@@ -3407,6 +3407,7 @@ public partial class MainWindow : Window
                 KeepPlayerInView(centre: true);
                 break;
             case nameof(MainViewModel.SelectedTool):
+                _tools.EndStroke();
                 _prefabTools.FinishDrag();
                 _clipboard.Cancel();
                 if (_vm.IsWorldMode && !_vm.IsModernTheme) Map.PreservePositionOnNextLayout();
@@ -3520,7 +3521,9 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
-        if (Keyboard.Modifiers != ModifierKeys.None) return;
+        // A stroke can start with Shift held, for example to erase a road.
+        if (Keyboard.Modifiers != ModifierKeys.None &&
+            !(e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.Shift && _tools.IsStroking)) return;
         if (e.Key != Key.F1 && RefuseWhileBusy())
         {
             e.Handled = true;
@@ -3608,6 +3611,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void Escape()
     {
+        _tools.EndStroke();
         if (_clipboard.Cancel()) { _vm.Status = "Paste canceled."; return; }
         if (_vm.IsSelectTool)
         {
