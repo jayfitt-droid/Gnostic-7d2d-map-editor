@@ -159,6 +159,15 @@ public sealed class MapView : FrameworkElement
         set { _landPreview = value; InvalidateVisual(); }
     }
 
+    private IReadOnlyList<(Rect Bounds, bool CutsWater)>? _landOutline;
+
+    /// <summary>The saved land boxes in map coordinates, drawn over the ground outside Land mode (null: none).</summary>
+    public IReadOnlyList<(Rect Bounds, bool CutsWater)>? LandOutline
+    {
+        get => _landOutline;
+        set { _landOutline = value; InvalidateVisual(); }
+    }
+
     /// <summary>Show the world's 150 m grid over the coast in Land mode.</summary>
     public bool ShowLandGrid
     {
@@ -779,6 +788,9 @@ public sealed class MapView : FrameworkElement
         DrawMultiSelection(dc, visible);
         DrawBrushCursor(dc);
         DrawRuler(dc);
+        if (LandOutline is { } outline)
+            foreach (var (bounds, cutsWater) in outline)
+                dc.DrawRectangle(null, cutsWater ? WaterBoxPen : LandBoxPen, new Rect(MapToScreen(bounds.TopLeft), MapToScreen(bounds.BottomRight)));
     }
 
     private static readonly Brush LandSea = Frozen(new SolidColorBrush(Color.FromRgb((byte)(CoastColours.DeepWater >> 16),

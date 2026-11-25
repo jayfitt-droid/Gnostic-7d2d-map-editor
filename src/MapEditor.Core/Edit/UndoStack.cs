@@ -42,6 +42,9 @@ public sealed class EditSession(string name, World? world = null)
     /// <summary>Extra text for the running history, such as the generator seed used by this edit.</summary>
     public string? HistoryDetail { get; set; }
 
+    /// <summary>Marks the edit as Build World, which makes the ground from a land drawing. Undoing it returns to Land mode.</summary>
+    public bool BuildsWorld { get; set; }
+
     internal object? CommittedPosition { get; set; }
 
     /// <summary>Bounds of everything touched, in world metres.</summary>
@@ -116,7 +119,7 @@ public sealed class EditSession(string name, World? world = null)
         List<TileSnapshot> parts = [.. _tiles.Values];
         if (_layers?.Changed == true) parts.Add(_layers);
         parts.AddRange(_states.Values);
-        return new(Name, parts, Bounds);
+        return new(Name, parts, Bounds) { BuildsWorld = BuildsWorld };
     }
 }
 
@@ -142,6 +145,10 @@ public sealed class UndoStep(string name, List<TileSnapshot> tiles, GridRect bou
     internal object Position { get; } = new();
     public string Name { get; } = name;
     public GridRect Bounds { get; } = bounds;
+
+    /// <summary>Whether the step is a Build World edit (see <see cref="EditSession.BuildsWorld"/>).</summary>
+    public bool BuildsWorld { get; init; }
+
     public long Bytes { get; } = tiles.Sum(t => t.Bytes);
 
     public void Swap()
@@ -298,6 +305,9 @@ public sealed class UndoStack(long maxBytes = 1L << 30)
     public bool CanRedo => _redo.Count > 0;
     public string? UndoName => _undo.Last?.Value.Name;
     public string? RedoName => _redo.TryPeek(out var s) ? s.Name : null;
+
+    /// <summary>Whether the next redo is a Build World step.</summary>
+    public bool RedoBuildsWorld => _redo.TryPeek(out var s) && s.BuildsWorld;
 
     public event EventHandler? Changed;
 
