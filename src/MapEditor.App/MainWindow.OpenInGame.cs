@@ -13,6 +13,7 @@ public partial class MainWindow
     private static readonly TimeSpan PlaytestTimeout = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan PlaytestPollInterval = TimeSpan.FromSeconds(1.5);
     private CancellationTokenSource? _openInGameWait;
+    private CancellationTokenSource? _leaveWait;
     private Task _openInGameTask = Task.CompletedTask;
     private string? _openInGameStatus;
 
@@ -102,20 +103,48 @@ public partial class MainWindow
 
     private async Task<bool?> LeaveForExportAsync(string save)
     {
-        _vm.Status = $"Waiting for the game to save '{save}' and return to the main menu...";
-        var leave = await _gameLink.LeaveAsync();
-        if (leave.OperationId is not { } id)
+        string waiting = $"Waiting for the game to save '{save}' and return to the main menu... Press Shift-Esc to stop waiting.";
+        _vm.Status = waiting;
+        using var wait = new CancellationTokenSource();
+        _leaveWait = wait;
+        try
         {
-            _vm.Status = GameLinkErrorText(leave.Error);
+            var leave = await _gameLink.LeaveAsync(wait.Token);
+            if (leave.OperationId is not { } id)
+            {
+                _vm.Status = GameLinkErrorText(leave.Error);
+                return null;
+            }
+
+            var (result, _) = await PollPlaytestAsync(
+                (game, expired) => GameLinkPlaytest.WaitForMenu(game, id, expired), wait.Token, stopWhenGameCloses: true);
+            if (result.State == GameLinkWaitState.AtMenu) return true;
+            _vm.Status = result.State switch
+            {
+                GameLinkWaitState.GameClosed => "The game closed. Export cancelled.",
+                GameLinkWaitState.TimedOut => "Export cancelled. The game did not return to the main menu in time.",
+                _ when result.Reason == "timeout" => "Export cancelled. The game did not return to the main menu in time.",
+                _ => PlaytestFailure(result.Reason),
+            };
             return null;
         }
+        catch (OperationCanceledException) when (wait.IsCancellationRequested)
+        {
+            _vm.Status = "Export cancelled. Stopped waiting for the game.";
+            return null;
+        }
+        finally
+        {
+            _leaveWait = null;
+        }
+    }
 
-        var (result, _) = await PollPlaytestAsync((game, expired) => GameLinkPlaytest.WaitForMenu(game, id, expired));
-        if (result.State == GameLinkWaitState.AtMenu) return true;
-        _vm.Status = result.State == GameLinkWaitState.TimedOut || result.Reason == "timeout"
-            ? "Export cancelled. The game did not return to the main menu in time."
-            : PlaytestFailure(result.Reason);
-        return null;
+    /// <summary>Stops the wait for the game to save and go to the main menu, so the export does not write the world.</summary>
+    private bool CancelLeaveWait()
+    {
+        if (_leaveWait is not { IsCancellationRequested: false } wait) return false;
+        wait.Cancel();
+        return true;
     }
 
     private void StartOpenInGame(GameInstall install, string world, string save, (int X, int Z)? destination)
@@ -233,11 +262,13 @@ public partial class MainWindow
     }
 
     private async Task<(GameLinkWaitResult Result, bool Linked)> PollPlaytestAsync(
-        Func<GameLinkStatus?, bool, GameLinkWaitResult> decide, CancellationToken cancel = default)
+        Func<GameLinkStatus?, bool, GameLinkWaitResult> decide, CancellationToken cancel = default,
+        bool stopWhenGameCloses = false)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel);
         deadline.CancelAfter(PlaytestTimeout);
         bool linked = false;
+        var missed = new GameLinkMissedReplies();
         try
         {
             while (!_closeWhenIdle)
@@ -245,6 +276,8 @@ public partial class MainWindow
                 var reply = await _gameLink.GetStatusAsync(deadline.Token);
                 ShowGameLinkStatus(reply.Status, reply.Error);
                 linked |= reply.Status is not null;
+                if (missed.Record(reply.Status is not null) && stopWhenGameCloses)
+                    return (new(GameLinkWaitState.GameClosed), linked);
                 var result = decide(reply.Status, false);
                 if (result.State != GameLinkWaitState.Waiting) return (result, linked);
                 await Task.Delay(PlaytestPollInterval, deadline.Token);

@@ -3439,6 +3439,11 @@ public partial class MainWindow : Window
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
+        if (!e.Handled && e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.Shift && CancelLeaveWait())
+        {
+            e.Handled = true;
+            return;
+        }
         if (!e.Handled && e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.Shift &&
             _openInGameStatus is { } opening && _vm.Status == opening &&
             CancelOpenInGameWait("Automatic teleport cancelled."))

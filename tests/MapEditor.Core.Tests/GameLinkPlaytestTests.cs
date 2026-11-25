@@ -12,6 +12,29 @@ public class GameLinkPlaytestTests
         Save = Save,
     };
 
+    [Fact]
+    public void TheGameCountsAsClosedAfterThreeFailedRepliesInARow()
+    {
+        var missed = new GameLinkMissedReplies();
+
+        Assert.False(missed.Record(false));
+        Assert.False(missed.Record(false));
+        Assert.True(missed.Record(false));
+    }
+
+    [Fact]
+    public void AGoodReplyRestartsTheCountOfFailedReplies()
+    {
+        var missed = new GameLinkMissedReplies();
+
+        Assert.False(missed.Record(false));
+        Assert.False(missed.Record(false));
+        Assert.False(missed.Record(true));
+        Assert.False(missed.Record(false));
+        Assert.False(missed.Record(false));
+        Assert.True(missed.Record(false));
+    }
+
     [Theory]
     [InlineData(@"GeneratedWorlds\Test", true)]
     [InlineData(@"generatedworlds\test\", true)]
