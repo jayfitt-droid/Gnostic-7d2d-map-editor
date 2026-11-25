@@ -795,7 +795,7 @@ The game limits the save name to 50 characters. It also limits which characters 
 - If you have a save open with Game Link, click **OK** to save it and go to the main menu. The editor then writes the world and opens the playtest save. Click **Cancel** to stop the export. If other players share the game, the editor stops the export.
 - If the game is open without Game Link, the editor writes the world. Open it from the game's menu.
 
-With Game Link, the game moves the player to the centre of the map view at the time you click **Export**. Press **Esc** in the editor to stop waiting. The game continues to load. If the editor starts the game without Game Link, it shows the coordinates in the status bar.
+With Game Link, the game moves the player to the centre of the map view at the time you click **Export** in **Export World**. The status bar shows the coordinates. When the status bar shows the shortcut, press **Shift-Esc** to cancel the automatic teleport. The game continues to load. If the editor starts the game without Game Link, it shows the coordinates in the status bar.
 
 If the game cannot open an old playtest save, the editor shows a message. To make a new playtest save, delete the old playtest save on the game's **Continue** page, then export again.
 
@@ -807,7 +807,7 @@ Set **Radius** from 16 to 512 m. The default is 128 m. The editor keeps the radi
 
 Read the warning before you click **OK**. You lose player buildings, loot, bedrolls and land claims in the chunks that the game rebuilds. This includes the full area of POIs near the edge. Click **Cancel** to stop the export and keep the save as it is.
 
-The game saves, goes to the main menu, and opens the same save after the export. The player goes back to the same map position, at the new ground height. Press **Esc** in the editor to stop waiting. The game can still finish the rebuild.
+The game saves, goes to the main menu, and opens the same save after the export. The player goes back to the same map position, at the new ground height. Press **Shift-Esc** in the editor to stop waiting. The game can still finish the rebuild.
 
 Move vehicles and collect dropped backpacks before you rebuild. The game can remove them in the rebuilt area. Trees can keep their old positions because the save stores them separately. A POI that you move or remove can leave old enemy spawn points or triggers.
 

@@ -215,6 +215,8 @@ Use `error` in your code. The `message` text can change.
 
 If nothing listens on the port, the connection fails. The game is not running, or the mod is not installed, or EAC stopped the game from loading it. The editor treats that as "Game Link is not available".
 
+To trace a playtest export, search the game log for `[Gnostic Game Link]`. Each parsed LEAVE, OPEN and TELEPORT request has a line with its ID and whether it was accepted or rejected with an error code. OPEN includes the target world and save when the request file is readable. TELEPORT includes the destination coordinates. Match the LEAVE and OPEN state changes by ID. The mod assigns log IDs to TELEPORT and rejected LEAVE requests.
+
 ## Timing and good practice
 
 - Connect with a short timeout (the editor uses 1 second), then allow about **5 seconds** for the reply, or **30 seconds** for `PICTURE`. A request waits for the game's main thread. While the game loads, that can take a moment.
