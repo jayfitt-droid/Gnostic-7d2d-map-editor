@@ -195,6 +195,11 @@ public sealed class PrefabGroup
         if (!paste && dx == 0 && dz == 0 && steps % (_prefabs.Count > 0 ? 4 : 8) == 0) return null;
         if (!paste && MovementProblem() is { } problem) return problem;
         var layout = Layout(dx, dz, steps, snap);
+        // Snapping can bring the group back to where it started: that is no move, so leave heights and undo alone.
+        if (!paste && layout.Prefabs.All(t => t.Spot.X == t.Prefab.Position.X && t.Spot.Z == t.Prefab.Position.Z &&
+                                              t.Spot.Rotation == t.Prefab.Rotation) &&
+            layout.Spawns.All(t => (float)t.X == t.Spawn.X && (float)t.Z == t.Spawn.Z && t.Rotation == t.Spawn.RotationY))
+            return null;
         var moving = paste ? [] : _prefabs;
         double half = _world.Size / 2;
         if (layout.Spawns.Any(t => t.X + half < 0 || t.Z + half < 0 ||
