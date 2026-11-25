@@ -55,7 +55,7 @@ The installed editor looks for a new version at start. If a new version is avail
 Click **Install** to download the new version and restart the editor. The editor asks about unsaved changes, and about changes in Land mode, before the download.
 If the download fails, the editor stays open and keeps your work.
 Click **Later** to close the dialog. To turn off this check, clear **Settings > Check for updates at start**.
-To look for a new version at any time, click **Help > Check for Updates**.
+To look for a new version, click **Help > Check for Updates...**. This menu item is unavailable while the editor is busy.
 
 ### Set the game folder
 
