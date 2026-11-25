@@ -3468,6 +3468,13 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
+        // While a paste is on the pointer, these keys must not reach the originals that are still selected.
+        if (_clipboard.IsPasting && e.Key is Key.Delete or Key.PageUp or Key.PageDown)
+        {
+            if (e.Key == Key.Delete && _clipboard.Cancel()) _vm.Status = "Paste canceled.";
+            e.Handled = true;
+            return;
+        }
         if (_vm.IsTownTool && e.Key == Key.Enter && _townTools.Accept()) { e.Handled = true; return; }
         if (_vm.IsBridgeTool)
         {
@@ -3571,9 +3578,11 @@ public partial class MainWindow : Window
     private bool AltTurnsOffSnapping(KeyEventArgs e)
     {
         bool draggingPrefab = _prefabTools.IsDragging;
-        if (!(_vm.IsRoadTool || _vm.IsPrefabTool || _vm.IsTownTool || draggingPrefab || _clipboard.IsPasting) || e.Key != Key.System
-            || e.SystemKey is not (Key.LeftAlt or Key.RightAlt)) return false;
+        bool draggingGroup = _multiSelect.IsDragging;
+        if (!(_vm.IsRoadTool || _vm.IsPrefabTool || _vm.IsTownTool || draggingPrefab || draggingGroup || _clipboard.IsPasting)
+            || e.Key != Key.System || e.SystemKey is not (Key.LeftAlt or Key.RightAlt)) return false;
         if (_vm.IsPrefabTool || draggingPrefab) _prefabTools.SnappingChanged();
+        if (draggingGroup) _multiSelect.SnappingChanged();
         _clipboard.UpdatePreview();
         Map.InvalidateVisual();
         e.Handled = true;

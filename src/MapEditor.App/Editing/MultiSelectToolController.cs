@@ -146,6 +146,12 @@ public sealed class MultiSelectToolController(MapView map, MainViewModel vm, Edi
         ShowSelection(world, layout: layout with { Prefabs = layout.Prefabs.Where(t => _prefabs.Contains(t.Prefab)).ToArray() });
     }
 
+    /// <summary>Redraws the drag preview from the last pointer position after Alt is pressed or released.</summary>
+    public void SnappingChanged()
+    {
+        if (_moving is not null && World is { } world) PreviewMove(world);
+    }
+
     private void Drop(World world)
     {
         var group = _moving!;
