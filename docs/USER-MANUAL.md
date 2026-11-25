@@ -443,6 +443,7 @@ The **Town** tool makes a complete town: streets, districts, POIs, traders and f
 4. Press **Enter** to build the town. Press **Esc** to cancel it. Press **Esc** again to go back to **Select**.
 
 Hold **Alt** when you start to drag to start the grid at the mouse position. Use this to put a town tightly against a road.
+The Town tool leaves a gap of at least 150 m from street tiles that stay in the world.
 
 ## 6. The Generate panel
 
@@ -569,6 +570,7 @@ New terrain for the whole map removes the planned towns of stage 2 that are not 
 ### Stage 2: Town sites
 
 This stage plans towns and cities, and then builds them. It uses the game's town types and the game's counts for your world size.
+Towns have a gap of at least one 150 m cell between them.
 
 **Town presets**
 
