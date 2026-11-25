@@ -2165,14 +2165,17 @@ public partial class MainWindow : Window
         var reach = PoiReach(world, gen.PlacedWilderness);
         var stages = StagesFor(world, gen);
         StageChanges changes = new();
+        EditSession? ran = null;
         if (!_edits.Run(world, name, session =>
             {
+                ran = session;
                 NoteGeneratorState(session);
                 changes = stages.Remove(GeneratorStage.Wilderness, session);
             })) return;
         NoteSpawnsTakenDown(changes.Spawns);
         _vm.Generate.RefreshWilderness();
-        Map.InvalidateRegion(reach);
+        // The gravel road banks reach further than the road points, so redraw all the session touched too.
+        Map.InvalidateRegion(ran is null ? reach : reach.Union(ran.Bounds));
         Map.InvalidateVisual();
         _prefabTools.Refresh();
         _genTools.Refresh();
