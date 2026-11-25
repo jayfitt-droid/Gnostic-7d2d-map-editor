@@ -11,23 +11,23 @@ public partial class MainWindow
     private string? _rebuildResultStatus;
     private bool ShowingRebuildResult => _rebuildResultStatus is not null && _vm.Status == _rebuildResultStatus;
 
-    private async Task<GameLinkStatus?> ReadExportGameStatusAsync()
+    private async Task<(GameLinkStatus? Status, GameLinkError Error)> ReadExportGameStatusAsync()
     {
-        if (_gameLinkActionRunning) return null;
+        if (_gameLinkActionRunning) return (null, GameLinkError.NoReply);
 
         BeginPlaytestAction();
         _vm.IsBusy = true;
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(1.25));
         try
         {
-            var status = (await _gameLink.GetStatusAsync(deadline.Token)).Status;
-            ShowGameLinkStatus(status);
-            return status;
+            var reply = await _gameLink.GetStatusAsync(deadline.Token);
+            ShowGameLinkStatus(reply.Status, reply.Error);
+            return (reply.Status, reply.Error);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
         {
             ShowGameLinkStatus(null);
-            return null;
+            return (null, GameLinkError.NoReply);
         }
         finally
         {
@@ -51,10 +51,17 @@ public partial class MainWindow
         try
         {
             _vm.Status = "Checking the game...";
-            var current = (await _gameLink.GetStatusAsync()).Status;
-            ShowGameLinkStatus(current);
+            var currentReply = await _gameLink.GetStatusAsync();
+            var current = currentReply.Status;
+            ShowGameLinkStatus(current, currentReply.Error);
             if (_closeWhenIdle) return null;
-            if (GameLinkRebuild.UnavailableReason(folder, install, current, GameLinkExportFolder, ExportHasChanges) is { } unavailable)
+            if (current is null && GameLinkWorld.IsModMismatch(currentReply.Error))
+            {
+                _vm.Status = GameLinkErrorText(currentReply.Error);
+                return null;
+            }
+            if (GameLinkRebuild.UnavailableReason(folder, install, current, GameLinkExportFolder, ExportHasChanges,
+                currentReply.Error) is { } unavailable)
             {
                 _vm.Status = "Export cancelled. " + unavailable;
                 return null;
@@ -98,9 +105,15 @@ public partial class MainWindow
                 return null;
             }
             _vm.Status = "Checking the game...";
-            var confirmed = (await _gameLink.GetStatusAsync()).Status;
-            ShowGameLinkStatus(confirmed);
+            var confirmReply = await _gameLink.GetStatusAsync();
+            var confirmed = confirmReply.Status;
+            ShowGameLinkStatus(confirmed, confirmReply.Error);
             if (_closeWhenIdle) return null;
+            if (confirmed is null && GameLinkWorld.IsModMismatch(confirmReply.Error))
+            {
+                _vm.Status = GameLinkErrorText(confirmReply.Error);
+                return null;
+            }
             if (GameLinkRebuild.UnavailableReason(folder, install, confirmed) is { } reason)
             {
                 _vm.Status = "Export cancelled. " + reason;

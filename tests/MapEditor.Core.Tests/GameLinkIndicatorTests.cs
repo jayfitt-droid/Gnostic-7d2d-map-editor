@@ -17,6 +17,40 @@ public sealed class GameLinkIndicatorTests
     }
 
     [Theory]
+    [InlineData(GameLinkError.Unavailable)]
+    [InlineData(GameLinkError.NoReply)]
+    [InlineData(GameLinkError.InvalidReply)]
+    public void Stays_disconnected_for_errors_that_are_not_a_mod_mismatch(GameLinkError error)
+    {
+        var indicator = GameLinkWorld.Indicator(ExportFolder, null, error);
+
+        Assert.Equal(GameLinkIndicatorState.Disconnected, indicator.State);
+        Assert.Equal("Game Link disconnected", indicator.Text);
+    }
+
+    [Theory]
+    [InlineData(GameLinkError.UnsupportedProtocol,
+        "Game Link connected, but the mod is older than this editor needs: install Gnostic Game Link 1.1.0.")]
+    [InlineData(GameLinkError.InvalidToken,
+        "Game Link could not verify the session: restart the game or install the mod that matches this editor.")]
+    public void Shows_incompatible_when_the_game_has_an_old_or_unverified_mod(GameLinkError error, string text)
+    {
+        var indicator = GameLinkWorld.Indicator(ExportFolder, null, error);
+
+        Assert.Equal(GameLinkIndicatorState.Incompatible, indicator.State);
+        Assert.Equal(text, indicator.Text);
+        Assert.True(GameLinkWorld.IsModMismatch(error));
+    }
+
+    [Fact]
+    public void A_status_wins_over_an_error()
+    {
+        var indicator = GameLinkWorld.Indicator(ExportFolder, Ready, GameLinkError.UnsupportedProtocol);
+
+        Assert.Equal(GameLinkIndicatorState.ThisWorld, indicator.State);
+    }
+
+    [Theory]
     [InlineData(GameLinkState.Menu, false, "", "the game is at the main menu.")]
     [InlineData(GameLinkState.Loading, false, "", "the game is loading.")]
     [InlineData(GameLinkState.Ready, true, "Old Island", "the game has 'Old Island' loaded, not this world.")]

@@ -10,7 +10,7 @@ public readonly record struct GameLinkWaypoint(string Name, int X, int Z);
 public readonly record struct GameLinkPlayerMarker(double MapX, double MapY, float Yaw);
 
 /// <summary>The status-bar plug's connection and world match.</summary>
-public enum GameLinkIndicatorState { Disconnected, OtherWorld, ThisWorld }
+public enum GameLinkIndicatorState { Disconnected, OtherWorld, ThisWorld, Incompatible }
 
 /// <summary>The status-bar plug's state and the text that explains it.</summary>
 public readonly record struct GameLinkIndicator(GameLinkIndicatorState State, string Text);
@@ -30,10 +30,31 @@ public static class GameLinkWorld
     public static bool Matches(string? exportFolder, string gameWorld) =>
         ExportName(exportFolder) is { } name && string.Equals(name, gameWorld, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Describes the latest game status for the editor's status-bar plug.</summary>
-    public static GameLinkIndicator Indicator(string? exportFolder, GameLinkStatus? status)
+    /// <summary>Whether the game answered, but its mod is too old or does not match this editor's session.</summary>
+    public static bool IsModMismatch(GameLinkError error) =>
+        error is GameLinkError.UnsupportedProtocol or GameLinkError.InvalidToken;
+
+    /// <summary>Explains a mod mismatch, or returns null for any other error.</summary>
+    public static string? ModMismatchText(GameLinkError error) => error switch
     {
-        if (status is null) return new(GameLinkIndicatorState.Disconnected, "Game Link disconnected");
+        GameLinkError.UnsupportedProtocol =>
+            "Game Link connected, but the mod is older than this editor needs: install Gnostic Game Link 1.1.0.",
+        GameLinkError.InvalidToken =>
+            "Game Link could not verify the session: restart the game or install the mod that matches this editor.",
+        _ => null,
+    };
+
+    /// <summary>
+    /// Describes the latest game status for the editor's status-bar plug. <paramref name="error"/> is the error of
+    /// the status reply, which is used only when there is no status.
+    /// </summary>
+    public static GameLinkIndicator Indicator(string? exportFolder, GameLinkStatus? status,
+        GameLinkError error = GameLinkError.None)
+    {
+        if (status is null)
+            return ModMismatchText(error) is { } mismatch
+                ? new(GameLinkIndicatorState.Incompatible, mismatch)
+                : new(GameLinkIndicatorState.Disconnected, "Game Link disconnected");
 
         const string connected = "Game Link connected: ";
         return status switch

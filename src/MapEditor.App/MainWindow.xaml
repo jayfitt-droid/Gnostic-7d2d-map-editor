@@ -1019,6 +1019,9 @@
                                         <DataTrigger Binding="{Binding GameLinkIndicator.State}" Value="{x:Static gamelink:GameLinkIndicatorState.OtherWorld}">
                                             <Setter Property="Stroke" Value="{DynamicResource SystemFillColorCautionBrush}" />
                                         </DataTrigger>
+                                        <DataTrigger Binding="{Binding GameLinkIndicator.State}" Value="{x:Static gamelink:GameLinkIndicatorState.Incompatible}">
+                                            <Setter Property="Stroke" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                        </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </Path.Style>
