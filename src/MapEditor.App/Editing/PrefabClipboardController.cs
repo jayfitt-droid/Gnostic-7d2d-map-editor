@@ -85,14 +85,19 @@ internal sealed class PrefabClipboardController
         PrefabClipboard? copy;
         try
         {
-            copy = PrefabClipboard.Parse(Clipboard.GetText());
+            // Check the size first: GetText reads all of the text, and the limit only applies after that.
+            copy = ClipboardSize.TextLength() is > PrefabClipboard.MaxTextLength + 1 ? null : PrefabClipboard.Parse(Clipboard.GetText());
         }
         catch (ExternalException)
         {
             _vm.Status = "Couldn't paste: another program is using the clipboard. Try again.";
             return;
         }
-        if (copy is null) return;
+        if (copy is null)
+        {
+            _vm.Status = "Nothing to paste.";
+            return;
+        }
         var group = copy.PreparePaste(world, _vm.Prefabs, IsBridgePiece, out int skipped);
         Cancel();
         _skipped = skipped;

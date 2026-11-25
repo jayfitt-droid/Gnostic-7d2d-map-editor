@@ -11,7 +11,8 @@ public sealed class PrefabClipboard
 {
     private const string Marker = "Gnostic map selection\n";
     private const int Version = 1;
-    private const int MaxTextLength = 2_000_000;
+    /// <summary>The longest clipboard text that is read, in characters.</summary>
+    public const int MaxTextLength = 2_000_000;
     private const int MaxItems = 4096;
     private const int MaxCoordinate = 1_000_000;
     private static readonly JsonSerializerOptions Json = new()

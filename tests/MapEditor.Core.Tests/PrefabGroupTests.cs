@@ -525,6 +525,43 @@ public sealed class PrefabGroupTests
     [InlineData("Gnostic map selection\n{\"Version\":2,\"Prefabs\":[],\"Spawns\":[{\"X\":0,\"Z\":0,\"Rotation\":0,\"HeightOffset\":0}]}")]
     public void Clipboard_ignores_foreign_or_invalid_payloads(string text) => Assert.Null(PrefabClipboard.Parse(text));
 
+    [Theory]
+    [InlineData("Gnostic map selection\n\ud800")]
+    [InlineData("Gnostic map selection\n{\"Version\":1,\"Prefabs\":[],\"Spawns\":[]}\udc00")]
+    [InlineData("Gnostic map selection\n{\"Version\":1,\"Prefabs\":[{\"Name\":\"a\ud800\"}],\"Spawns\":[]}")]
+    public void Clipboard_ignores_text_that_cannot_be_decoded(string text) => Assert.Null(PrefabClipboard.Parse(text));
+
+    [Fact]
+    public void A_pasted_spawn_just_inside_the_edge_stays_inside_when_stored()
+    {
+        var world = Flat();
+        // Just under the edge as a double, but 512 once stored as a float.
+        var spawn = new SpawnPoint { X = 9.999999f, Y = 41, Z = 10 };
+        world.Spawns.Add(spawn);
+        var group = RoundTrip(world, [], [spawn]).PreparePaste(world, Library, _ => false, out _);
+        var (dx, dz) = group.DeltaTo(512, 0);
+
+        var pasted = Paste(world, group, dx, dz);
+
+        Assert.All(world.Spawns, s => Assert.True(s.X < 512));
+        Assert.DoesNotContain(MapEditor.Core.Validate.WorldValidator.Validate(world, Library), i => i.Message.Contains("outside the world"));
+        Assert.NotNull(pasted.Problem);
+    }
+
+    [Fact]
+    public void A_moved_spawn_just_inside_the_edge_stays_inside_when_stored()
+    {
+        var world = Flat();
+        var spawn = new SpawnPoint { X = 9.999999f, Y = 41, Z = 10 };
+        world.Spawns.Add(spawn);
+        var group = new PrefabGroup(world, Library, [], [spawn]);
+        var (dx, dz) = group.DeltaTo(512, 0);
+
+        Assert.True(new EditRunner(new UndoStack()).Run(world, "Move selection", s => group.Apply(dx, dz, 0, false, false, s)));
+
+        Assert.True(spawn.X < 512);
+    }
+
     [Fact]
     public void Clipboard_ignores_oversized_payloads() =>
         Assert.Null(PrefabClipboard.Parse("Gnostic map selection\n" + new string(' ', 2_000_000)));

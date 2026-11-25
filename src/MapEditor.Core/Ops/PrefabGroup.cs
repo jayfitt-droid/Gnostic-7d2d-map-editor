@@ -195,15 +195,17 @@ public sealed class PrefabGroup
         if (!paste && dx == 0 && dz == 0 && steps % (_prefabs.Count > 0 ? 4 : 8) == 0) return null;
         if (!paste && MovementProblem() is { } problem) return problem;
         var layout = Layout(dx, dz, steps, snap);
+        // A spawn point is stored as a float. Round first, so the bounds check and the terrain lookup use the stored place.
+        var spawns = layout.Spawns.Select(t => (t.Spawn, X: (double)(float)t.X, Z: (double)(float)t.Z, t.Rotation)).ToArray();
         // Snapping can bring the group back to where it started: that is no move, so leave heights and undo alone.
         if (!paste && layout.Prefabs.All(t => t.Spot.X == t.Prefab.Position.X && t.Spot.Z == t.Prefab.Position.Z &&
                                               t.Spot.Rotation == t.Prefab.Rotation) &&
-            layout.Spawns.All(t => (float)t.X == t.Spawn.X && (float)t.Z == t.Spawn.Z && t.Rotation == t.Spawn.RotationY))
+            spawns.All(t => t.X == t.Spawn.X && t.Z == t.Spawn.Z && t.Rotation == t.Spawn.RotationY))
             return null;
         var moving = paste ? [] : _prefabs;
         double half = _world.Size / 2;
-        if (layout.Spawns.Any(t => t.X + half < 0 || t.Z + half < 0 ||
-                                   t.X + half >= _world.Size || t.Z + half >= _world.Size))
+        if (spawns.Any(t => t.X + half < 0 || t.Z + half < 0 ||
+                            t.X + half >= _world.Size || t.Z + half >= _world.Size))
             return paste ? "The paste would put a spawn point outside the map." : "The selection would move a spawn point outside the map.";
 
         var targets = layout.Prefabs.Select(t =>
@@ -297,7 +299,7 @@ public sealed class PrefabGroup
                     PrefabPlacer.Flatten(_world, t.Cells, ground[t.Prefab], 0, session, library: _library);
         }
 
-        foreach (var (spawn, x, z, rotation) in layout.Spawns)
+        foreach (var (spawn, x, z, rotation) in spawns)
         {
             float wx = (float)x, wz = (float)z;
             int gx = (int)Math.Floor(x + half), gz = (int)Math.Floor(z + half);
