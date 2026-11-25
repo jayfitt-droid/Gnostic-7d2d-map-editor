@@ -217,7 +217,7 @@ On an island world, the share of each biome is a share of the land. The coast se
 
 Select **Grid Layer** in the Land mode toolbar to show a grid with 150 m squares. See the bottom of the **Land** panel for help with dragging boxes.
 
-Use **Ctrl+Z** and **Ctrl+Y** in Land mode to undo and redo changes to the drawing. After **Build World**, one world undo puts back the previous ground and drawing.
+Use **Ctrl+Z** and **Ctrl+Y** in Land mode to undo and redo changes to the drawing. After **Build World**, press **Ctrl+Z** to put back the previous ground. The editor goes back to Land mode with your boxes, so you can change them and click **Build World** again. Press **Ctrl+Y** to build the world again. If you click **Cancel**, the map shows the boxes as dashed outlines until you build the world.
 
 To open a saved drawing, go to **Generate > Terrain** and click **Edit land**. **Build World** makes the terrain again for the whole map. Run the later Generate stages again when you need them. **Cancel** discards your changes to the drawing. If you have just started a new world, **Cancel** closes it and returns to the start screen.
 
