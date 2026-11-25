@@ -5,7 +5,7 @@ using System.Text;
 
 namespace MapEditor.Core.GameLink;
 
-internal enum GameLinkRequestKind { Status, Teleport, Waypoint, Picture, Leave, Open, Pins, PinsAck }
+internal enum GameLinkRequestKind { Status, Teleport, Waypoint, Picture, Leave, Open, Pins, PinsAck, Rebuild }
 internal enum GameLinkParseResult { Ok, BadRequest, UnsupportedProtocol, InvalidToken }
 
 /// <summary>A validated request. A teleport's facing is selected from fixed protocol values.</summary>
@@ -164,9 +164,10 @@ internal static class GameLinkProtocol
             return GameLinkParseResult.Ok;
         }
 
-        if (parts.Length == 5 && parts[3] == "OPEN" && IsOperationId(parts[4]))
+        if (parts.Length == 5 && parts[3] is ("OPEN" or "REBUILD") && IsOperationId(parts[4]))
         {
-            request = new(GameLinkRequestKind.Open, operationId: parts[4]);
+            var kind = parts[3] == "OPEN" ? GameLinkRequestKind.Open : GameLinkRequestKind.Rebuild;
+            request = new(kind, operationId: parts[4]);
             return GameLinkParseResult.Ok;
         }
 

@@ -42,7 +42,7 @@ internal static class GameLinkReply
         return reply.Append(end).ToString();
     }
 
-    public static string Status(string state, string world, bool hosting, string save, object? op,
+    public static string Status(string state, string world, bool hosting, bool otherPlayers, string save, object? op,
         object? blocked, object? player = null) =>
         ToJson(new
         {
@@ -52,6 +52,7 @@ internal static class GameLinkReply
             state,
             world,
             hosting,
+            otherPlayers,
             save,
             op,
             blocked,

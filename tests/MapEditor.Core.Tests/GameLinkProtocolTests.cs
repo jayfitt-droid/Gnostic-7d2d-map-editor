@@ -36,6 +36,20 @@ public class GameLinkProtocolTests
         Assert.Equal(GameLinkParseResult.BadRequest, Read(line, out _));
     }
 
+    [Fact]
+    public void RebuildRequiresATokenAndAnExactOperationId()
+    {
+        const string id = "0123456789abcdef";
+        Assert.Equal(GameLinkParseResult.Ok, Read(Prefix + "REBUILD " + id + "\n", out var request));
+        Assert.Equal("Rebuild", request.Kind.ToString());
+        Assert.Equal(id, request.OperationId);
+        Assert.Equal(GameLinkParseResult.BadRequest, Read(Prefix + "REBUILD ../0123456789abc\n", out _));
+        Assert.Equal(GameLinkParseResult.BadRequest,
+            Read(Prefix + "REBUILD " + new string('0', GameLinkProtocol.MaxRequestBytes) + "\n", out _));
+        Assert.Equal(GameLinkParseResult.InvalidToken,
+            Read("GNOSTICLINK 2 1123456789abcdef0123456789abcdef REBUILD invalid\n", out _));
+    }
+
     [Theory]
     [InlineData("PINS", "Pins")]
     [InlineData("PINSACK 0123456789abcdef0123456789abcdef", "PinsAck")]

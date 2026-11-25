@@ -41,7 +41,7 @@ public partial class MainWindow
             _vm.GameLinkConnected = reply.Status is not null;
             if (_closeWhenIdle) return null;
             if (reply.Status is not { } status) return false;
-            if (status.Operation?.State is "leaving" or "opening" || status is { State: GameLinkState.Menu, Hosting: true })
+            if (status.Operation?.State is "leaving" or "opening" or "rebuilding" || status is { State: GameLinkState.Menu, Hosting: true })
             {
                 _vm.Status = "The game is busy. Wait for it to finish and try the export again.";
                 return null;
@@ -60,7 +60,7 @@ public partial class MainWindow
             }
 
             string message = $"The game will save '{status.Save}' and go to the main menu, then open '{save}'.";
-            if (ThemedMessageBox.Show(this, message, "Open in the game after export",
+            if (ThemedMessageBox.Show(this, message, "Open the playtest save in the game",
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             {
                 _vm.Status = "Export cancelled.";
@@ -80,20 +80,7 @@ public partial class MainWindow
                 _vm.Status = "Export cancelled. The game changed saves.";
                 return null;
             }
-            _vm.Status = $"Waiting for the game to save '{status.Save}' and return to the main menu...";
-            var leave = await _gameLink.LeaveAsync();
-            if (leave.OperationId is not { } id)
-            {
-                _vm.Status = GameLinkErrorText(leave.Error);
-                return null;
-            }
-
-            var (result, _) = await PollPlaytestAsync((game, expired) => GameLinkPlaytest.WaitForMenu(game, id, expired));
-            if (result.State == GameLinkWaitState.AtMenu) return true;
-            _vm.Status = result.State == GameLinkWaitState.TimedOut || result.Reason == "timeout"
-                ? "Export cancelled. The game did not return to the main menu in time."
-                : PlaytestFailure(result.Reason);
-            return null;
+            return await LeaveForExportAsync(status.Save);
         }
         finally
         {
@@ -103,12 +90,33 @@ public partial class MainWindow
         }
     }
 
+    private async Task<bool?> LeaveForExportAsync(string save)
+    {
+        _vm.Status = $"Waiting for the game to save '{save}' and return to the main menu...";
+        var leave = await _gameLink.LeaveAsync();
+        if (leave.OperationId is not { } id)
+        {
+            _vm.Status = GameLinkErrorText(leave.Error);
+            return null;
+        }
+
+        var (result, _) = await PollPlaytestAsync((game, expired) => GameLinkPlaytest.WaitForMenu(game, id, expired));
+        if (result.State == GameLinkWaitState.AtMenu) return true;
+        _vm.Status = result.State == GameLinkWaitState.TimedOut || result.Reason == "timeout"
+            ? "Export cancelled. The game did not return to the main menu in time."
+            : PlaytestFailure(result.Reason);
+        return null;
+    }
+
     private void StartOpenInGame(GameInstall install, string world, string save, (int X, int Z)? destination)
+        => StartExportGameWait(wait => OpenInGameAsync(install, world, save, destination, wait));
+
+    private void StartExportGameWait(Func<CancellationTokenSource, Task> run)
     {
         var wait = new CancellationTokenSource();
         _openInGameWait = wait;
         BeginPlaytestAction();
-        _openInGameTask = OpenInGameAsync(install, world, save, destination, wait);
+        _openInGameTask = run(wait);
     }
 
     private async Task OpenInGameAsync(GameInstall install, string world, string save, (int X, int Z)? destination,

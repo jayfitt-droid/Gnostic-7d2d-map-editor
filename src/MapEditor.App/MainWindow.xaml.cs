@@ -754,7 +754,10 @@ public partial class MainWindow : Window
         string location = Path.GetDirectoryName(_savePath ?? _sourcePath ?? "") is { Length: > 0 } dir ? dir : GameInstall.UserGeneratedWorldsDir;
         string name = _savePath is { } saved ? Path.GetFileName(saved) : world.Name;
         var install = _install;
-        var dialog = new ExportDialog(name, location, issues, BoxFormNote(world), install, _settings.OpenInGameAfterExport) { Owner = this };
+        var gameStatus = install is null ? null : await ReadExportGameStatusAsync();
+        if (_closeWhenIdle || !IsLoaded || !ReferenceEquals(_world, world)) return false;
+        var dialog = new ExportDialog(name, location, issues, BoxFormNote(world), install,
+            _settings.AfterExport ?? AfterExportAction.None, _settings.RebuildRadius, gameStatus) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.Folder is null)
         {
             // An issue double-clicked in the dialog: show it in the Issues panel (the export filled it) and on the map (#27).
@@ -769,18 +772,19 @@ public partial class MainWindow : Window
             }
             return false;
         }
-        if (dialog.OpenInGamePreference is { } preference)
-        {
-            _settings.OpenInGameAfterExport = preference;
-            _settings.Save();
-        }
+        _settings.AfterExport = dialog.ActionPreference;
+        _settings.RebuildRadius = dialog.Radius;
+        _settings.Save();
         string exportName = Path.GetFileName(dialog.Folder);
-        string? playtestSave = dialog.OpenInGame && install is not null ? GameLinkPlaytest.SaveName(exportName) : null;
-        bool? leftGame = playtestSave is null ? false : await PreparePlaytestExportAsync(playtestSave);
+        string? playtestSave = dialog.Action == AfterExportAction.Playtest ? GameLinkPlaytest.SaveName(exportName) : null;
+        bool rebuild = dialog.Action == AfterExportAction.Rebuild;
+        bool? leftGame = rebuild
+            ? await PrepareRebuildExportAsync(dialog.Folder, install!, gameStatus!, dialog.Radius)
+            : playtestSave is null ? false : await PreparePlaytestExportAsync(playtestSave);
         if (leftGame is null || _closeWhenIdle || !IsLoaded || !ReferenceEquals(_world, world)) return false;
         string? previousFolder = GameLinkExportFolder;
         bool exportStatusChanged = ExportHasChanges != false;
-        var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder, playtestSave is not null);
+        var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder, rebuild || playtestSave is not null);
         if (!ok && leftGame == true) _vm.Status += ". The game is at the main menu.";
         if (ok) RecordHistoryEvent($"Export: {exportName}");
         if (ok && _projectPath is not null)
@@ -794,8 +798,12 @@ public partial class MainWindow : Window
             }
             UpdateTitle();
         }
-        if (ok && IsLoaded && !_closeWhenIdle && install is not null && playtestSave is not null)
-            StartOpenInGame(install, exportName, playtestSave, destination);
+        if (ok && IsLoaded && !_closeWhenIdle)
+        {
+            if (rebuild) StartRebuild(gameStatus!, dialog.Radius);
+            else if (install is not null && playtestSave is not null)
+                StartOpenInGame(install, exportName, playtestSave, destination);
+        }
         return ok;
     }
 
