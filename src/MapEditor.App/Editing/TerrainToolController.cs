@@ -15,6 +15,7 @@ public sealed class TerrainToolController
     private readonly MainViewModel _vm;
     private readonly EditRunner _edits;
     private EditSession? _session;
+    private EditorTool _strokeTool;
     private Point _last; // grid coords (x east, z north) of the previous dab
     private Noise? _noise;
     private bool _erase; // Shift held at stroke start: erase radiation or roads, drain water
@@ -33,6 +34,9 @@ public sealed class TerrainToolController
 
     /// <summary>Every bridge end a road can snap to (the Bridge tool's bridges and the Highways stage's), asked for as the mouse moves.</summary>
     public Func<IReadOnlyList<BridgeEnd>>? BridgeEnds { get; set; }
+
+    /// <summary>Reports a committed Raise or Smooth stroke or a completed road.</summary>
+    public event EventHandler<EditorTool>? ToolEditCommitted;
 
     public bool IsStroking => _session is not null;
 
@@ -102,6 +106,7 @@ public sealed class TerrainToolController
         if (_erase && tool == EditorTool.Water) label = "Drain water";
         if (tool == EditorTool.Road) label = "Erase road";
         _session = _edits.Begin(world, label);
+        _strokeTool = tool;
         _noise = tool == EditorTool.Noise ? new Noise(Environment.TickCount) : null;
 
         if (tool == EditorTool.Flatten && !_vm.FlattenLocked && world.Height.Contains((int)grid.X, (int)grid.Y))
@@ -355,7 +360,7 @@ public sealed class TerrainToolController
         UpdateRoadPreview();
         _map.InvalidateRegion(rect);
         _vm.Status = $"Drew {length:N0} m of {_vm.RoadType.ToString().ToLowerInvariant()} road.";
-        _edits.Commit(session);
+        if (_edits.Commit(session)) ToolEditCommitted?.Invoke(this, EditorTool.Road);
     }
 
     private void UpdateRoadPreview()
@@ -402,6 +407,7 @@ public sealed class TerrainToolController
         var session = _session!;
         _session = null;
         _noise = null;
-        _edits.Commit(session);
+        if (_edits.Commit(session) && _strokeTool is EditorTool.Raise or EditorTool.Smooth)
+            ToolEditCommitted?.Invoke(this, _strokeTool);
     }
 }
