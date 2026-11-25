@@ -344,6 +344,8 @@ With the **Select** tool:
 
 When you select a spawn point with **Select** or **Spawn points**, the status bar shows its position and the direction it faces.
 
+While you drag a prefab or spawn point, press **Esc** or switch tools to finish the move. You can undo the move with **Ctrl+Z**. If another window takes control of the mouse during the drag, the item goes back to its starting position.
+
 To replace a selected prefab, select a different prefab in the **Prefabs** tab. The info card shows it as the replacement. Click **Replace**, or click **Back** (Esc) to cancel.
 
 To paste, press **Ctrl+V** and move the pointer over the map. Press **Q** or **E** to turn the preview. Click to put the copy on the map, or press **Esc** to cancel.
