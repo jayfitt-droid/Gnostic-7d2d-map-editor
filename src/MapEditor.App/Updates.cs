@@ -53,11 +53,17 @@ public static class Updates
         }
     }
 
-    /// <summary>Downloads the update, then restarts into it. Unsaved work must be saved first.</summary>
-    public static async Task ApplyAsync(Result result)
+    /// <summary>Downloads the update. Nothing changes in the running editor; <see cref="Restart"/> installs it.</summary>
+    public static async Task DownloadAsync(Result result)
     {
         if (result is not { Manager: { } manager, Update: { } update }) return;
         await manager.DownloadUpdatesAsync(update);
+    }
+
+    /// <summary>Restarts into a downloaded update. This ends the process: unsaved work and settings must be saved first.</summary>
+    public static void Restart(Result result)
+    {
+        if (result is not { Manager: { } manager, Update: { } update }) return;
         manager.ApplyUpdatesAndRestart(update.TargetFullRelease);
     }
 }

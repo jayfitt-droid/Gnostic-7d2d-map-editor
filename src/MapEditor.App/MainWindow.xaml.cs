@@ -1354,6 +1354,24 @@ public partial class MainWindow : Window
         }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
+    /// <summary>
+    /// The work before the editor ends: stops the wait for the game, deletes the recovery copy, and saves the window
+    /// position and the settings. A normal close and an update restart both run it.
+    /// </summary>
+    private void SaveStateForExit(string reason)
+    {
+        CancelOpenInGameWait(reason);
+        _autosaves.Discard();
+        _settings.Autosave = _vm.Autosave;
+        _settings.RibbonMode = _vm.RibbonMode;
+        _settings.ShowMiniMap = _vm.ShowMiniMap;
+        _settings.SidePanelWidth = _vm.SidePanelWidth;
+        _settings.ShowSidePanel = _vm.ShowSidePanel;
+        _settings.SideBarOnRight = _vm.SideBarOnRight;
+        SaveWindowPlacement();
+        _settings.Save();
+    }
+
     private async void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         if (_confirmingClose)
@@ -1382,16 +1400,7 @@ public partial class MainWindow : Window
         }
         if (_closeConfirmed || !Dirty)
         {
-            CancelOpenInGameWait("The editor is closing.");
-            _autosaves.Discard();
-            _settings.Autosave = _vm.Autosave;
-            _settings.RibbonMode = _vm.RibbonMode;
-            _settings.ShowMiniMap = _vm.ShowMiniMap;
-            _settings.SidePanelWidth = _vm.SidePanelWidth;
-            _settings.ShowSidePanel = _vm.ShowSidePanel;
-            _settings.SideBarOnRight = _vm.SideBarOnRight;
-            SaveWindowPlacement();
-            _settings.Save();
+            SaveStateForExit("The editor is closing.");
             return;
         }
         e.Cancel = true;
@@ -3261,32 +3270,53 @@ public partial class MainWindow : Window
 
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
     {
-        var result = await Updates.CheckAsync(_settings);
-        if (result.Update is null)
+        if (_vm.IsUpdateRunning) return;
+        _vm.IsUpdateRunning = true;
+        try
         {
-            ThemedMessageBox.Show(this, result.Message, "Check for Updates", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
+            var result = await Updates.CheckAsync(_settings);
+            if (result.Update is null)
+            {
+                ThemedMessageBox.Show(this, result.Message, "Check for Updates", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (ThemedMessageBox.Show(this, result.Message + "\n\nInstall it now? The editor restarts.", "Check for Updates",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                return;
+            await InstallUpdateAsync(result);
         }
-        if (ThemedMessageBox.Show(this, result.Message + "\n\nInstall it now? The editor restarts.", "Check for Updates",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
-            return;
-        await InstallUpdateAsync(result);
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            App.LogError(ex);
+            _vm.Status = "Update failed: " + ex.Message;
+        }
+        finally
+        {
+            _vm.IsUpdateRunning = false;
+        }
     }
 
+    /// <summary>
+    /// Installs a found update. The caller holds <see cref="MainViewModel.IsUpdateRunning"/>. The close is confirmed and
+    /// the recovery copy deleted only after the download is complete, so a failure leaves the editor as it was.
+    /// </summary>
     private async Task InstallUpdateAsync(Updates.Result result)
     {
+        if (_vm.IsLandMode && !ConfirmCloseLand()) return;
         if (!await ConfirmDiscardAsync()) return;
         _vm.Status = "Downloading the update...";
         _vm.IsBusy = true;
         try
         {
+            await Updates.DownloadAsync(result);
             _closeConfirmed = true;
-            _autosaves.Discard();
-            await Updates.ApplyAsync(result);
+            SaveStateForExit("The editor is restarting.");
+            Updates.Restart(result);
         }
-        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException or IOException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _closeConfirmed = false;
+            if (ex is not (System.Net.Http.HttpRequestException or IOException)) App.LogError(ex);
             _vm.Status = "Update failed: " + ex.Message;
         }
         finally
@@ -3304,37 +3334,36 @@ public partial class MainWindow : Window
     /// <summary>Offers an update after start-up work has finished.</summary>
     private async Task CheckUpdatesAtStartupAsync()
     {
-        Updates.Result result;
+        if (_vm.IsUpdateRunning) return;
+        _vm.IsUpdateRunning = true;
         try
         {
-            result = await Updates.CheckAsync(_settings);
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            App.LogError(ex);
-            return;
-        }
-        if (result.Update is null) return;
-
-        await _gameDataLoad;
-        while (_vm.IsBusy)
-        {
-            // A project can also be opened while the update check is in progress.
-            var idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            void OnIdle(object? sender, PropertyChangedEventArgs e)
+            Updates.Result result;
+            try
             {
-                if (e.PropertyName == nameof(MainViewModel.IsBusy) && !_vm.IsBusy) idle.TrySetResult();
+                result = await Updates.CheckAsync(_settings);
             }
-            _vm.PropertyChanged += OnIdle;
-            try { await idle.Task; }
-            finally { _vm.PropertyChanged -= OnIdle; }
-        }
-        if (!IsVisible || _closeWhenIdle || _confirmingClose || !_settings.CheckForUpdatesAtStart) return;
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                App.LogError(ex);
+                return;
+            }
+            if (result.Update is null) return;
 
-        _vm.Status = result.Message + " Use Help > Check for Updates to install it.";
-        if (ThemedMessageBox.Show(this, result.Message + "\n\nInstall it now? The editor restarts.", "Check for Updates",
-                MessageBoxButton.YesNo, MessageBoxImage.Question, labels: ["Install", "Later"]) == MessageBoxResult.Yes)
-            await InstallUpdateAsync(result);
+            await _gameDataLoad;
+            // A project can also be opened (or its Open dialog shown) while the update check is in progress.
+            while (_vm.IsBusy || _opening) await Task.Delay(250);
+            if (!IsVisible || _closeWhenIdle || _confirmingClose || !_settings.CheckForUpdatesAtStart) return;
+
+            _vm.Status = result.Message + " Use Help > Check for Updates to install it.";
+            if (ThemedMessageBox.Show(this, result.Message + "\n\nInstall it now? The editor restarts.", "Check for Updates",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question, labels: ["Install", "Later"]) == MessageBoxResult.Yes)
+                await InstallUpdateAsync(result);
+        }
+        finally
+        {
+            _vm.IsUpdateRunning = false;
+        }
     }
 
     private void About_Click(object sender, RoutedEventArgs e)

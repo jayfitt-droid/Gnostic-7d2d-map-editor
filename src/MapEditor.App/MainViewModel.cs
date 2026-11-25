@@ -40,13 +40,17 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _gameFolderText = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanBuildLand))] private bool _isBusy;
 
+    /// <summary>An update check or install is running. Only one runs at a time.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanCheckForUpdates))] private bool _isUpdateRunning;
+
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsWorldMode), nameof(CanBuildLand), nameof(SidePanelVisible), nameof(SideBarOuterWidth),
+    [NotifyPropertyChangedFor(nameof(IsWorldMode), nameof(CanCheckForUpdates), nameof(CanBuildLand), nameof(SidePanelVisible), nameof(SideBarOuterWidth),
         nameof(WorldOptionsVisible), nameof(WorldMiniMapVisible), nameof(HintCardText), nameof(ShowPrefabCard))]
     private bool _isLandMode;
 
     public bool IsWorldMode => !IsLandMode;
     public bool CanBuildLand => IsLandMode && !IsBusy;
+    public bool CanCheckForUpdates => IsWorldMode && !IsUpdateRunning;
 
     public BiomeTable Biomes
     {
