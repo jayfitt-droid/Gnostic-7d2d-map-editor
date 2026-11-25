@@ -1048,9 +1048,23 @@
                         <Path Data="{x:Static local:Icons.ZoomIn}" Style="{StaticResource IconPath}" Width="16" Height="16" />
                     </Button>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" TextElement.FontSize="12">
+                <!-- The message takes the width that is left and trims (#243); the spawn text trims in its own column. -->
+                <Grid x:Name="StatusBarGrid" TextElement.FontSize="12" SizeChanged="StatusBarGrid_SizeChanged">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
                     <!-- Modern theme (#63): the error and warning counts; a click opens the Issues view. -->
-                    <Button Style="{StaticResource FlatButton}" Padding="6,2" Margin="0,0,10,0" Click="IssueCounter_Click" ToolTip="{Binding IssuesText}"
+                    <Button Grid.Column="0" Style="{StaticResource FlatButton}" Padding="6,2" Margin="0,0,10,0" Click="IssueCounter_Click" ToolTip="{Binding IssuesText}" SizeChanged="StatusBarGrid_SizeChanged"
                             AutomationProperties.Name="Show issues" AutomationProperties.HelpText="{Binding IssuesText}"
                             Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}">
                         <StackPanel Orientation="Horizontal">
@@ -1082,21 +1096,22 @@
                             <TextBlock Text="{Binding WarningCount}" Margin="4,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Path Data="{x:Static local:Icons.Cursor}" Style="{StaticResource IconPath}" Width="14" Height="14"
+                    <Path Grid.Column="1" Data="{x:Static local:Icons.Cursor}" Style="{StaticResource IconPath}" Width="14" Height="14"
                           Stroke="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{Binding CursorText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="280" />
-                    <Border Style="{StaticResource RibbonDivider}" Margin="10,4" />
-                    <Path Data="{x:Static local:Icons.Selection}" Style="{StaticResource IconPath}" Width="14" Height="14"
+                    <TextBlock Grid.Column="2" Text="{Binding CursorText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="280" />
+                    <Border Grid.Column="3" Style="{StaticResource RibbonDivider}" Margin="10,4" />
+                    <Path Grid.Column="4" Data="{x:Static local:Icons.Selection}" Style="{StaticResource IconPath}" Width="14" Height="14"
                           Stroke="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{Binding StatusSelectionText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90" />
-                    <Border Style="{StaticResource RibbonDivider}" Margin="10,4" />
-                    <Path Data="{x:Static local:Icons.WorldSize}" Style="{StaticResource IconPath}" Width="14" Height="14"
+                    <TextBlock x:Name="StatusSelectionBlock" Grid.Column="5" Text="{Binding StatusSelectionText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusSelectionText}" />
+                    <Border Grid.Column="6" Style="{StaticResource RibbonDivider}" Margin="10,4" />
+                    <Path Grid.Column="7" Data="{x:Static local:Icons.WorldSize}" Style="{StaticResource IconPath}" Width="14" Height="14"
                           Stroke="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{Binding WorldSizeText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="110" />
-                    <Border Style="{StaticResource RibbonDivider}" Margin="10,4" />
-                    <TextBlock Text="{Binding Status}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                    <TextBlock Grid.Column="8" Text="{Binding WorldSizeText}" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="110" />
+                    <Border Grid.Column="9" Style="{StaticResource RibbonDivider}" Margin="10,4" />
+                    <TextBlock Grid.Column="10" Text="{Binding Status}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}" ToolTip="{Binding Status}" />
-                </StackPanel>
+                </Grid>
             </DockPanel>
         </Border>
 
