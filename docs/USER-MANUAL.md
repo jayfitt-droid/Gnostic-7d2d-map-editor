@@ -52,7 +52,8 @@ Download the editor from the [releases page](https://github.com/jayfitt-droid/Gn
 Windows SmartScreen can show "Windows protected your PC". The editor is not signed. Click **More info**, then click **Run anyway**.
 
 The installed editor looks for a new version at start. If a new version is available, the editor opens a dialog.
-Click **Install** to download the new version and restart the editor. The editor asks about unsaved changes before the download.
+Click **Install** to download the new version and restart the editor. The editor asks about unsaved changes, and about changes in Land mode, before the download.
+If the download fails, the editor stays open and keeps your work.
 Click **Later** to close the dialog. To turn off this check, clear **Settings > Check for updates at start**.
 To look for a new version at any time, click **Help > Check for Updates**.
 
