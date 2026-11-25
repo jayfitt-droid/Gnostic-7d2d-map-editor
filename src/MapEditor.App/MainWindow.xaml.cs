@@ -1393,13 +1393,15 @@ public partial class MainWindow : Window
             return;
         }
         _closeWhenIdle = false;
-        if (_vm.IsLandMode && !ConfirmCloseLand())
+        if (_vm.IsLandMode && !ConfirmDiscardLand())
         {
             e.Cancel = true;
             return;
         }
-        if (_closeConfirmed || !Dirty)
+        // Discarding an unbuilt world clears it, so it has no world changes to save.
+        if (_closeConfirmed || _newLandWorld || !Dirty)
         {
+            if (_vm.IsLandMode) CancelLand();
             SaveStateForExit("The editor is closing.");
             return;
         }
@@ -1408,6 +1410,7 @@ public partial class MainWindow : Window
         try
         {
             if (!await ConfirmDiscardAsync()) return;
+            if (_vm.IsLandMode) CancelLand();
             _closeConfirmed = true;
             _closeWhenIdle = true;
         }
@@ -3307,13 +3310,14 @@ public partial class MainWindow : Window
             _vm.Status = "The editor is busy or closing. Try the update again when the editor is idle.";
             return;
         }
-        if (_vm.IsLandMode && !ConfirmCloseLand()) return;
-        if (!await ConfirmDiscardAsync()) return;
+        if (_vm.IsLandMode && !ConfirmDiscardLand()) return;
+        if (!_newLandWorld && !await ConfirmDiscardAsync()) return;
         _vm.Status = "Downloading the update...";
         _vm.IsBusy = true;
         try
         {
             await Updates.DownloadAsync(result);
+            if (_vm.IsLandMode) CancelLand();
             _closeConfirmed = true;
             SaveStateForExit("The editor is restarting.");
             Updates.Restart(result);

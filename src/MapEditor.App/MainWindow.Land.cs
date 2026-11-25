@@ -78,14 +78,10 @@ public partial class MainWindow
         else _vm.Status = "Land edits discarded.";
     }
 
-    private bool ConfirmCloseLand()
-    {
-        if (_landTools.UndoName is not null && ThemedMessageBox.Show(this,
+    private bool ConfirmDiscardLand() =>
+        _landTools.UndoName is null || ThemedMessageBox.Show(this,
                 "Discard the changes in Land mode?", "Land mode", MessageBoxButton.OKCancel,
-                MessageBoxImage.Question) != MessageBoxResult.OK) return false;
-        CancelLand();
-        return true;
-    }
+                MessageBoxImage.Question) == MessageBoxResult.OK;
 
     private void RerollLandBox_Click(object sender, RoutedEventArgs e) => _landTools.Reroll();
 
