@@ -607,6 +607,44 @@ public sealed class PrefabGroupTests
     }
 
     [Fact]
+    public void A_drag_that_snaps_back_to_the_start_changes_nothing()
+    {
+        var world = Flat();
+        Add(world, Tile, 0, 0);
+        var poi = Add(world, Poi, 150, 20, y: 45);
+        var other = Add(world, Trader, 300, 300);
+        var spawn = new SpawnPoint { X = 600, Y = 50, Z = 600, RotationY = 30 };
+        world.Spawns.Add(spawn);
+        var before = world.Prefabs.Select(p => p.Position).ToArray();
+        var undo = new UndoStack();
+        var group = new PrefabGroup(world, Library, [poi], []);
+
+        Assert.True(new EditRunner(undo).Run(world, "Move selection", s => Assert.Null(group.Apply(3, 0, 0, true, true, s, snap: 10))));
+
+        Assert.Equal(new Int3(150, 45, 20), poi.Position);
+        Assert.Equal(before, world.Prefabs.Select(p => p.Position));
+        Assert.Equal((600f, 50f, 600f, 30f), (spawn.X, spawn.Y, spawn.Z, spawn.RotationY));
+        Assert.Equal(40f, Ground(world, 150, 20));
+        Assert.False(undo.CanUndo);
+        Assert.Equal(2, world.Prefabs.Count(p => p == poi || p == other));
+    }
+
+    [Fact]
+    public void A_drag_that_snaps_to_a_new_place_still_moves()
+    {
+        var world = Flat();
+        Add(world, Tile, 0, 0);
+        var poi = Add(world, Poi, 150, 20, y: 45);
+        var undo = new UndoStack();
+        var group = new PrefabGroup(world, Library, [poi], []);
+
+        Assert.True(new EditRunner(undo).Run(world, "Move selection", s => Assert.Null(group.Apply(-8, 30, 0, true, true, s, snap: 10))));
+
+        Assert.Equal((140, 50), (poi.Position.X, poi.Position.Z));
+        Assert.True(undo.CanUndo);
+    }
+
+    [Fact]
     public void Clipboard_excludes_protected_bridge_pieces_and_paste_cannot_replace_a_bridge()
     {
         var source = Flat();
