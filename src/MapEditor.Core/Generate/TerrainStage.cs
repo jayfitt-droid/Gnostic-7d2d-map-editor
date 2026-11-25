@@ -229,7 +229,7 @@ public static class TerrainStage
             });
             if (land is not null) LandShapes.Press(target, land, region);
             StampOp.FinalizeWater(world.Height, world.Water!, region);
-            if (land is not null) LandShapes.FillSea(world.Height, world.Water!, land, region);
+            if (land is not null) LandShapes.FillSea(world.Height, world.Water!, land, region, session);
         }
         else
         {
@@ -289,7 +289,7 @@ public static class TerrainStage
     /// <summary>Clears all water, keeping only the wet 64 m blocks for undo (a dry 16k map would otherwise keep 256 MiB).</summary>
     private static void ClearWater(Grid<byte> water, EditSession session)
     {
-        const int block = 64;
+        const int block = EditSession.TileSize;
         for (int z0 = 0; z0 < water.Height; z0 += block)
             for (int x0 = 0; x0 < water.Width; x0 += block)
             {

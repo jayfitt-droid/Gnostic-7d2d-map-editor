@@ -530,18 +530,57 @@ public static class LandShapes
     /// Fills the sea with water over <paramref name="region"/>: every cell off the coast, and low ground near it, whose
     /// ground is under the water's surface. Lakes and rivers already there are kept.
     /// </summary>
-    public static void FillSea(Grid<ushort> height, Grid<byte> water, LandField field, GridRect region)
+    public static void FillSea(Grid<ushort> height, Grid<byte> water, LandField field, GridRect region) =>
+        FillSea(height, water, field, region, null);
+
+    internal static void FillSea(Grid<ushort> height, Grid<byte> water, LandField field, GridRect region, EditSession? session)
     {
-        const byte level = StampOp.DefaultWaterLevel;
+        if (session is not null) TouchSeaBlocks(height, water, field, region, session);
         Parallel.For(region.Z0, region.Z1, z =>
         {
             var h = height.Row(z);
             var w = water.Row(z);
             for (int x = region.X0; x < region.X1; x++)
+                if (WillFillSea(h[x], w[x], field, x, z)) w[x] = StampOp.DefaultWaterLevel;
+        });
+    }
+
+    private static bool WillFillSea(ushort height, byte water, LandField field, int x, int z) =>
+        water == 0 && height / 257f - 0.5f <= StampOp.DefaultWaterLevel && field.Sample(x, z) < LandField.Cell;
+
+    /// <summary>Finds the blocks that will gain sea water, then saves them on the edit thread before filling.</summary>
+    private static void TouchSeaBlocks(Grid<ushort> height, Grid<byte> water, LandField field, GridRect region, EditSession session)
+    {
+        if (region.IsEmpty) return;
+        const int block = EditSession.TileSize;
+        int firstX = region.X0 / block, firstZ = region.Z0 / block;
+        int columns = (region.X1 - 1) / block - firstX + 1;
+        int rows = (region.Z1 - 1) / block - firstZ + 1;
+        var wet = new GridRect[columns * rows];
+        Parallel.For(0, rows, row =>
+        {
+            int z = (firstZ + row) * block;
+            for (int col = 0; col < columns; col++)
             {
-                if (w[x] != 0 || field.Sample(x, z) >= LandField.Cell) continue;
-                if (h[x] / 257f - 0.5f <= level) w[x] = level;
+                int x = (firstX + col) * block;
+                var rect = new GridRect(Math.Max(x, region.X0), Math.Max(z, region.Z0),
+                    Math.Min(x + block, region.X1), Math.Min(z + block, region.Z1));
+                if (HasSea(rect)) wet[col + row * columns] = rect;
             }
         });
+        foreach (var rect in wet)
+            if (!rect.IsEmpty) session.Touch(water, rect);
+
+        bool HasSea(GridRect rect)
+        {
+            for (int z = rect.Z0; z < rect.Z1; z++)
+            {
+                var h = height.Row(z);
+                var w = water.Row(z);
+                for (int x = rect.X0; x < rect.X1; x++)
+                    if (WillFillSea(h[x], w[x], field, x, z)) return true;
+            }
+            return false;
+        }
     }
 }

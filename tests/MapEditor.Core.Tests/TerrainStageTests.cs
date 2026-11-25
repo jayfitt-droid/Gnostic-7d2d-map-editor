@@ -147,6 +147,28 @@ public sealed class TerrainStageTests : IDisposable
     }
 
     [Fact]
+    public void Rolling_back_a_whole_map_land_shape_restores_dry_water_cells()
+    {
+        var world = TwoBiomes(1024, BiomeLayout.ForestColor, BiomeLayout.ForestColor);
+        var water = world.Water!;
+        var before = (byte[])water.Data.Clone();
+        using var snapshot = WorldSnapshot.Take(world);
+        var frozen = snapshot.Find(water)!;
+        var session = new EditSession("Terrain", world);
+        var options = new TerrainOptions { Shape = new LandShape { Kind = LandShapeKind.Island } };
+
+        Run(world, options, session: session);
+
+        Assert.Contains(StampOp.DefaultWaterLevel, water.Data);
+        var saved = new byte[before.Length];
+        frozen.ReadBands((z0, cells) => cells.CopyTo(saved.AsSpan(z0 * water.Width)), final: true);
+        session.Rollback();
+
+        Assert.Equal(before, water.Data);
+        Assert.Equal(before, saved);
+    }
+
+    [Fact]
     public void A_rerun_puts_back_the_last_runs_mountain_biome_but_keeps_later_paint()
     {
         var world = TwoBiomes(4096, BiomeLayout.ForestColor, BiomeLayout.SnowColor);
