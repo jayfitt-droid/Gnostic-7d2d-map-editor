@@ -780,9 +780,11 @@ The world then shows under **New Game** in the game.
 
 If you export to the same folder again, the world keeps its ID. Uppercase and lowercase letters in the folder name match.
 
+Under **After export**, select **Do nothing**, **Open the playtest save in the game**, or **Rebuild the area around the player**. The editor keeps your selection for the next export.
+
 #### Open the world in the game
 
-Select **Open in the game after export** in **Export World**. The editor remembers this setting. Set the game folder in **Settings > Game Folder** to use this option. In **Export World**, click **Use the game's GeneratedWorlds folder**, or select another world folder that the game uses. The editor disables the option for other folders.
+Select **Open the playtest save in the game** in **Export World**. Set the game folder in **Settings > Game Folder** to use this option. In **Export World**, click **Use the game's GeneratedWorlds folder**, or select another world folder that the game uses. The editor disables the option for other folders.
 
 The first export makes a save named `<world> Playtest`. Later exports open the same save. The game keeps chunks that it already made in this save.
 
@@ -796,6 +798,18 @@ The game limits the save name to 50 characters. It also limits which characters 
 With Game Link, the game moves the player to the centre of the map view at the time you click **Export**. Press **Esc** in the editor to stop waiting. The game continues to load. If the editor starts the game without Game Link, it shows the coordinates in the status bar.
 
 If the game cannot open an old playtest save, the editor shows a message. To make a new playtest save, delete the old playtest save on the game's **Continue** page, then export again.
+
+#### Rebuild the area around the player
+
+Start the game with Gnostic Game Link. Open a save that uses the world you export to. Play alone in this save. Select **Rebuild the area around the player** in **Export World**. The editor shows the save name. If you cannot select this option, read the note below it.
+
+Set **Radius** from 16 to 512 m. The default is 128 m. The editor keeps the radius for the next export. The game rebuilds a square around the player, not a circle. The radius is the distance from the player to each side of the square. A 128 m radius gives a square of 256 m by 256 m. The game uses whole 16 m chunks. It includes whole POIs that cross the edge, so the area can extend farther than the radius.
+
+Read the warning before you click **OK**. You lose player buildings, loot, bedrolls and land claims in the chunks that the game rebuilds. This includes the full area of POIs near the edge. Click **Cancel** to stop the export and keep the save as it is.
+
+The game saves, goes to the main menu, and opens the same save after the export. The player goes back to the same map position, at the new ground height. Press **Esc** in the editor to stop waiting. The game can still finish the rebuild.
+
+Move vehicles and collect dropped backpacks before you rebuild. The game can remove them in the rebuilt area. Trees can keep their old positions because the save stores them separately. A POI that you move or remove can leave old enemy spawn points or triggers.
 
 ### Export a picture of the map
 

@@ -1,6 +1,6 @@
 # Gnostic Game Link: developer guide
 
-Gnostic Game Link is a small mod for 7 Days to Die 3.4. A program on the same PC can use it to open or leave a save, get the player's position, teleport the player, add a temporary waypoint to a POI, take a picture, and collect playtest pins. Gnostic - 7D2D Map Editor uses it, and any other tool can use it too.
+Gnostic Game Link is a small mod for 7 Days to Die 3.4. A program on the same PC can use it to open or leave a save, rebuild chunks in a save, get the player's position, teleport the player, add a temporary waypoint to a POI, take a picture, and collect playtest pins. Gnostic - 7D2D Map Editor uses it, and any other tool can use it too.
 
 This guide is for developers. To install and use the mod with the editor, see the [user manual](USER-MANUAL.md#use-gnostic-game-link).
 
@@ -50,6 +50,7 @@ GNOSTICLINK 2 <token> WAYPOINT <x> <z> <prefab>
 GNOSTICLINK 2 <token> PICTURE <camX> <camY> <camZ> <lookX> <lookY> <lookZ>
 GNOSTICLINK 2 <token> LEAVE
 GNOSTICLINK 2 <token> OPEN <id>
+GNOSTICLINK 2 <token> REBUILD <id>
 GNOSTICLINK 2 <token> PINS
 GNOSTICLINK 2 <token> PINS <world-key>
 GNOSTICLINK 2 <token> PINS <world-key> <after-id>
@@ -67,7 +68,7 @@ GNOSTICLINK 2 <token> STATUS
 Reply when the player is in a world:
 
 ```json
-{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"My World","save":"My World Playtest","hosting":true,"player":{"x":-412.5,"z":1880.2,"yaw":135.0}}
+{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"My World","save":"My World Playtest","hosting":true,"otherPlayers":false,"player":{"x":-412.5,"z":1880.2,"yaw":135.0}}
 ```
 
 | Field | Type | Meaning |
@@ -78,8 +79,9 @@ Reply when the player is in a world:
 | `world` | string | The world name in the game's settings (the world folder name). At the menu it can be empty or the last world selected. |
 | `save` | string | The name of the open save. Empty at the menu. |
 | `hosting` | bool | True when this game is single-player or the host. |
+| `otherPlayers` | bool | In the ready state, true if remote players are connected or there is more than one local player. |
 | `player` | object | Only when `state` is `ready`. `x` and `z` give the player's position. `yaw` gives the direction the player faces, in degrees clockwise from north (0 = north, 90 = east), from 0 to less than 360. |
-| `op` | object | The latest menu operation, with `id`, `kind`, `state` and `reason`. Absent or null when there is no operation. |
+| `op` | object | The latest menu operation, with `id`, `kind` (`leave`, `open` or `rebuild`), `state` and `reason`. `chunks` gives the rebuild's chunk count once the reset succeeds. Absent or null when there is no operation. |
 | `blocked` | object | The target on the Continue page when Start is disabled, with `world`, `save` and `reason`. This also reports a blocked save from the game's launch automation. Absent or null when there is no blocked target. |
 
 | `state` | Meaning |
@@ -106,6 +108,21 @@ Creates or continues a save from the game menu. The client writes a UTF-8 file n
 The mod consumes the file once and deletes it before taking action. It uses the game's menu to find the world, select the exact save or set up a new game, and press Start. The reply echoes the operation ID. Poll STATUS for that ID with `kind` set to `open`. Its state is `opening` until the target save is ready, then `done`. Check the returned world and save before sending TELEPORT.
 
 Either operation can report `failed`, with a `reason` such as `players`, `busy`, `world_not_found`, `save_not_found`, or `timeout`. OPEN can also report `blocked` with a reason such as `older_version`, `newer_version`, `world_not_found`, or `start_disabled`.
+
+### REBUILD
+
+Continues the exact save from the preceding Game Link LEAVE in the same game session. Capture the target save and player position from STATUS while the save is ready. Wait for LEAVE to reach `at_menu` and write the new world files before sending REBUILD.
+
+Write a UTF-8 file named `rebuild-<id>.txt` beside `session-token`, then send `REBUILD <id>`. Use 16 lowercase hexadecimal characters for the ID. The file is at most 4096 bytes and has four lines in this order.
+
+1. Expiry as Unix seconds in UTC, two minutes after the client writes the request.
+2. The world folder name.
+3. The save name.
+4. The centre and radius as `x z radius`, with one space between values. Use invariant decimal game coordinates and an integer radius from 16 to 512 metres.
+
+The mod consumes the file once and echoes the operation ID on acceptance. It selects the existing save on the Continue page, reloads it, forces a reset of the selected chunks and returns the player to the captured horizontal position. The area follows chunk boundaries and includes whole POIs from the previous and new layouts. Confirm the loss of buildings, loot and land claims in that area before sending LEAVE.
+
+Poll STATUS for the returned ID with `kind` set to `rebuild`. Its state is `rebuilding` until the player is ready again, then `done`. On success, `chunks` is the size of the selected chunk set. The operation uses the same save selection failure and blocked reasons as OPEN. It can also fail with `players` if other players join before the reset or `reset_failed` if the game could not complete the reset. Inspect the game log after `reset_failed`, as the reset may have started.
 
 ### TELEPORT
 
@@ -182,12 +199,13 @@ Use `error` in your code. The `message` text can change.
 | `invalid_token` | all | The session token is missing or incorrect. Read the file again, restart the game, or check that the editor and mod versions match. |
 | `bad_request` | all | The line is not a valid request, is too long, or did not arrive within 2 seconds. |
 | `unsupported_protocol` | all | The version number is not one the mod supports. The message names the version to use. |
-| `not_ready` | all | The game did not take the request in time, is shutting down, or is in the wrong state for that request. OPEN needs the menu. |
+| `not_ready` | all | The game did not take the request in time, is shutting down, or is in the wrong state for that request. OPEN and REBUILD need the menu. |
 | `dead` | TELEPORT, WAYPOINT, PICTURE, LEAVE | The player is dead. |
 | `remote` | TELEPORT, WAYPOINT, PICTURE, LEAVE | This game joined another game or a dedicated server. |
 | `busy` | actions | Another operation is in progress, or the game cannot safely leave the current save yet. |
 | `players` | LEAVE | Other players are connected. |
-| `expired` | OPEN | The request file expired. |
+| `expired` | OPEN, REBUILD | The request file expired. |
+| `save_not_found` | REBUILD | The requested save does not match the one left by the preceding LEAVE. |
 | `off_map` | TELEPORT, WAYPOINT, PICTURE | A position is outside the world bounds for the request. |
 | `poi_not_found` | WAYPOINT | No POI with that name contains the position. |
 | `already_set` | WAYPOINT | That POI already has a temporary waypoint. |
