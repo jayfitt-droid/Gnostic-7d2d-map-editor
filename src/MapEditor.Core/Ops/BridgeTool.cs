@@ -608,14 +608,65 @@ public static class BridgeTool
         return near;
     }
 
-    /// <summary>The built ramp's length, or zero if none was drawn. Older projects use the preview length.</summary>
+    /// <summary>
+    /// The built ramp's length, or zero if none was drawn. A record from an older project has no length: it is read from
+    /// the road the ramp drew (see <see cref="RecordedRampLength"/>), and only if that is not there, planned again.
+    /// </summary>
     public static float RampLength(World world, PrefabLibrary library, PlacedBridge bridge, bool atStart)
     {
         if ((atStart ? bridge.StartRampLength : bridge.EndRampLength) is { } length) return length;
-        if (bridge.Grounds.Count <= 1 || BridgeKit.From(library) is not { } kit) return 0;
+        if (bridge.Grounds.Count <= 1) return 0;
+        if (RecordedRampLength(bridge, atStart) is { } recorded) return recorded;
+        if (BridgeKit.From(library) is not { } kit) return 0;
         var line = bridge.Where;
         var plan = new BridgePlan(kit, line.AlongZ, line.Line, line.Start, line.Pieces, bridge.Y);
         return PlanRamp(world, plan, atStart)?.Length ?? 0;
+    }
+
+    /// <summary>Where each ramp record's road cells lie along a bridge's line, read once per record (never saved).</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<byte[], RoadSpan> RoadSpans = new();
+
+    private sealed record RoadSpan(int Low, int High);
+
+    /// <summary>
+    /// The length of one ramp of an older bridge, from the road cells its record holds: how far along the line they run
+    /// from the deck end, less the radius the road painter rounds its tip with. Null when no record has road cells there.
+    /// </summary>
+    private static float? RecordedRampLength(PlacedBridge bridge, bool atStart)
+    {
+        var line = bridge.Where;
+        float middle = (line.Start + line.End) / 2f;
+        for (int i = 1; i < bridge.Grounds.Count; i++)
+        {
+            var ground = bridge.Grounds[i];
+            var span = RoadSpans.GetValue(ground, g => ReadRoadSpan(g, bridge));
+            if (span.High < span.Low || ((span.Low + span.High + 1) / 2f < middle) != atStart) continue;
+            float reach = atStart ? line.Start - span.Low : span.High + 1 - line.End;
+            return Math.Max(0, reach - BridgeOp.Width / 2f);
+        }
+        return null;
+    }
+
+    /// <summary>The first and last cell along the bridge's line (high below low when none) of the record's road cells on the line.</summary>
+    private static RoadSpan ReadRoadSpan(byte[] ground, PlacedBridge bridge)
+    {
+        int low = int.MaxValue, high = int.MinValue;
+        foreach (var (z, x0, count) in HighwayStage.RoadRuns(ground))
+        {
+            if (bridge.AlongZ)
+            {
+                if (x0 > bridge.Line || x0 + count <= bridge.Line - 1) continue;
+                low = Math.Min(low, z);
+                high = Math.Max(high, z);
+            }
+            else
+            {
+                if (z < bridge.Line - 1 || z > bridge.Line) continue;
+                low = Math.Min(low, x0);
+                high = Math.Max(high, x0 + count - 1);
+            }
+        }
+        return new RoadSpan(low, high);
     }
 
     /// <summary>The ends of every bridge the world has a record of: the tool's own and the Highways stage's.</summary>

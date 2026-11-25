@@ -620,6 +620,31 @@ public sealed class BridgeToolTests : IDisposable
         Assert.Null(BridgeTool.HitTest(world, Library, [legacy], line.At(line.Start - 1), 1));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_long_ramp_of_an_older_bridge_is_read_from_the_road_it_drew(bool alongZ)
+    {
+        var world = Strait();
+        var line = new BridgeLine(alongZ, 250, 200, 10);
+        int y = 40 - BridgeOp.Deck;
+        var bridge = BridgeTool.Place(world, Kit, line, y, new EditSession("Bridge", world));
+        float startBuilt = bridge.StartRampLength!.Value, endBuilt = bridge.EndRampLength!.Value;
+        Assert.True(startBuilt > 90 && endBuilt > 90);
+        bridge.StartRampLength = bridge.EndRampLength = null;
+
+        // The ground is now graded by the ramps, so planning again finds only the shortest one.
+        var plan = new BridgePlan(Kit, line.AlongZ, line.Line, line.Start, line.Pieces, y);
+        Assert.Equal(BridgeTool.MinRamp, BridgeTool.PlanRamp(world, plan, true)!.Length);
+
+        Assert.InRange(BridgeTool.RampLength(world, Library, bridge, true), startBuilt - 2, startBuilt + 2);
+        Assert.InRange(BridgeTool.RampLength(world, Library, bridge, false), endBuilt - 2, endBuilt + 2);
+        Assert.Null(bridge.StartRampLength);
+        Assert.Equal((bridge, BridgePart.Start), BridgeTool.HitTest(world, Library, [bridge], line.At(line.Start - startBuilt + 3), 1));
+        Assert.Equal((bridge, BridgePart.End), BridgeTool.HitTest(world, Library, [bridge], line.At(line.End + endBuilt - 3), 1));
+        Assert.Null(BridgeTool.HitTest(world, Library, [bridge], line.At(line.End + endBuilt + 14), 1));
+    }
+
     // ---- the stage's bridges and the tool's ----
 
     [Fact]
