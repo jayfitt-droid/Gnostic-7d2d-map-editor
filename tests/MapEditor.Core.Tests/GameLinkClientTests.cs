@@ -108,6 +108,18 @@ public class GameLinkClientTests : IDisposable
     }
 
     [Fact]
+    public async Task StatusReadsRebuildProgressAndOtherPlayers()
+    {
+        var reply = await ExchangeAsync((client, cancel) => client.GetStatusAsync(cancel), Prefix + "STATUS",
+            """{"ok":true,"protocol":2,"mod":"1.1.0","state":"ready","world":"Test","hosting":true,"otherPlayers":true,"save":"Test 1","player":{"x":0,"z":0,"yaw":0},"op":""",
+            """{"id":"0123456789abcdef","kind":"rebuild","state":"done","chunks":289}}""" + "\n");
+
+        Assert.NotNull(reply.Status);
+        Assert.True(reply.Status.OtherPlayers);
+        Assert.Equal(new("0123456789abcdef", "rebuild", "done", "") { Chunks = 289 }, reply.Status.Operation);
+    }
+
+    [Fact]
     public async Task LeaveReadsTheOperationId()
     {
         var reply = await ExchangeAsync((client, cancel) => client.LeaveAsync(cancel), Prefix + "LEAVE",
@@ -116,8 +128,10 @@ public class GameLinkClientTests : IDisposable
         Assert.Equal("0123456789abcdef", reply.OperationId);
     }
 
-    [Fact]
-    public async Task OpenWritesTheTargetBeforeSendingOnlyItsId()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SaveOperationWritesTheTargetBeforeSendingOnlyItsId(bool rebuild)
     {
         using var server = new TcpListener(IPAddress.Loopback, 0);
         server.Start();
@@ -125,18 +139,31 @@ public class GameLinkClientTests : IDisposable
         deadline.CancelAfter(TimeSpan.FromSeconds(5));
         const string world = "\u0141u\u017Cyce World";
         const string save = world + " Playtest";
-        var response = ClientFor(server).OpenAsync(world, save, create: true, deadline.Token);
+        var client = ClientFor(server);
+        var response = rebuild
+            ? client.RebuildAsync(world, save, new(-12.25f, 32.5f, 0), 128, deadline.Token)
+            : client.OpenAsync(world, save, create: true, deadline.Token);
         using var accepted = await server.AcceptTcpClientAsync(deadline.Token);
         using var reader = new StreamReader(accepted.GetStream(), leaveOpen: true);
         string? line = await reader.ReadLineAsync(deadline.Token);
-        string start = Prefix + "OPEN ";
+        string start = Prefix + (rebuild ? "REBUILD " : "OPEN ");
         Assert.NotNull(line);
         Assert.StartsWith(start, line);
         string id = line[start.Length..];
         Assert.True(GameLinkProtocol.IsOperationId(id));
-        Assert.Null(GameLinkOpenRequest.Take(Path.GetDirectoryName(_tokenPath)!, id, DateTimeOffset.UtcNow, out var request));
-        Assert.NotNull(request);
-        Assert.Equal((world, save, true), (request.World, request.Save, request.Create));
+        string directory = Path.GetDirectoryName(_tokenPath)!;
+        if (rebuild)
+        {
+            Assert.Null(GameLinkRebuildRequest.Take(directory, id, DateTimeOffset.UtcNow, out var request));
+            Assert.NotNull(request);
+            Assert.Equal((world, save, -12.25f, 32.5f, 128), (request.World, request.Save, request.X, request.Z, request.Radius));
+        }
+        else
+        {
+            Assert.Null(GameLinkOpenRequest.Take(directory, id, DateTimeOffset.UtcNow, out var request));
+            Assert.NotNull(request);
+            Assert.Equal((world, save, true), (request.World, request.Save, request.Create));
+        }
 
         var acknowledgment = JsonSerializer.Serialize(new { ok = true, id }) + "\n";
         await accepted.GetStream().WriteAsync(Encoding.UTF8.GetBytes(acknowledgment), deadline.Token);

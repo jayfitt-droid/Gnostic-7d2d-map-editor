@@ -1,6 +1,8 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MapEditor.Core.GameData;
+using MapEditor.Core.GameLink;
 using MapEditor.Core.Generate;
 
 namespace MapEditor.App;
@@ -13,7 +15,11 @@ public sealed class AppSettings
 
     public string? GameFolder { get; set; }
     public string? LastWorldFolder { get; set; }
-    public bool OpenInGameAfterExport { get; set; }
+    public AfterExportAction? AfterExport { get; set; }
+    public int RebuildRadius { get; set; } = GameLinkRebuildArea.DefaultRadius;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? OpenInGameAfterExport { get; set; }
     public bool Autosave { get; set; } = true;
 
     /// <summary>The side panel's width (DIPs); 0 for the default.</summary>
@@ -100,6 +106,9 @@ public sealed class AppSettings
             settings = new AppSettings();
         }
 
+        settings.AfterExport = GameLinkRebuild.ExportPreference(settings.AfterExport, settings.OpenInGameAfterExport);
+        settings.OpenInGameAfterExport = null;
+        settings.RebuildRadius = GameLinkRebuildArea.ClampRadius(settings.RebuildRadius);
         StarterTownPresets.AddNew(settings.TownPresets, settings.OfferedTownPresets);
 
         if (settings.GameFolder is null || !GameInstall.IsValid(settings.GameFolder))

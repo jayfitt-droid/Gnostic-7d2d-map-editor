@@ -2,9 +2,12 @@ using MapEditor.Core.GameData;
 
 namespace MapEditor.Core.GameLink;
 
-public enum GameLinkWaitState { Waiting, AtMenu, Teleport, Blocked, Failed, TimedOut }
+public enum GameLinkWaitState { Waiting, AtMenu, Teleport, Blocked, Failed, TimedOut, Rebuilt }
 
-public readonly record struct GameLinkWaitResult(GameLinkWaitState State, string Reason = "");
+public readonly record struct GameLinkWaitResult(GameLinkWaitState State, string Reason = "")
+{
+    public int Chunks { get; init; }
+}
 
 /// <summary>Targets and progress checks for opening an exported world.</summary>
 public static class GameLinkPlaytest
@@ -69,7 +72,7 @@ public static class GameLinkPlaytest
             Same(blocked.World, world) && Same(blocked.Save, save))
             return new(GameLinkWaitState.Blocked, blocked.Reason);
         if (status is { Hosting: true, State: GameLinkState.Ready } && Same(status.World, world) && Same(status.Save, save) &&
-            (id is null ? op?.State is not ("leaving" or "opening") : matchingOpen && op!.State == "done"))
+            (id is null ? op?.State is not ("leaving" or "opening" or "rebuilding") : matchingOpen && op!.State == "done"))
             return new(GameLinkWaitState.Teleport);
         return Pending(timedOut);
     }

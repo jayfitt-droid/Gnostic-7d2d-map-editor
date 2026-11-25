@@ -7,11 +7,13 @@ namespace GnosticGameLink;
 /// <summary>Advances one menu operation at a time on Unity's main thread.</summary>
 internal sealed class GameLinkMenuFlow
 {
-    private enum Step { Disconnect, WaitForMenu, OpenPage, SelectTarget, PressStart, WaitForSave, Idle }
+    private enum Step { Disconnect, WaitForMenu, OpenPage, SelectTarget, PressStart, WaitForSave, WaitForReturn, Idle }
 
     private const float Timeout = 300f;
     private World? leavingWorld;
     private GameLinkOpenRequest? target;
+    private GameLinkRebuildRequest? rebuild;
+    private (string World, string Save, UserDataStorageType Storage, GameLinkRebuildArea.Footprint[] Prefabs)? leftSave;
     private XUiC_SavegamesList.ListEntry? selected;
     private XUiC_SavegamesList.ListEntry? blockedEntry;
     private UserDataStorageType? saveStorage;
@@ -21,15 +23,17 @@ internal sealed class GameLinkMenuFlow
     private string kind = "";
     private string state = "";
     private string reason = "";
+    private int chunks;
 
     public bool Busy => step != Step.Idle;
-    public object? Operation => id.Length == 0 ? null : new { id, kind, state, reason };
+    public object? Operation => id.Length == 0 ? null : new { id, kind, state, reason, chunks };
 
     public string Leave(GameManager game, World world)
     {
         if (LeaveRefusal(game, world) is { } refusal)
             return GameLinkReply.Error(refusal, "The game cannot leave this save right now.");
         leavingWorld = world;
+        leftSave = null;
         return Begin(GameLinkProtocol.CreateOperationId(), "leave", "leaving", Step.Disconnect);
     }
 
@@ -38,7 +42,22 @@ internal sealed class GameLinkMenuFlow
         string? error = GameLinkOpenRequest.Take(GameLinkProtocol.RequestDirectory, requestId, DateTimeOffset.UtcNow, out target);
         if (error != null)
             return GameLinkReply.Error(error, "The open request is missing, invalid or expired.");
+        leftSave = null;
         return Begin(requestId, "open", "opening", Step.OpenPage);
+    }
+
+    public string Rebuild(string requestId)
+    {
+        string? error = GameLinkRebuildRequest.Take(GameLinkProtocol.RequestDirectory, requestId,
+            DateTimeOffset.UtcNow, out var request);
+        if (error != null)
+            return GameLinkReply.Error(error, "The rebuild request is missing, invalid or expired.");
+        if (state != "at_menu" || leftSave is not { } previous ||
+            !Same(request!.World, previous.World) || !Same(request.Save, previous.Save))
+            return GameLinkReply.Error("save_not_found", "The game did not just leave this save.");
+        rebuild = request;
+        target = new(request.World, request.Save, create: false);
+        return Begin(requestId, "rebuild", "rebuilding", Step.OpenPage);
     }
 
     private string Begin(string operationId, string operationKind, string progress, Step firstStep)
@@ -47,6 +66,7 @@ internal sealed class GameLinkMenuFlow
         kind = operationKind;
         state = progress;
         reason = "";
+        chunks = 0;
         blockedEntry = null;
         step = firstStep;
         deadline = Time.realtimeSinceStartup + Timeout;
@@ -60,6 +80,8 @@ internal sealed class GameLinkMenuFlow
         step = Step.Idle;
         leavingWorld = null;
         target = null;
+        rebuild = null;
+        if (progress != "at_menu") leftSave = null;
         selected = null;
         saveStorage = null;
     }
@@ -68,14 +90,18 @@ internal sealed class GameLinkMenuFlow
     {
         try
         {
-            if (!Busy) return;
+            var game = GameManager.Instance;
+            if (!Busy)
+            {
+                if (game?.World != null) leftSave = null;
+                return;
+            }
             if (Time.realtimeSinceStartup >= deadline)
             {
                 Finish("failed", "timeout");
                 return;
             }
 
-            var game = GameManager.Instance;
             switch (step)
             {
                 case Step.Disconnect:
@@ -83,6 +109,10 @@ internal sealed class GameLinkMenuFlow
                         Finish("failed", refusal);
                     else
                     {
+                        var cache = leavingWorld!.ChunkCache;
+                        leftSave = (GamePrefs.GetString(EnumGamePrefs.GameWorld), GamePrefs.GetString(EnumGamePrefs.GameName),
+                            (UserDataStorageType)GamePrefs.GetInt(EnumGamePrefs.GameSaveStorageType),
+                            GameLinkChunkRebuild.Prefabs(cache.ChunkProvider));
                         game.Disconnect();
                         step = Step.WaitForMenu;
                     }
@@ -100,12 +130,8 @@ internal sealed class GameLinkMenuFlow
                     PressStart(target!);
                     break;
                 case Step.WaitForSave:
-                    var player = game.World?.GetPrimaryPlayer();
-                    if (ConnectionManager.Instance.IsServer && !game.IsStartingGame &&
-                        player != null && player.IsSpawned() && !player.IsDead() &&
-                        Same(GamePrefs.GetString(EnumGamePrefs.GameWorld), target!.World) &&
-                        Same(GamePrefs.GetString(EnumGamePrefs.GameName), target.Save))
-                        Finish("done");
+                case Step.WaitForReturn:
+                    FinishWhenReady(game);
                     break;
             }
         }
@@ -113,16 +139,51 @@ internal sealed class GameLinkMenuFlow
         {
             // Keep the listener available if the game rejects a menu action.
             Log.Warning($"[Gnostic Game Link] Menu operation failed: {ex}");
-            if (Busy) Finish("failed", "failed");
+            if (Busy) Finish("failed", rebuild != null && step is (Step.WaitForSave or Step.WaitForReturn)
+                ? "reset_failed" : "failed");
         }
     }
+
+    private void FinishWhenReady(GameManager game)
+    {
+        var world = game.World;
+        var player = world?.GetPrimaryPlayer();
+        if (!ConnectionManager.Instance.IsServer || game.IsStartingGame ||
+            player == null || !player.IsSpawned() || player.IsDead() ||
+            !Same(GamePrefs.GetString(EnumGamePrefs.GameWorld), target!.World) ||
+            !Same(GamePrefs.GetString(EnumGamePrefs.GameName), target.Save))
+            return;
+        if (rebuild is null || step == Step.WaitForReturn)
+        {
+            Finish("done");
+            return;
+        }
+        if (HasOtherPlayers(world!))
+        {
+            Finish("failed", "players");
+            return;
+        }
+        if (GamePrefs.GetInt(EnumGamePrefs.GameSaveStorageType) != (int)leftSave!.Value.Storage)
+        {
+            Finish("failed", "save_not_found");
+            return;
+        }
+        chunks = GameLinkChunkRebuild.Run(game, world!, player, rebuild, leftSave.Value.Prefabs);
+        if (chunks > 0)
+            step = Step.WaitForReturn;
+        else
+            Finish("failed", "reset_failed");
+    }
+
+    public static bool HasOtherPlayers(World world) =>
+        ConnectionManager.Instance.ClientCount() > 0 || world.GetLocalPlayers().Count > 1;
 
     private static string? LeaveRefusal(GameManager game, World world)
     {
         var connection = ConnectionManager.Instance;
         if (game == null || game.World != world || connection == null || !connection.IsServer)
             return "not_ready";
-        if (connection.ClientCount() > 0 || world.GetLocalPlayers().Count > 1) return "players";
+        if (HasOtherPlayers(world)) return "players";
         if (!game.IsSafeToDisconnect() || SaveInProgress(world)) return "busy";
         return null;
     }
@@ -314,12 +375,13 @@ internal sealed class GameLinkMenuFlow
         return StartView(page).Enabled ? null : "start_disabled";
     }
 
-    private static UserDataStorageType? SaveStorage(GameLinkOpenRequest request)
+    private UserDataStorageType? SaveStorage(GameLinkOpenRequest request)
     {
         UserDataStorageType? storage = null;
         GameIO.GetPlayerSaves((foundStorage, save, world, _, _, _) =>
         {
             if (Same(world, request.World) && Same(save, request.Save) &&
+                (rebuild == null || foundStorage == leftSave!.Value.Storage) &&
                 (storage == null || foundStorage == UserDataStorageType.DeviceLocal))
                 storage = foundStorage;
         }, includeArchived: true);

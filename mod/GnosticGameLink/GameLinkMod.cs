@@ -97,19 +97,24 @@ public sealed class GameLinkMod : IModApi
             {
                 Vector3 position = player.GetPosition();
                 // The game's compass uses rotation.y: north is 0 degrees and east is 90.
-                return GameLinkReply.Status(state, worldName, hosting, save, menu.Operation, null,
+                return GameLinkReply.Status(state, worldName, hosting, GameLinkMenuFlow.HasOtherPlayers(world!), save, menu.Operation, null,
                     new { x = position.x, z = position.z, yaw = Mathf.Repeat(player.rotation.y, 360f) });
             }
 
-            return GameLinkReply.Status(state, worldName, hosting, save, menu.Operation,
+            return GameLinkReply.Status(state, worldName, hosting, false, save, menu.Operation,
                 state == "menu" ? menu.GetBlockedSave() : null);
         }
 
-        if (menu.Busy || activePicture != null && request.Kind is (GameLinkRequestKind.Leave or GameLinkRequestKind.Open))
+        if (menu.Busy || activePicture != null &&
+            request.Kind is (GameLinkRequestKind.Leave or GameLinkRequestKind.Open or GameLinkRequestKind.Rebuild))
             return GameLinkReply.Error("busy", "A Game Link operation is in progress.");
         if (request.Kind == GameLinkRequestKind.Open)
             return state == "menu"
                 ? menu.Open(request.OperationId!)
+                : GameLinkReply.Error("not_ready", "The game must be at the main menu.");
+        if (request.Kind == GameLinkRequestKind.Rebuild)
+            return state == "menu"
+                ? menu.Rebuild(request.OperationId!)
                 : GameLinkReply.Error("not_ready", "The game must be at the main menu.");
 
         if (state == "remote")

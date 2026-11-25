@@ -18,14 +18,17 @@ public partial class ExportDialog : Window
 {
     private readonly bool _hasErrors;
     private readonly GameInstall? _install;
+    private readonly GameLinkStatus? _gameStatus;
 
     /// <param name="prefabNote">Shown above the issues, e.g. which prefabs keep RWG's heights; null for none.</param>
     public ExportDialog(string name, string location, IReadOnlyList<ValidationIssue> issues, string? prefabNote,
-        GameInstall? install, bool openInGame)
+        GameInstall? install, AfterExportAction choice, int radius, GameLinkStatus? gameStatus)
     {
         _install = install;
+        _gameStatus = gameStatus;
+        ActionPreference = choice;
+        Radius = radius;
         InitializeComponent();
-        OpenInGameCheck.IsChecked = openInGame;
         if (prefabNote is not null)
         {
             PrefabNote.Text = prefabNote;
@@ -33,7 +36,7 @@ public partial class ExportDialog : Window
         }
         NameBox.Text = name;
         LocationBox.Text = location;
-        UpdateOpenInGame(CurrentFolder());
+        RadiusBox.Text = radius.ToString(System.Globalization.CultureInfo.InvariantCulture);
         IssuesList.ItemsSource = issues;
 
         int errors = issues.Count(i => i.Severity == IssueSeverity.Error);
@@ -85,11 +88,14 @@ public partial class ExportDialog : Window
     /// <summary>The chosen world folder, set when the dialog returns true.</summary>
     public string? Folder { get; private set; }
 
-    /// <summary>True when the chosen folder is available to the game and the checkbox is checked.</summary>
-    public bool OpenInGame => OpenInGameCheck.IsEnabled && OpenInGameCheck.IsChecked == true;
+    /// <summary>The action to run for this export.</summary>
+    public AfterExportAction Action => RebuildRadio.IsChecked == true ? AfterExportAction.Rebuild :
+        PlaytestRadio.IsChecked == true ? AfterExportAction.Playtest : AfterExportAction.None;
 
-    /// <summary>A disabled checkbox preserves the last choice for eligible exports.</summary>
-    public bool? OpenInGamePreference => OpenInGameCheck.IsEnabled ? OpenInGameCheck.IsChecked : null;
+    /// <summary>The last choice stays remembered when the current export cannot use it.</summary>
+    public AfterExportAction ActionPreference { get; private set; }
+
+    public int Radius { get; private set; }
 
     private string? CurrentFolder()
     {
@@ -108,9 +114,9 @@ public partial class ExportDialog : Window
 
     private void Input_Changed(object sender, TextChangedEventArgs e)
     {
+        if (RadiusBox is null || RebuildNote is null || ExportButton is null) return;
         var folder = CurrentFolder();
-        ExportButton.IsEnabled = folder is not null;
-        UpdateOpenInGame(folder);
+        UpdateActions(folder);
         if (folder is null)
             InfoText.Text = "Enter a name that can be used as a folder name, and a location.";
         else if (File.Exists(Path.Combine(folder, WorldFiles.Height)))
@@ -121,16 +127,39 @@ public partial class ExportDialog : Window
             InfoText.Text = $"Exports to {folder}";
     }
 
-    private void UpdateOpenInGame(string? folder)
+    private void Action_Click(object sender, RoutedEventArgs e)
+    {
+        ActionPreference = Action;
+        UpdateActions(CurrentFolder());
+    }
+
+    private void UpdateActions(string? folder)
     {
         string? note = null;
         if (folder is null || !GameLinkPlaytest.CanOpen(folder, _install))
             note = "Export to the game's GeneratedWorlds folder to open it in the game.";
         else if (!GameLinkPlaytest.CanEnterSaveName(GameLinkPlaytest.SaveName(Path.GetFileName(folder))))
             note = "Use a world name that the game can use for the playtest save. The save name can have up to 50 characters.";
-        OpenInGameCheck.IsEnabled = note is null;
+        PlaytestRadio.IsEnabled = note is null;
         OpenInGameNote.Text = note;
         OpenInGameNote.Visibility = note is null ? Visibility.Collapsed : Visibility.Visible;
+
+        string? rebuildReason = GameLinkRebuild.UnavailableReason(folder, _install, _gameStatus);
+        RebuildRadio.IsEnabled = rebuildReason is null;
+        if (RebuildRadio.IsEnabled && ActionPreference == AfterExportAction.Rebuild)
+            RebuildRadio.IsChecked = true;
+        else if (PlaytestRadio.IsEnabled && ActionPreference == AfterExportAction.Playtest)
+            PlaytestRadio.IsChecked = true;
+        else
+            DoNothingRadio.IsChecked = true;
+
+        RadiusPanel.IsEnabled = Action == AfterExportAction.Rebuild;
+        bool validRadius = int.TryParse(RadiusBox.Text, out int radius) && radius == GameLinkRebuildArea.ClampRadius(radius);
+        if (validRadius) Radius = radius;
+        RebuildNote.Text = rebuildReason ?? (RadiusPanel.IsEnabled && !validRadius
+            ? "Enter a whole number from 16 to 512."
+            : $"Rebuilds around the player in '{_gameStatus!.Save}'.");
+        ExportButton.IsEnabled = folder is not null && (!RadiusPanel.IsEnabled || validRadius);
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)

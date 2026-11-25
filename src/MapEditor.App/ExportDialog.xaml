@@ -38,8 +38,21 @@
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
         <StackPanel Grid.Row="5" Grid.ColumnSpan="3" Margin="0,12,0,0">
-            <CheckBox x:Name="OpenInGameCheck" Content="Open in the game after export" />
-            <TextBlock x:Name="OpenInGameNote" TextWrapping="Wrap" Margin="0,4,0,0"
+            <TextBlock Text="After export:" Margin="0,0,0,4" />
+            <RadioButton x:Name="DoNothingRadio" GroupName="AfterExport" Content="Do nothing" Click="Action_Click" />
+            <RadioButton x:Name="PlaytestRadio" GroupName="AfterExport" Margin="0,4,0,0"
+                         Content="Open the playtest save in the game" Click="Action_Click" />
+            <TextBlock x:Name="OpenInGameNote" TextWrapping="Wrap" Margin="24,4,0,0"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            <RadioButton x:Name="RebuildRadio" GroupName="AfterExport" Margin="0,4,0,0"
+                         Content="Rebuild the area around the player" Click="Action_Click" />
+            <StackPanel x:Name="RadiusPanel" Orientation="Horizontal" Margin="24,4,0,0">
+                <Label Content="_Radius" Target="{Binding ElementName=RadiusBox}" VerticalAlignment="Center" />
+                <TextBox x:Name="RadiusBox" Width="72" AutomationProperties.Name="Radius in metres"
+                         TextChanged="Input_Changed" />
+                <TextBlock Text="m (16–512)" VerticalAlignment="Center" Margin="6,0,0,0" />
+            </StackPanel>
+            <TextBlock x:Name="RebuildNote" TextWrapping="Wrap" Margin="24,4,0,0"
                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 

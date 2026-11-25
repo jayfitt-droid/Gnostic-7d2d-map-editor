@@ -24,12 +24,16 @@ public sealed record GameLinkPlayer(float X, float Z, float Yaw);
 public sealed record GameLinkStatus(string World, bool Hosting, GameLinkState State, string ModVersion, GameLinkPlayer? Player)
 {
     public string Save { get; init; } = "";
+    public bool OtherPlayers { get; init; }
     public GameLinkOperation? Operation { get; init; }
     public GameLinkBlockedSave? Blocked { get; init; }
 }
 
 /// <summary>Progress of the latest menu operation, including its failure reason when available.</summary>
-public sealed record GameLinkOperation(string Id, string Kind, string State, string Reason);
+public sealed record GameLinkOperation(string Id, string Kind, string State, string Reason)
+{
+    public int Chunks { get; init; }
+}
 
 /// <summary>The save selected on the game's Continue page when Start is disabled.</summary>
 public sealed record GameLinkBlockedSave(string World, string Save, string Reason);
@@ -81,6 +85,24 @@ public sealed class GameLinkClient
         finally
         {
             try { File.Delete(GameLinkOpenRequest.RequestPath(directory, id)); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>Continues the same save from the menu and rebuilds around the captured position.</summary>
+    public async Task<GameLinkReply> RebuildAsync(string world, string save, GameLinkPlayer centre, int radius,
+        CancellationToken cancel = default)
+    {
+        cancel.ThrowIfCancellationRequested();
+        string directory = Path.GetDirectoryName(_sessionTokenPath)!;
+        string id = new GameLinkRebuildRequest(world, save, centre.X, centre.Z, radius).Write(directory, DateTimeOffset.UtcNow);
+        try
+        {
+            return await SendAsync("REBUILD " + id, GameLinkRequestKind.Rebuild, cancel).ConfigureAwait(false);
+        }
+        finally
+        {
+            try { File.Delete(GameLinkRebuildRequest.RequestPath(directory, id)); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         }
     }
@@ -206,7 +228,7 @@ public sealed class GameLinkClient
                 return new(ParseError(StringProperty(root, "error")), message);
             if (kind == GameLinkRequestKind.Status)
                 return ParseStatus(root, message);
-            if (kind is GameLinkRequestKind.Leave or GameLinkRequestKind.Open)
+            if (kind is GameLinkRequestKind.Leave or GameLinkRequestKind.Open or GameLinkRequestKind.Rebuild)
                 return StringProperty(root, "id") is { } id && GameLinkProtocol.IsOperationId(id)
                     ? new(GameLinkError.None, message, OperationId: id)
                     : new(GameLinkError.InvalidReply);
@@ -285,7 +307,11 @@ public sealed class GameLinkClient
         if (root.TryGetProperty("op", out var op) && op.ValueKind == JsonValueKind.Object &&
             StringProperty(op, "id") is { } id && GameLinkProtocol.IsOperationId(id) &&
             StringProperty(op, "kind") is { } kind && StringProperty(op, "state") is { } phase)
-            operation = new(id, kind, phase, StringProperty(op, "reason") ?? "");
+            operation = new(id, kind, phase, StringProperty(op, "reason") ?? "")
+            {
+                Chunks = op.TryGetProperty("chunks", out var chunks) && chunks.ValueKind == JsonValueKind.Number &&
+                    chunks.TryGetInt32(out int count) && count > 0 ? count : 0,
+            };
 
         GameLinkBlockedSave? blockedSave = null;
         if (root.TryGetProperty("blocked", out var blocked) && blocked.ValueKind == JsonValueKind.Object &&
@@ -295,6 +321,8 @@ public sealed class GameLinkClient
         return new(GameLinkError.None, message, new GameLinkStatus(world, hosting.GetBoolean(), state.Value, mod, player)
         {
             Save = StringProperty(root, "save") ?? "",
+            OtherPlayers = root.TryGetProperty("otherPlayers", out var otherPlayers) &&
+                otherPlayers.ValueKind == JsonValueKind.True,
             Operation = operation,
             Blocked = blockedSave,
         });
