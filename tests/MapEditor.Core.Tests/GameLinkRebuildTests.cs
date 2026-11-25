@@ -1,5 +1,7 @@
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
+using MapEditor.Core.IO;
+using MapEditor.Core.Model;
 using Footprint = MapEditor.Core.GameLink.GameLinkRebuildArea.Footprint;
 
 namespace MapEditor.Core.Tests;
@@ -53,6 +55,106 @@ public class GameLinkRebuildTests
             new(48, 4, 64, 16),    // Outside, with no shared chunks.
         ]);
         Assert.True(keys.SetEquals([(-1, -1), (-1, 0), (0, -1), (0, 0), (1, 0), (2, 0)]));
+    }
+
+    [Fact]
+    public void SummaryMeasuresTheRoundedSquareAlongItsAxes()
+    {
+        var summary = GameLinkRebuildArea.Summarize(0.5f, 0.5f, 128, Bounds, []);
+
+        Assert.Equal(289, summary.ChunkCount);
+        Assert.Equal(289, summary.SquareChunkCount);
+        Assert.Equal(144, summary.ReachMetres);
+        Assert.False(summary.IsMuchLarger);
+    }
+
+    [Fact]
+    public void SummaryIncludesOnePoiCrossingTheEdge()
+    {
+        var summary = GameLinkRebuildArea.Summarize(0, 0, 16, Bounds, [new(12, 4, 32, 16)]);
+
+        Assert.Equal(5, summary.ChunkCount);
+        Assert.Equal(4, summary.SquareChunkCount);
+        Assert.Equal(32, summary.ReachMetres);
+        Assert.False(summary.IsMuchLarger);
+    }
+
+    [Theory]
+    [InlineData(79, 8, 80, false)]
+    [InlineData(81, 9, 96, true)]
+    public void SummaryFlagsAChainOnlyWhenItMoreThanDoublesTheSquare(int end, int count, int reach, bool muchLarger)
+    {
+        var summary = GameLinkRebuildArea.Summarize(0, 0, 16, Bounds,
+            [new(12, 4, 32, 16), new(31, 4, 64, 16), new(63, 4, end, 16)]);
+
+        Assert.Equal(count, summary.ChunkCount);
+        Assert.Equal(4, summary.SquareChunkCount);
+        Assert.Equal(reach, summary.ReachMetres);
+        Assert.Equal(muchLarger, summary.IsMuchLarger);
+    }
+
+    [Fact]
+    public void SummaryClipsTheSquareAndPoiToTheWorld()
+    {
+        var summary = GameLinkRebuildArea.Summarize(-1023.75f, 1023.75f, 16, Bounds,
+            [new(-1060, 1008, -1008, 1040)]);
+
+        Assert.Equal(4, summary.ChunkCount);
+        Assert.Equal(4, summary.SquareChunkCount);
+        Assert.Equal(32, summary.ReachMetres);
+        Assert.False(summary.IsMuchLarger);
+    }
+
+    [Fact]
+    public void ExportSummaryJoinsTheOnDiskAndEditedPrefabLists()
+    {
+        string folder = Path.Combine(AppContext.BaseDirectory, Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        string file = Path.Combine(folder, WorldFiles.Prefabs);
+        try
+        {
+            var world = new World { Name = World, Size = 128, Height = new Grid<ushort>(128, 128) };
+            world.Prefabs.Add(new() { Name = "poi", Position = new(31, 20, 4) });
+            var library = PrefabLibrary.Of([new("poi", "", new(20, 8, 10), 0, 0, 0, [], null)]);
+            var player = new GameLinkPlayer(0, 0, 0);
+
+            var firstExport = GameLinkRebuild.SummarizeExport(folder, world, library, player, 16);
+            Assert.Equal(4, firstExport.ChunkCount);
+
+            WorldXml.WritePrefabs(file, [new() { Name = "poi", Position = new(12, 20, 4) }]);
+            var reexport = GameLinkRebuild.SummarizeExport(folder, world, library, player, 16);
+            Assert.Equal(7, reexport.ChunkCount);
+            Assert.Equal(4, reexport.SquareChunkCount);
+            Assert.Equal(64, reexport.ReachMetres);
+        }
+        finally
+        {
+            File.Delete(file);
+            Directory.Delete(folder);
+        }
+    }
+
+    [Theory]
+    [InlineData(0, -7, 49)]
+    [InlineData(1, 2, 40)]
+    [InlineData(2, -7, 49)]
+    [InlineData(3, 2, 40)]
+    public void PrefabFootprintsUseTheCornerAndRotatedSize(int rotation, int maxX, int maxZ)
+    {
+        var prefab = new PrefabInstance { Name = "poi", Position = new(-20, 6, 27), Rotation = rotation };
+        var info = new PrefabInfo("poi", "", new(13, 4, 22), 0, 0, 0, [], null);
+        var footprint = GameLinkRebuild.PrefabFootprint(prefab, info);
+
+        Assert.Equal((-20, 27, maxX, maxZ), (footprint.MinX, footprint.MinZ, footprint.MaxX, footprint.MaxZ));
+    }
+
+    [Fact]
+    public void MissingPrefabUsesOneBlockAtItsCorner()
+    {
+        var prefab = new PrefabInstance { Name = "unknown", Position = new(-1, 6, 31), Rotation = 3 };
+        var footprint = GameLinkRebuild.PrefabFootprint(prefab, PrefabLibrary.Empty.Find(prefab.Name));
+
+        Assert.Equal((-1, 31, 0, 32), (footprint.MinX, footprint.MinZ, footprint.MaxX, footprint.MaxZ));
     }
 
     [Theory]
@@ -135,6 +237,12 @@ public class GameLinkRebuildTests
             Assert.StartsWith("All other players", Reason(Ready with { OtherPlayers = true }));
             Assert.StartsWith("Wait for the current Game Link", Reason(Ready with { Operation = new(Id, "open", "opening", "") }));
             Assert.Null(Reason(Ready));
+            Assert.StartsWith("There are no map changes",
+                GameLinkRebuild.UnavailableReason(folder, install, Ready, folder, exportHasChanges: false));
+            Assert.Null(GameLinkRebuild.UnavailableReason(folder, install, Ready, folder, exportHasChanges: true));
+            Assert.Null(GameLinkRebuild.UnavailableReason(folder, install, Ready, folder, exportHasChanges: null));
+            Assert.Null(GameLinkRebuild.UnavailableReason(folder, install, Ready,
+                Path.Combine(install.WorldsDir, World), exportHasChanges: false));
 
             string? Reason(GameLinkStatus status) => GameLinkRebuild.UnavailableReason(folder, install, status);
         }

@@ -757,7 +757,8 @@ public partial class MainWindow : Window
         if (_closeWhenIdle || !IsLoaded || !ReferenceEquals(_world, world)) return false;
         (int X, int Z)? destination = null;
         var dialog = new ExportDialog(name, location, issues, BoxFormNote(world), install,
-            _settings.AfterExport ?? AfterExportAction.None, _settings.RebuildRadius, gameStatus)
+            _settings.AfterExport ?? AfterExportAction.None, _settings.RebuildRadius, gameStatus,
+            GameLinkExportFolder, ExportHasChanges)
         {
             Owner = this,
             ExportClicked = () => destination = PlaytestDestination(world),
@@ -782,14 +783,23 @@ public partial class MainWindow : Window
         string exportName = Path.GetFileName(dialog.Folder);
         string? playtestSave = dialog.Action == AfterExportAction.Playtest ? GameLinkPlaytest.SaveName(exportName) : null;
         bool rebuild = dialog.Action == AfterExportAction.Rebuild;
-        bool? leftGame = rebuild
-            ? await PrepareRebuildExportAsync(dialog.Folder, install!, gameStatus!, dialog.Radius)
-            : playtestSave is null ? false : await PreparePlaytestExportAsync(playtestSave);
+        var rebuildTarget = rebuild
+            ? await PrepareRebuildExportAsync(dialog.Folder, world, install!, gameStatus!, dialog.Radius) : null;
+        if (rebuild && rebuildTarget is null)
+        {
+            _rebuildResultStatus = _vm.Status;
+            return false;
+        }
+        bool? leftGame = playtestSave is not null ? await PreparePlaytestExportAsync(playtestSave) : rebuildTarget is not null;
         if (leftGame is null || _closeWhenIdle || !IsLoaded || !ReferenceEquals(_world, world)) return false;
         string? previousFolder = GameLinkExportFolder;
         bool exportStatusChanged = ExportHasChanges != false;
         var (ok, savedChanged) = await WriteWorldAsync(dialog.Folder, rebuild || playtestSave is not null);
-        if (!ok && leftGame == true) _vm.Status += ". The game is at the main menu.";
+        if (!ok && leftGame == true)
+        {
+            _vm.Status += ". The game is at the main menu.";
+            if (rebuild) _rebuildResultStatus = _vm.Status;
+        }
         if (ok) RecordHistoryEvent($"Export: {exportName}");
         if (ok && _projectPath is not null)
         {
@@ -804,7 +814,7 @@ public partial class MainWindow : Window
         }
         if (ok && IsLoaded && !_closeWhenIdle && ReferenceEquals(_world, world))
         {
-            if (rebuild) StartRebuild(gameStatus!, dialog.Radius);
+            if (rebuildTarget is not null) StartRebuild(rebuildTarget, dialog.Radius);
             else if (install is not null && playtestSave is not null)
                 StartOpenInGame(install, exportName, playtestSave, destination);
         }
