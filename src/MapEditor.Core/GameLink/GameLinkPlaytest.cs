@@ -2,7 +2,23 @@ using MapEditor.Core.GameData;
 
 namespace MapEditor.Core.GameLink;
 
-public enum GameLinkWaitState { Waiting, AtMenu, Teleport, Blocked, Failed, TimedOut, Rebuilt }
+public enum GameLinkWaitState { Waiting, AtMenu, Teleport, Blocked, Failed, TimedOut, Rebuilt, GameClosed }
+
+/// <summary>Counts status requests that failed in a row, to tell that the game closed during a wait.</summary>
+public sealed class GameLinkMissedReplies
+{
+    /// <summary>The number of failed status replies in a row after which the game counts as closed.</summary>
+    public const int Limit = 3;
+
+    private int _missed;
+
+    /// <summary>Records a status reply. Returns true once <see cref="Limit"/> replies in a row have failed.</summary>
+    public bool Record(bool replied)
+    {
+        _missed = replied ? 0 : _missed + 1;
+        return _missed >= Limit;
+    }
+}
 
 public readonly record struct GameLinkWaitResult(GameLinkWaitState State, string Reason = "")
 {
