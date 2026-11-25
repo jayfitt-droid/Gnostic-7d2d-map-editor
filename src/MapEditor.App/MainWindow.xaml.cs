@@ -3784,6 +3784,23 @@ public partial class MainWindow : Window
 
     private void Fit_Click(object sender, RoutedEventArgs e) => Map.FitToView();
 
+    /// <summary>The least width the status bar keeps for its message, so a long spawn text trims instead of hiding it (#243).</summary>
+    private const double StatusMessageMinWidth = 120;
+
+    /// <summary>
+    /// Caps the spawn text so the status message keeps room. An Auto column never shrinks its text, so the cap is what
+    /// is left of the bar after the other fixed parts and the message's least width (never under the text's own MinWidth).
+    /// </summary>
+    private void StatusBarGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var columns = StatusBarGrid.ColumnDefinitions;
+        double others = 0;
+        for (int i = 0; i < columns.Count - 1; i++)
+            if (i != Grid.GetColumn(StatusSelectionBlock)) others += columns[i].ActualWidth;
+        double room = StatusBarGrid.ActualWidth - others - StatusMessageMinWidth - StatusSelectionBlock.Margin.Left;
+        StatusSelectionBlock.MaxWidth = Math.Max(StatusSelectionBlock.MinWidth, room);
+    }
+
 
     // ---- prefab info card --------------------------------------------------
 
