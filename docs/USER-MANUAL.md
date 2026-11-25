@@ -12,6 +12,7 @@ This manual is for version 2.0.0. It tells you how to make and change worlds for
 6. [The Generate panel](#6-the-generate-panel)
 7. [The six stages](#7-the-six-stages)
 8. [Example workflows](#8-example-workflows)
+   - [Guided tours](#guided-tours)
 9. [Validate and export the world](#9-validate-and-export-the-world)
 10. [Keyboard shortcuts](#10-keyboard-shortcuts)
 11. [Words in this manual](#11-words-in-this-manual)
@@ -697,6 +698,14 @@ The stage uses all traders in the world. These can come from stage 2, from the T
 **Edit on the map**: add, move, turn and remove spawns by hand. A spawn that you add or move stays when you run the stage again.
 
 ## 8. Example workflows
+
+### Guided tours
+
+In **Help > Guided tours**, select **Draw your own islands** or **Stages and tools together**.
+Do the action in each tip or click **Next**. Click **Back** to see an earlier step. Click **Close** to end the tour.
+
+The editor can offer the islands tour after you make a new world. Click **Start tour** to start it.
+To stop the offer without starting the tour, select **Don't show again**, then click **Close**.
 
 ### A complete generated world
 
