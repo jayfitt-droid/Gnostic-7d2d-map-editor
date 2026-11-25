@@ -1526,6 +1526,28 @@ public static partial class HighwayStage
         return ms.ToArray();
     }
 
+    /// <summary>The road cells <see cref="Capture"/> recorded, as runs: row <c>Z</c>, from <c>X0</c> for <c>Count</c> cells.</summary>
+    internal static List<(int Z, int X0, int Count)> RoadRuns(byte[] ground)
+    {
+        var runs = new List<(int Z, int X0, int Count)>();
+        if (ground.Length == 0) return runs;
+        using var r = new BinaryReader(new DeflateStream(new MemoryStream(ground), CompressionMode.Decompress));
+        while (true)
+        {
+            byte kind = r.ReadByte();
+            if (kind == 0) break;
+            int z = r.ReadInt32(), x0 = r.ReadInt32(), n = r.ReadInt32();
+            if (kind == 2) runs.Add((z, x0, n));
+            for (int i = 0; i < n; i++)
+            {
+                if (kind == 1) r.ReadInt16();
+                else if (kind == 3) r.ReadInt32();
+                else r.ReadByte();
+            }
+        }
+        return runs;
+    }
+
     /// <summary>Writes back what <see cref="Capture"/> recorded.</summary>
     internal static void Restore(World world, byte[] ground, EditSession session)
     {
