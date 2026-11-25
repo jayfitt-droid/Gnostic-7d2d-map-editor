@@ -147,7 +147,7 @@ public static class WorldValidator
                 continue;
             }
             if (info.IsPart) continue;
-            if (PrefabPlacer.RoadMismatch(world, cells, info.RoadLevelAbove(p.Position.Y)) is var step and > PrefabPlacer.RoadStep)
+            if (!info.IsBridge && PrefabPlacer.RoadMismatch(world, cells, info.RoadLevelAbove(p.Position.Y)) is var step and > PrefabPlacer.RoadStep)
                 Add(new(IssueSeverity.Warning, $"{p.Name} doesn't meet the road beside it level: the road is up to {step:0.0} m off its ground. Flatten the road and the ground on both sides, then place it again.", mx, mz,
                     Fix: new IssueFix(FixKind.LevelRoad, p)));
             if (info.IsStreetTile) continue;

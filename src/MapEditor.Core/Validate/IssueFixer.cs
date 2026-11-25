@@ -54,7 +54,7 @@ public static class IssueFixer
     /// </summary>
     private static string? LevelRoad(World world, PrefabLibrary library, PrefabInstance prefab, EditSession session)
     {
-        if (library.Find(prefab.Name) is not { } info || !world.Prefabs.Contains(prefab)) return null;
+        if (library.Find(prefab.Name) is not { } info || info.IsBridge || !world.Prefabs.Contains(prefab)) return null;
         var cells = PrefabPlacer.Footprint(world, prefab, library);
         int ground = info.RoadLevelAbove(prefab.Position.Y);
         int touch = PrefabPlacer.RoadTouch + 1;
