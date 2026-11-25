@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using MapEditor.Core.GameLink;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace GnosticGameLink;
 
@@ -159,7 +161,7 @@ internal sealed class GameLinkListener : IDisposable
         GameLinkParseResult result = GameLinkProtocol.ReadRequest(stream, sessionToken, out var request);
         return result switch
         {
-            GameLinkParseResult.Ok => Dispatch(request),
+            GameLinkParseResult.Ok => DispatchAndLog(request),
             GameLinkParseResult.InvalidToken =>
                 GameLinkReply.Error("invalid_token", "Game Link could not verify the session token. Restart the game or install the mod that matches the editor."),
             GameLinkParseResult.UnsupportedProtocol =>
@@ -167,6 +169,30 @@ internal sealed class GameLinkListener : IDisposable
             _ => GameLinkReply.Error("bad_request", "The request is invalid.")
         };
     }
+
+    private string DispatchAndLog(GameLinkRequest request)
+    {
+        if (request.Kind is not (GameLinkRequestKind.Leave or GameLinkRequestKind.Open or GameLinkRequestKind.Teleport))
+            return Dispatch(request);
+
+        string details = request.Kind switch
+        {
+            GameLinkRequestKind.Open => OpenTarget(request.OperationId!),
+            GameLinkRequestKind.Teleport => FormattableString.Invariant($" x={request.X} z={request.Z}"),
+            _ => "",
+        };
+        string reply = Dispatch(request);
+        var json = JObject.Parse(reply);
+        string outcome = (bool?)json["ok"] == true ? "accepted" : (string?)json["error"] ?? "failed";
+        string id = request.OperationId ?? (string?)json["id"] ?? GameLinkProtocol.CreateOperationId();
+        Log.Out($"[Gnostic Game Link] {request.Kind.ToString().ToUpperInvariant()} id={id}{details} reply={outcome}");
+        return reply;
+    }
+
+    private static string OpenTarget(string id) =>
+        GameLinkOpenRequest.Peek(GameLinkProtocol.RequestDirectory, id) is { } target
+            ? $" world={JsonConvert.ToString(target.World)} save={JsonConvert.ToString(target.Save)}"
+            : " target=unavailable";
 
     private string Dispatch(GameLinkRequest request)
     {

@@ -14,6 +14,7 @@ public partial class MainWindow
     private static readonly TimeSpan PlaytestPollInterval = TimeSpan.FromSeconds(1.5);
     private CancellationTokenSource? _openInGameWait;
     private Task _openInGameTask = Task.CompletedTask;
+    private string? _openInGameStatus;
 
     private (int X, int Z)? PlaytestDestination(World world)
     {
@@ -122,7 +123,8 @@ public partial class MainWindow
     private async Task OpenInGameAsync(GameInstall install, string world, string save, (int X, int Z)? destination,
         CancellationTokenSource wait)
     {
-        string opening = $"Opening '{save}' in the game... Esc cancels";
+        string arrival = destination is { } planned ? $" at {planned.X}, {planned.Z}" : "";
+        string opening = $"Opening '{save}' in the game{arrival}...";
         _vm.Status = opening;
         try
         {
@@ -165,15 +167,23 @@ public partial class MainWindow
                 }
             }
 
+            wait.Token.ThrowIfCancellationRequested();
+            if (destination is not null)
+                _vm.Status = _openInGameStatus = "Press Shift-Esc to cancel the automatic teleport. " + opening;
+
             var (result, linked) = await PollPlaytestAsync(
                 (game, expired) => GameLinkPlaytest.WaitForSave(game, world, save, operationId, expired), wait.Token);
             wait.Token.ThrowIfCancellationRequested();
             switch (result.State)
             {
                 case GameLinkWaitState.Teleport when destination is { } point:
+                    _openInGameStatus = null;
+                    _vm.Status = $"Moving the player to {point.X}, {point.Z}...";
                     var reply = await _gameLink.TeleportAsync(point.X, point.Z, null, wait.Token);
                     wait.Token.ThrowIfCancellationRequested();
-                    _vm.Status = reply.Ok ? $"Opened '{save}' at {point.X}, {point.Z}." : GameLinkErrorText(reply.Error);
+                    _vm.Status = reply.Ok
+                        ? $"Opened '{save}' at {point.X}, {point.Z}."
+                        : $"Could not teleport to {point.X}, {point.Z}. {GameLinkErrorText(reply.Error)}";
                     if (reply.Ok && !GameWindow.TryActivate()) _vm.Status += " Switch to the game to see the destination.";
                     break;
                 case GameLinkWaitState.Teleport:
@@ -190,14 +200,11 @@ public partial class MainWindow
                     _vm.Status = launched && !linked && GameWindow.IsRunning()
                         ? $"Started the game to open '{save}' without Gnostic Game Link." +
                             (destination is { } coords ? $" Teleport to {coords.X}, {coords.Z} in the game." : "")
-                        : $"The game did not report '{save}' ready in time.";
+                        : $"The game did not report '{save}' ready in time to move the player{arrival}.";
                     break;
             }
         }
-        catch (OperationCanceledException) when (wait.IsCancellationRequested)
-        {
-            if (_vm.Status == opening) _vm.Status = "Stopped waiting for the game.";
-        }
+        catch (OperationCanceledException) when (wait.IsCancellationRequested) { }
         catch (Exception ex) when (IsBadInput(ex) || ex is Win32Exception or InvalidOperationException)
         {
             _vm.Status = $"Could not open '{save}' in the game. {ex.Message}";
@@ -205,6 +212,7 @@ public partial class MainWindow
         finally
         {
             _openInGameWait = null;
+            _openInGameStatus = null;
             wait.Dispose();
             EndPlaytestAction();
         }
@@ -245,9 +253,10 @@ public partial class MainWindow
         UpdateIssueStepControls();
     }
 
-    private bool CancelOpenInGameWait()
+    private bool CancelOpenInGameWait(string reason)
     {
         if (_openInGameWait is not { IsCancellationRequested: false } wait) return false;
+        _vm.Status = $"Stopped waiting for the game. {reason}";
         wait.Cancel();
         return true;
     }

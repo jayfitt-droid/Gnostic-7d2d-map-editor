@@ -501,7 +501,7 @@ public partial class MainWindow : Window
 
     private void SetWorld(World world, string? sourcePath, bool dirty, string? recoveryPath = null)
     {
-        CancelOpenInGameWait();
+        CancelOpenInGameWait("A different world was opened.");
         // Prefabs saved at ground level by the game's editor get box Y, which everything here works in.
         GroundLevel.Resolve(world, _vm.Prefabs);
         if (_world is not null || recoveryPath is not null) _autosaves.Discard(recoveryPath);
@@ -745,8 +745,7 @@ public partial class MainWindow : Window
     private async Task<bool> ExportAsync()
     {
         if (_world is not { } world) return false;
-        var destination = PlaytestDestination(world);
-        CancelOpenInGameWait();
+        CancelOpenInGameWait("Another export started.");
         await _openInGameTask;
         if (!ReferenceEquals(_world, world) || !IsLoaded || _vm.IsBusy) return false;
         var issues = await ValidateAsync(showPanel: false);
@@ -756,8 +755,13 @@ public partial class MainWindow : Window
         var install = _install;
         var gameStatus = install is null ? null : await ReadExportGameStatusAsync();
         if (_closeWhenIdle || !IsLoaded || !ReferenceEquals(_world, world)) return false;
+        (int X, int Z)? destination = null;
         var dialog = new ExportDialog(name, location, issues, BoxFormNote(world), install,
-            _settings.AfterExport ?? AfterExportAction.None, _settings.RebuildRadius, gameStatus) { Owner = this };
+            _settings.AfterExport ?? AfterExportAction.None, _settings.RebuildRadius, gameStatus)
+        {
+            Owner = this,
+            ExportClicked = () => destination = PlaytestDestination(world),
+        };
         if (dialog.ShowDialog() != true || dialog.Folder is null)
         {
             // An issue double-clicked in the dialog: show it in the Issues panel (the export filled it) and on the map (#27).
@@ -798,7 +802,7 @@ public partial class MainWindow : Window
             }
             UpdateTitle();
         }
-        if (ok && IsLoaded && !_closeWhenIdle)
+        if (ok && IsLoaded && !_closeWhenIdle && ReferenceEquals(_world, world))
         {
             if (rebuild) StartRebuild(gameStatus!, dialog.Radius);
             else if (install is not null && playtestSave is not null)
@@ -1204,7 +1208,6 @@ public partial class MainWindow : Window
 
     private void ClearWorld()
     {
-        CancelOpenInGameWait();
         _autosaves.Discard();
         _tools.CancelRoad();
         _world = null;
@@ -1245,6 +1248,7 @@ public partial class MainWindow : Window
         UpdateToolState();
         CommandManager.InvalidateRequerySuggested();
         _vm.Status = "Closed. Open a world with File > Open (Ctrl+O), or start one with File > New World (Ctrl+N).";
+        CancelOpenInGameWait("The world was closed.");
     }
 
     private bool _closeConfirmed;
@@ -1292,7 +1296,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        CancelOpenInGameWait();
+        CancelOpenInGameWait("The editor closed.");
         ClearWorldStatsRequest();
         StopGameLinkPolling();
         _vm.ShowPlayer = false;
@@ -1321,7 +1325,6 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
-        CancelOpenInGameWait();
         if (_confirmingClose)
         {
             e.Cancel = true;
@@ -1348,6 +1351,7 @@ public partial class MainWindow : Window
         }
         if (_closeConfirmed || !Dirty)
         {
+            CancelOpenInGameWait("The editor is closing.");
             _autosaves.Discard();
             _settings.Autosave = _vm.Autosave;
             _settings.RibbonMode = _vm.RibbonMode;
@@ -3388,7 +3392,15 @@ public partial class MainWindow : Window
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
-        if (e.Key == Key.Escape && CancelOpenInGameWait())
+        if (!e.Handled && e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.Shift &&
+            _openInGameStatus is { } opening && _vm.Status == opening &&
+            CancelOpenInGameWait("Automatic teleport cancelled."))
+        {
+            e.Handled = true;
+            return;
+        }
+        if (!e.Handled && e.Key == Key.Escape && Keyboard.Modifiers == ModifierKeys.Shift && _rebuildWaitActive &&
+            CancelOpenInGameWait("The game can still finish the rebuild."))
         {
             e.Handled = true;
             return;

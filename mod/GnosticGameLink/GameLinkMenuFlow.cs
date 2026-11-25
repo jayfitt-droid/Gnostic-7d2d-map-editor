@@ -75,6 +75,11 @@ internal sealed class GameLinkMenuFlow
 
     private void Finish(string progress, string failure = "")
     {
+        if (kind is "leave" or "open")
+        {
+            string detail = failure.Length == 0 ? "" : $" reason={failure}";
+            Log.Out($"[Gnostic Game Link] {kind.ToUpperInvariant()} id={id} {state} -> {progress}{detail}");
+        }
         state = progress;
         reason = failure;
         step = Step.Idle;
