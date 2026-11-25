@@ -309,6 +309,9 @@ public sealed class TownToolController
         ShowPreview();
     }
 
+    /// <summary>Raised when the Town tool commits a built town.</summary>
+    public event EventHandler? TownBuilt;
+
     /// <summary>Enter: builds the planned town as one undo step.</summary>
     public bool Accept()
     {
@@ -319,7 +322,7 @@ public sealed class TownToolController
         if (!_edits.Step(session, s => changed = TownGenerator.Apply(world, _vm.Prefabs, plan, s))) return true;
         _map.InvalidateRegion(changed);
         _map.InvalidateRegion(session.Bounds);
-        _edits.Commit(session);
+        if (_edits.Commit(session)) TownBuilt?.Invoke(this, EventArgs.Empty);
         _vm.Status = $"Built a {plan.Township.Name}: {plan.Tiles.Count} tiles, {plan.PoiCount} POIs"
                      + (plan.TraderCount > 0 ? $" ({plan.TraderCount} trader{(plan.TraderCount == 1 ? "" : "s")})" : "")
                      + (plan.Roads.Count > 0 ? $", {plan.Roads.Count} link road{(plan.Roads.Count == 1 ? "" : "s")}" : "")

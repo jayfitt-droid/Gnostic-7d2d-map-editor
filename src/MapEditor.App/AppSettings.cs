@@ -22,6 +22,9 @@ public sealed class AppSettings
     public bool? OpenInGameAfterExport { get; set; }
     public bool Autosave { get; set; } = true;
 
+    /// <summary>Whether the new-world guided tour offer was dismissed for future worlds.</summary>
+    public bool TourOfferDismissed { get; set; }
+
     /// <summary>The side panel's width (DIPs); 0 for the default.</summary>
     public double SidePanelWidth { get; set; }
 

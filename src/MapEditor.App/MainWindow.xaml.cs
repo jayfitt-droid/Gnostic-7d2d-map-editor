@@ -14,6 +14,7 @@ using MapEditor.Core.IO;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
 using MapEditor.Core.Rendering;
+using MapEditor.Core.Tours;
 using MapEditor.Core.Validate;
 using Microsoft.Win32;
 
@@ -131,6 +132,7 @@ public partial class MainWindow : Window
         _tools = new TerrainToolController(Map, _vm, _edits);
         _prefabTools = new PrefabToolController(Map, _vm, _edits);
         _townTools = new TownToolController(Map, _vm, _edits);
+        InitializeTours();
         _genTools = new GenerateToolController(Map, _vm);
         _bridgeTools = new BridgeToolController(Map, _vm, _edits) { Bridges = () => _projectSettings.Bridges };
         _ruler = new RulerToolController(Map, _vm);
@@ -361,7 +363,7 @@ public partial class MainWindow : Window
             var template = LevelFile.FindTemplate(_install);
             var stamps = _vm.Stamps;
             var world = await Task.Run(() => NewWorldGenerator.Create(options, stamps, template is null ? null : File.ReadAllBytes(template.Path)));
-            SetWorld(world, sourcePath: null, dirty: true);
+            SetWorld(world, sourcePath: null, dirty: true, creating: true);
             BeginHistory($"New world: {world.Name}");
             // The Generate panel takes over from here, starting with the terrain.
             _projectSettings.Generator = GeneratorSettings.ForNewWorld(options.Seed,
@@ -379,6 +381,7 @@ public partial class MainWindow : Window
         {
             _vm.IsBusy = false;
         }
+        TourWorldCreated();
     }
 
     private async void Open_Executed(object sender, ExecutedRoutedEventArgs e) => await OnceAtATime(OpenAsync);
@@ -499,8 +502,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SetWorld(World world, string? sourcePath, bool dirty, string? recoveryPath = null)
+    private void SetWorld(World world, string? sourcePath, bool dirty, string? recoveryPath = null, bool creating = false)
     {
+        TourWorldChanging(creating);
         CancelOpenInGameWait("A different world was opened.");
         // Prefabs saved at ground level by the game's editor get box Y, which everything here works in.
         GroundLevel.Resolve(world, _vm.Prefabs);
@@ -800,7 +804,11 @@ public partial class MainWindow : Window
             _vm.Status += ". The game is at the main menu.";
             if (rebuild) _rebuildResultStatus = _vm.Status;
         }
-        if (ok) RecordHistoryEvent($"Export: {exportName}");
+        if (ok)
+        {
+            RecordHistoryEvent($"Export: {exportName}");
+            if (ReferenceEquals(_world, world)) RecordTourAction(TourCondition.Exported);
+        }
         if (ok && _projectPath is not null)
         {
             // Only a new folder, or an export that changed the world's saved data or export status, makes the project changed.
@@ -1063,6 +1071,7 @@ public partial class MainWindow : Window
             _vm.SidePanelTab = MainViewModel.IssuesTab;
             _vm.ShowSidePanel = true;
         }
+        if (ReferenceEquals(_world, world)) RecordTourAction(TourCondition.Validated);
         return issues;
     }
 
@@ -1218,6 +1227,7 @@ public partial class MainWindow : Window
 
     private void ClearWorld()
     {
+        EndTour();
         _autosaves.Discard();
         _tools.CancelRoad();
         _world = null;
@@ -3422,6 +3432,7 @@ public partial class MainWindow : Window
             e.Handled = true;
             return;
         }
+        if (TourTip.IsKeyboardFocusWithin && e.Key is Key.Enter or Key.Space) return;
         if (_vm.IsLandMode && HandleLandKey(e)) return;
         if (AltTurnsOffSnapping(e)) return;
         // Leave typing in text boxes alone.

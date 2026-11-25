@@ -430,6 +430,7 @@
         <CommandBinding Command="{x:Static local:MainWindow.RedoCommand}" Executed="Redo_Executed" CanExecute="Redo_CanExecute" />
     </Window.CommandBindings>
 
+    <Grid>
     <DockPanel x:Name="RootDock">
         <!-- Menus and the quick-access icons, as on Paint's top row. -->
         <DockPanel x:Name="TitleRow" DockPanel.Dock="Top">
@@ -487,8 +488,8 @@
         <StackPanel x:Name="MenuRow" DockPanel.Dock="Left" Orientation="Horizontal" Margin="4,2,4,0">
             <Image Source="pack://application:,,,/app.ico" Width="16" Height="16" Margin="6,0,4,0" VerticalAlignment="Center"
                    Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}" AutomationProperties.Name="Gnostic" />
-            <Menu x:Name="MainMenu" Background="Transparent" VerticalAlignment="Center" IsEnabled="{Binding IsWorldMode}">
-                <MenuItem Header="_File" SubmenuOpened="FileMenu_SubmenuOpened">
+            <Menu x:Name="MainMenu" Background="Transparent" VerticalAlignment="Center">
+                <MenuItem Header="_File" IsEnabled="{Binding IsWorldMode}" SubmenuOpened="FileMenu_SubmenuOpened">
                     <MenuItem Header="_New World..." InputGestureText="Ctrl+N" Command="{x:Static local:MainWindow.NewWorldCommand}" />
                     <MenuItem Header="_Open..." InputGestureText="Ctrl+O" Command="{x:Static local:MainWindow.OpenCommand}"
                               ToolTip="Open a project (.7dmap), or a world's dtm.raw or map_info.xml" />
@@ -506,11 +507,11 @@
                     <Separator />
                     <MenuItem Header="E_xit" Click="Exit_Click" />
                 </MenuItem>
-                <MenuItem Header="_Edit">
+                <MenuItem Header="_Edit" IsEnabled="{Binding IsWorldMode}">
                     <MenuItem Header="{Binding UndoText}" InputGestureText="Ctrl+Z" Command="{x:Static local:MainWindow.UndoCommand}" />
                     <MenuItem Header="{Binding RedoText}" InputGestureText="Ctrl+Y" Command="{x:Static local:MainWindow.RedoCommand}" />
                 </MenuItem>
-                <MenuItem Header="_View">
+                <MenuItem Header="_View" IsEnabled="{Binding IsWorldMode}">
                     <MenuItem Header="_Fit to Window" InputGestureText="Home" Click="Fit_Click" />
                     <MenuItem Header="Zoom _In" InputGestureText="+" Click="ZoomIn_Click" />
                     <MenuItem Header="Zoom _Out" InputGestureText="-" Click="ZoomOut_Click" />
@@ -529,13 +530,13 @@
                               Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}" />
                     <MenuItem Header="_World Info" Click="WorldInfo_Click" />
                 </MenuItem>
-                <MenuItem Header="_World">
+                <MenuItem Header="_World" IsEnabled="{Binding IsWorldMode}">
                     <MenuItem Header="_Generate..." Command="{x:Static local:MainWindow.GenerateCommand}" />
                     <MenuItem Header="_Validate" InputGestureText="F7" Command="{x:Static local:MainWindow.ValidateCommand}" />
                     <MenuItem Header="_Export World..." InputGestureText="Ctrl+E" Command="{x:Static local:MainWindow.ExportCommand}" />
                     <MenuItem Header="_Package Maps..." Command="{x:Static local:MainWindow.PackageCommand}" />
                 </MenuItem>
-                <MenuItem Header="_Settings">
+                <MenuItem Header="_Settings" IsEnabled="{Binding IsWorldMode}">
                     <MenuItem Header="_Game Folder..." Click="GameFolder_Click" />
                     <MenuItem Header="_Autosave Every 5 Minutes" IsCheckable="True" IsChecked="{Binding Autosave}" />
                     <MenuItem x:Name="CheckUpdatesAtStartItem" Header="_Check for updates at start" IsCheckable="True" Click="CheckUpdatesAtStart_Click" />
@@ -545,9 +546,13 @@
                     </MenuItem>
                 </MenuItem>
                 <MenuItem Header="_Help">
-                    <MenuItem Header="_Keyboard Shortcuts" InputGestureText="F1" Click="Shortcuts_Click" />
-                    <MenuItem Header="Check for _Updates..." Click="CheckUpdates_Click" />
-                    <MenuItem Header="_About" Click="About_Click" />
+                    <MenuItem Header="_Guided tours">
+                        <MenuItem Header="Draw your own islands" Click="DrawIslandsTour_Click" />
+                        <MenuItem Header="Stages and tools together" Click="StagesAndToolsTour_Click" />
+                    </MenuItem>
+                    <MenuItem Header="_Keyboard Shortcuts" InputGestureText="F1" Click="Shortcuts_Click" IsEnabled="{Binding IsWorldMode}" />
+                    <MenuItem Header="Check for _Updates..." Click="CheckUpdates_Click" IsEnabled="{Binding IsWorldMode}" />
+                    <MenuItem Header="_About" Click="About_Click" IsEnabled="{Binding IsWorldMode}" />
                 </MenuItem>
             </Menu>
             <Border Style="{StaticResource RibbonDivider}" Margin="6,8" />
@@ -575,7 +580,7 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <ProgressBar Width="100" Height="6" Margin="0,0,10,0" Maximum="1" Value="{Binding Generate.Progress}"
                                  Visibility="{Binding Generate.IsRunning, Converter={StaticResource BoolToVisibility}}" />
-                    <Button Content="Build World" Style="{DynamicResource AccentButtonStyle}" IsEnabled="{Binding CanBuildLand}" Click="BuildLand_Click" />
+                    <Button x:Name="BuildWorldTarget" Content="Build World" Style="{DynamicResource AccentButtonStyle}" IsEnabled="{Binding CanBuildLand}" Click="BuildLand_Click" />
                     <Button Content="Cancel" Margin="6,0,0,0" Click="CancelLand_Click" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -583,14 +588,14 @@
                     <Border BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorSecondaryBrush}" CornerRadius="5" Padding="2">
                         <StackPanel x:Name="LandTools" Orientation="Horizontal" KeyboardNavigation.DirectionalNavigation="Cycle"
                                     IsEnabled="{Binding DataContext.CanBuildLand, RelativeSource={RelativeSource AncestorType=Window}}">
-                            <local:LandToolToggleButton Style="{StaticResource LandToolToggle}" IsChecked="{Binding RectangleTool}"
+                            <local:LandToolToggleButton x:Name="RectangleTarget" Style="{StaticResource LandToolToggle}" IsChecked="{Binding RectangleTool}"
                                                         AutomationProperties.Name="Rectangle">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Data="{x:Static local:Icons.Rectangle}" Style="{StaticResource IconPath}" Width="16" Height="16" Margin="0,0,6,0" />
                                     <TextBlock Text="Rectangle" VerticalAlignment="Center" />
                                 </StackPanel>
                             </local:LandToolToggleButton>
-                            <local:LandToolToggleButton Style="{StaticResource LandToolToggle}" IsChecked="{Binding SelectTool}"
+                            <local:LandToolToggleButton x:Name="SelectBoxesTarget" Style="{StaticResource LandToolToggle}" IsChecked="{Binding SelectTool}"
                                                         AutomationProperties.Name="Select boxes" Margin="2,0,0,0">
                                 <StackPanel Orientation="Horizontal">
                                     <Path Data="{x:Static local:Icons.Cursor}" Style="{StaticResource IconPath}" Width="16" Height="16" Margin="0,0,6,0" />
@@ -1599,7 +1604,7 @@
                                         </StackPanel>
 
                                         <DockPanel Margin="0,18,0,0">
-                                            <Button DockPanel.Dock="Left" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100"
+                                            <Button x:Name="GenerateTerrainTarget" DockPanel.Dock="Left" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100"
                                                     IsEnabled="{Binding Generate.CanGenerate}" Click="TerrainGenerate_Click" />
                                             <Button DockPanel.Dock="Left" Content="Re-roll" Margin="6,0,0,0" IsEnabled="{Binding Generate.CanEdit}" Click="TerrainReroll_Click"
                                                     ToolTip="Generate again with a new seed" />
@@ -1767,9 +1772,9 @@
                                         </StackPanel>
 
                                         <WrapPanel Margin="0,12,0,0">
-                                            <Button Content="Plan towns" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="TownsPlan_Click"
+                                            <Button x:Name="PlanTownsTarget" Content="Plan towns" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="TownsPlan_Click"
                                                     ToolTip="Pick the sites and plan every town. Nothing changes in the world until Build." />
-                                            <Button Content="Build" Margin="0,6,6,0" IsEnabled="{Binding Generate.HasPlan}" Click="TownsBuild_Click"
+                                            <Button x:Name="BuildTownsTarget" Content="Build" Margin="0,6,6,0" IsEnabled="{Binding Generate.HasPlan}" Click="TownsBuild_Click"
                                                     ToolTip="Build every planned town as one undo step" />
                                             <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="TownsReroll_Click"
                                                     ToolTip="Plan again with a new seed. Towns you added or pinned stay." />
@@ -1888,7 +1893,7 @@
                                         </StackPanel>
 
                                         <WrapPanel Margin="0,12,0,0">
-                                            <Button Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="FeaturesGenerate_Click"
+                                            <Button x:Name="GenerateFeaturesTarget" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="FeaturesGenerate_Click"
                                                     ToolTip="Take out the last run's features and press in new ones, as one undo step. Placed and pinned ones stay." />
                                             <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="FeaturesReroll_Click"
                                                     ToolTip="Generate again with a new seed. Features you placed or pinned stay." />
@@ -1979,7 +1984,7 @@
                                         </StackPanel>
 
                                         <WrapPanel Margin="0,12,0,0">
-                                            <Button Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="HighwaysGenerate_Click"
+                                            <Button x:Name="GenerateHighwaysTarget" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="HighwaysGenerate_Click"
                                                     ToolTip="Take out the last run's roads and lay new ones between the built towns, as one undo step" />
                                             <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="HighwaysReroll_Click"
                                                     ToolTip="Generate again with a new seed, which bends the routes another way" />
@@ -2064,7 +2069,7 @@
                                         </StackPanel>
 
                                         <WrapPanel Margin="0,12,0,0">
-                                            <Button Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="WildernessGenerate_Click"
+                                            <Button x:Name="GenerateWildernessTarget" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="WildernessGenerate_Click"
                                                     ToolTip="Take out the last run's POIs and roads and place new ones, as one undo step. Placed and pinned ones stay." />
                                             <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="WildernessReroll_Click"
                                                     ToolTip="Generate again with a new seed. POIs you placed or pinned stay." />
@@ -2141,7 +2146,7 @@
                                         </StackPanel>
 
                                         <WrapPanel Margin="0,12,0,0">
-                                            <Button Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="SpawnsGenerate_Click"
+                                            <Button x:Name="GenerateSpawnsTarget" Content="Generate" Style="{DynamicResource AccentButtonStyle}" MinWidth="100" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="SpawnsGenerate_Click"
                                                     ToolTip="Take out the last run's spawns and place new ones, as one undo step. Spawns you placed or moved stay." />
                                             <Button Content="Re-roll" Margin="0,6,6,0" IsEnabled="{Binding Generate.CanEdit}" Click="SpawnsReroll_Click"
                                                     ToolTip="Generate again with a new seed. Spawns you placed or moved stay." />
@@ -2385,7 +2390,7 @@
                 <TextBlock Text="Make a new world, or open a project or a world folder." Style="{StaticResource HintText}"
                            HorizontalAlignment="Center" Margin="0,6,0,16" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button Content="New World..." Style="{DynamicResource AccentButtonStyle}" Command="{x:Static local:MainWindow.NewWorldCommand}"
+                    <Button x:Name="NewWorldTarget" Content="New World..." Style="{DynamicResource AccentButtonStyle}" Command="{x:Static local:MainWindow.NewWorldCommand}"
                             MinWidth="130" Margin="0,0,8,0" />
                     <Button Content="_Open..." Command="{x:Static local:MainWindow.OpenCommand}" MinWidth="110" Margin="0,0,8,0" />
                     <Button Content="Open World Fol_der..." Command="{x:Static local:MainWindow.OpenWorldCommand}" MinWidth="150" />
@@ -2393,4 +2398,8 @@
             </StackPanel>
         </Grid>
     </DockPanel>
+    <Canvas x:Name="TourLayer">
+        <local:TeachingTip x:Name="TourTip" Visibility="Collapsed" />
+    </Canvas>
+    </Grid>
 </Window>
