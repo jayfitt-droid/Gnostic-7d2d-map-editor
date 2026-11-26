@@ -20,6 +20,9 @@ public sealed class SaveCompatibilityTests : IDisposable
 {
     public static TheoryData<string> Samples => ["v1.2.0", "v1.2.1", "v2.0.0-beta.1", "v2.0.0-beta.3", "v2.0.0-beta.4", "v2.0.0", "v2.1.0", "v2.2.0-rc.1", "v2.2.0-rc.2", "v2.2.0-rc.3", "v2.2.0", "v2.3.0-rc.1", "v2.3.0-rc.2", "v2.3.0-rc.3", "v2.3.0", "v2.4.0-rc.1"];
 
+    /// <summary>Samples made with a playtest pin and its receipt (the sample tool adds them from v2.4.0 on).</summary>
+    private static readonly HashSet<string> PinSamples = [];
+
     public static TheoryData<string> PresetSamples => ["v2.0.0-beta.1", "v2.0.0-beta.3", "v2.0.0-beta.4", "v2.0.0", "v2.1.0", "v2.2.0-rc.1", "v2.2.0-rc.2", "v2.2.0-rc.3", "v2.2.0", "v2.3.0-rc.1", "v2.3.0-rc.2", "v2.3.0-rc.3", "v2.3.0", "v2.4.0-rc.1"];
 
     /// <summary>
@@ -79,8 +82,19 @@ public sealed class SaveCompatibilityTests : IDisposable
         // The Bridge tool's list came in format 3: every older project loads with none.
         Assert.NotNull(settings.Bridges);
         Assert.Empty(settings.Bridges);
-        Assert.Empty(settings.Pins);
-        Assert.Empty(settings.PendingPinAcks);
+        if (PinSamples.Contains(release))
+        {
+            var pin = Assert.Single(settings.Pins);
+            Assert.Equal((new Guid("5a3c0e7d-2f4b-4e61-9d8a-1b2c3d4e5f60"), -18.25f, 62f, 49f, 225f, "Sample", "Test Save",
+                new DateTimeOffset(2026, 11, 23, 12, 34, 56, TimeSpan.Zero), "Check the \"café\"."),
+                (pin.Id, pin.X, pin.Y, pin.Z, pin.Yaw, pin.World, pin.Save, pin.Time, pin.Note));
+            Assert.Equal(pin.Id, settings.PendingPinAcks[GameLinkPins.WorldKey("Sample")]);
+        }
+        else
+        {
+            Assert.Empty(settings.Pins);
+            Assert.Empty(settings.PendingPinAcks);
+        }
 
         var house = world.Prefabs[0];
         Assert.Equal(("house_old_01", "model", new Int3(-10, 37, 20), 3, false), (house.Name, house.Type, house.Position, house.Rotation, house.GroundLevel));

@@ -1,10 +1,14 @@
 // Writes a sample .7dmap (and a Generate preset) with the MapEditor.Core of one release. make-sample.ps1 builds it
-// against that release's tag. FORMAT1 marks v1.2.0 and older; NO_GENERATOR marks releases before the Generate panel.
+// against that release's tag. FORMAT1 marks v1.2.0 and older; NO_GENERATOR marks releases before the Generate panel;
+// NO_PINS marks releases before format 6 (v2.3.0 and older). The v2.4.0-rc.1 sample was made before the tool added a pin.
 // Usage: save-samples <out.7dmap> [<out-preset.json>]
 using System.Collections;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+#if !NO_PINS
+using MapEditor.Core.GameLink;
+#endif
 using MapEditor.Core.IO;
 using MapEditor.Core.Model;
 
@@ -48,6 +52,13 @@ var settings = new ProjectStore.ProjectSettings { ExportFolder = @"C:\out\Sample
 var gen = new MapEditor.Core.Generate.GeneratorSettings();
 Filler.Fill(gen);
 settings.Generator = gen;
+#endif
+#if !NO_PINS
+// Format 6: one playtest pin, and the receipt that waits for the next save.
+var pin = new GameLinkPin(new Guid("5a3c0e7d-2f4b-4e61-9d8a-1b2c3d4e5f60"), -18.25f, 62, 49, 225, "Sample", "Test Save",
+    new DateTimeOffset(2026, 11, 23, 12, 34, 56, TimeSpan.Zero), "Check the \"café\".");
+settings.Pins.Add(pin);
+settings.PendingPinAcks.Add(GameLinkPins.WorldKey(pin.World), pin.Id);
 #endif
 ProjectStore.Save(world, args[0], settings);
 #if !NO_GENERATOR
