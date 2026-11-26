@@ -6,7 +6,8 @@
 # files users already have.
 param(
     [Parameter(Mandatory)] [string] $Tag,
-    # FORMAT1 for v1.2.0 and older; NO_GENERATOR for releases before the Generate panel (v1.2.x).
+    # FORMAT1 for v1.2.0 and older; NO_GENERATOR for releases before the Generate panel (v1.2.x);
+    # NO_PINS for releases before format 6 (v2.3.0 and older).
     [string] $Defines = ""
 )
 $ErrorActionPreference = 'Stop'
