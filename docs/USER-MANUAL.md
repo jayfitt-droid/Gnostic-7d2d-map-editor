@@ -73,7 +73,9 @@ The window has five areas.
 | **Tool options** (below the ribbon) | The settings for the tool that you use, and a hint in one line. Click **∨** at the right of the ribbon to hide them. |
 | **Left rail** | The **size** and **strength** sliders for the brush. |
 | **Side panel** (right) | Five tabs: **Prefabs**, **Placed**, **Issues**, **World** and **Generate**. Drag the left edge of the panel to make it wider or narrower. |
-| **Status bar** (bottom) | The cursor position, height, biome and prefab under the cursor. It also shows the brush size, the world size, messages and the zoom. |
+| **Status bar** (bottom) | The cursor position, height, biome and prefab under the cursor. It also shows the brush size, the world size, the latest message and the zoom. |
+
+You can also show the **Messages** panel under the map. Refer to [Read the messages](#read-the-messages).
 
 On a short window, the ribbon becomes one row of icons. To keep the ribbon full or compact, click **View > Ribbon**.
 
@@ -117,6 +119,21 @@ The **Placed** tab lists every POI, street tile and part in your world.
 2. Type a name in the search box. When the **Placed** tab is open, **Ctrl+F** puts the cursor in its search box. You can also filter by type. The map shows a ring around each prefab that matches.
 3. Click a row to zoom to its prefab. Each row shows the biome at the centre of the prefab.
 4. To select the prefab, double-click its row or press Enter.
+
+### Read the messages
+
+The status bar shows only the latest message. The **Messages** panel shows all the messages of this session. Each line shows the time of the message.
+
+- To show or hide the panel, click **View > Messages**, or click the **Messages** button in the status bar, at the right of the message. You can also press **Ctrl+M**. When you start the editor again, the panel is open or closed as before, and it has the same height.
+- Drag the top edge of the panel to make it taller or shorter.
+- The newest message is at the bottom. The panel scrolls to each new message. If you scroll up to read an older message, the panel does not move.
+- A circle with an X marks an error, for example **Autosave failed**. A triangle marks a warning, for example a setting that the editor could not save.
+- Autosave messages show as dim lines. They do not replace the message in the status bar.
+- A message that shows progress uses one line, for example **Drawing the map image... 40%**. The editor updates that line.
+- Click **Copy** to copy all the messages as text. To copy only some messages, select them (Ctrl+click or Shift+click), then click **Copy** or press **Ctrl+C**.
+- Click **Clear** to remove all the messages.
+
+The editor does not save the messages in the project. The panel keeps the last 1,000 messages.
 
 ### Go to a place in the game
 
@@ -879,6 +896,7 @@ Press **F1** in the editor to see this list.
 | Esc | Cancel what the tool is doing or clear the ruler. Press it again to go back to **Select**. In **Select**, clear the selection. |
 | Del, PgUp, PgDn | Remove the selected prefab, or move it one block higher or lower |
 | Wheel, + and -, Home | Zoom, see the whole map |
+| Ctrl+M | Show or hide the **Messages** panel |
 | Right drag | Move the map with any tool |
 | Right-click | Open the map menu (**Copy teleport command**) |
 | Ctrl+Z, Ctrl+Y | Undo, redo |
@@ -916,6 +934,6 @@ Open an [issue](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues)
 - The stage or tool that you used.
 - What happened, and what you expected.
 
-A screenshot helps. If the editor crashed, attach `crash.log` from `%APPDATA%\7D2DMapEditor`.
+A screenshot helps. To add the messages, click **Copy** in the **Messages** panel (Ctrl+M) and paste them into the issue. If the editor crashed, attach `crash.log` from `%APPDATA%\7D2DMapEditor`.
 
 *This is a fan-made tool. It is not made by or affiliated with The Fun Pimps.*
