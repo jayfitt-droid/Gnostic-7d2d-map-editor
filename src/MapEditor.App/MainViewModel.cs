@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
 using MapEditor.Core.Rendering;
@@ -33,7 +35,43 @@ public sealed partial class MainViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(Layers))]
     private int _layersVersion;
 
-    [ObservableProperty] private string _status = "Open a world with File > Open World (Ctrl+O).";
+    private string _status = "Open a world with File > Open World (Ctrl+O).";
+
+    /// <summary>
+    /// The status bar text. Each text set here is also a normal line in the Messages panel, also when it is the same as
+    /// the last one. <see cref="Report"/> gives a message another kind.
+    /// </summary>
+    public string Status
+    {
+        get => _status;
+        set
+        {
+            SetProperty(ref _status, value);
+            Messages.Add(value);
+        }
+    }
+
+    /// <summary>Every status message of this session, for the Messages panel (#225).</summary>
+    public MessageLog Messages { get; } = new();
+
+    /// <summary>
+    /// Shows a message that the Messages panel marks with its kind. A routine message goes only to the panel; the
+    /// others also replace the status bar text. Progress messages from the same calling method share one line.
+    /// </summary>
+    public void Report(string text, MessageKind kind, [CallerMemberName] string source = "")
+    {
+        Messages.Add(text, kind, source);
+        if (kind != MessageKind.Routine) SetProperty(ref _status, text, nameof(Status));
+    }
+
+    /// <summary>Whether the Messages panel is open (View > Messages, Ctrl+M).</summary>
+    [ObservableProperty] private bool _showMessages;
+
+    /// <summary>The Messages panel's height (DIPs); drag its top edge to change it.</summary>
+    [ObservableProperty] private double _messagesHeight = DefaultMessagesHeight;
+
+    public const double DefaultMessagesHeight = 160, MinMessagesHeight = 60, MaxMessagesHeight = 600;
+
     [ObservableProperty] private string _cursorText = "";
     [ObservableProperty] private WorldStatsViewModel? _worldStats;
     [ObservableProperty] private string _worldStatsStatus = "";

@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MapEditor.App.Map;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Ops;
 using MapEditor.Core.Rendering;
 
@@ -375,7 +376,7 @@ public sealed partial class LandToolController(MapView map, MainViewModel vm) : 
         catch (Exception ex)
         {
             App.LogError(ex);
-            if (_history is not null) vm.Status = "Could not preview the coast.";
+            if (_history is not null) vm.Report("Could not preview the coast.", MessageKind.Warning);
         }
         finally
         {

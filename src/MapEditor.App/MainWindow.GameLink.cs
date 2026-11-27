@@ -1,6 +1,7 @@
 using System.Windows;
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 using MapEditor.Core.Validate;
 
@@ -43,7 +44,7 @@ public partial class MainWindow
                     GameLinkWorld.IsModMismatch(reply.Error))
                     ShowGameLinkStatus(null, reply.Error);
                 if (CanUseGameLink(world) && SameExport()) ShowGameLinkError(reply.Error);
-                else _vm.Status = GameLinkErrorText(reply.Error);
+                else _vm.Report(GameLinkErrorText(reply.Error), MessageKind.Error);
                 return;
             }
 
@@ -104,7 +105,7 @@ public partial class MainWindow
 
             if (GameLinkReadinessError(game) is { } error)
             {
-                _vm.Status = GameLinkErrorText(error);
+                _vm.Report(GameLinkErrorText(error), MessageKind.Error);
                 return;
             }
 

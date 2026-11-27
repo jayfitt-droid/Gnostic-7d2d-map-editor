@@ -1,6 +1,7 @@
 using System.Windows;
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 
 namespace MapEditor.App;
@@ -57,7 +58,7 @@ public partial class MainWindow
             if (_closeWhenIdle) return null;
             if (current is null && GameLinkWorld.IsModMismatch(currentReply.Error))
             {
-                _vm.Status = GameLinkErrorText(currentReply.Error);
+                _vm.Report(GameLinkErrorText(currentReply.Error), MessageKind.Error);
                 return null;
             }
             if (GameLinkRebuild.UnavailableReason(folder, install, current, GameLinkExportFolder, ExportHasChanges,
@@ -82,7 +83,7 @@ public partial class MainWindow
             }
             catch (Exception ex) when (IsBadInput(ex))
             {
-                _vm.Status = "Export cancelled. Could not calculate the rebuild area.";
+                _vm.Report("Export cancelled. Could not calculate the rebuild area.", MessageKind.Error);
                 if (!_closeWhenIdle)
                     ThemedMessageBox.Show(this, ex.Message, "Rebuild the area around the player",
                         MessageBoxButton.OK, MessageBoxImage.Error);
@@ -112,7 +113,7 @@ public partial class MainWindow
             if (_closeWhenIdle) return null;
             if (confirmed is null && GameLinkWorld.IsModMismatch(confirmReply.Error))
             {
-                _vm.Status = GameLinkErrorText(confirmReply.Error);
+                _vm.Report(GameLinkErrorText(confirmReply.Error), MessageKind.Error);
                 return null;
             }
             if (GameLinkRebuild.UnavailableReason(folder, install, confirmed) is { } reason)
@@ -149,7 +150,7 @@ public partial class MainWindow
             var reply = await _gameLink.RebuildAsync(target.World, target.Save, target.Player!, radius, wait.Token);
             if (reply.OperationId is not { } id)
             {
-                _vm.Status = "World exported. Could not start the rebuild. " + (reply.Message ?? GameLinkErrorText(reply.Error));
+                _vm.Report("World exported. Could not start the rebuild. " + (reply.Message ?? GameLinkErrorText(reply.Error)), MessageKind.Warning);
                 return;
             }
 
@@ -178,7 +179,7 @@ public partial class MainWindow
         }
         catch (Exception ex) when (IsBadInput(ex) || ex is InvalidOperationException)
         {
-            _vm.Status = $"Could not rebuild the area in '{target.Save}'. {ex.Message}";
+            _vm.Report($"Could not rebuild the area in '{target.Save}'. {ex.Message}", MessageKind.Error);
         }
         finally
         {

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 using MapEditor.Core.Validate;
 
@@ -95,7 +96,7 @@ public partial class MainWindow
         }
 
         IssueHotkeysCheck.IsChecked = false;
-        _vm.Status = "Could not enable the in-game shortcuts. You can still use the Teleport buttons.";
+        _vm.Report("Could not enable the in-game shortcuts. You can still use the Teleport buttons.", MessageKind.Warning);
     }
 
     private void StopIssueHotkeys()

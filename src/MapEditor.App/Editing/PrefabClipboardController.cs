@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using MapEditor.App.Map;
 using MapEditor.Core.Edit;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
 
@@ -66,7 +67,7 @@ internal sealed class PrefabClipboardController
         }
         if (copy.Serialize() is not { } text)
         {
-            _vm.Status = "This selection is too large or contains data that cannot be copied.";
+            _vm.Report("This selection is too large or contains data that cannot be copied.", MessageKind.Warning);
             return;
         }
         try
@@ -76,7 +77,7 @@ internal sealed class PrefabClipboardController
         }
         catch (ExternalException)
         {
-            _vm.Status = "Couldn't copy: another program is using the clipboard. Try again.";
+            _vm.Report("Couldn't copy: another program is using the clipboard. Try again.", MessageKind.Warning);
         }
     }
 
@@ -90,7 +91,7 @@ internal sealed class PrefabClipboardController
         }
         catch (ExternalException)
         {
-            _vm.Status = "Couldn't paste: another program is using the clipboard. Try again.";
+            _vm.Report("Couldn't paste: another program is using the clipboard. Try again.", MessageKind.Warning);
             return;
         }
         if (copy is null)

@@ -39,6 +39,7 @@ public partial class ShortcutsWindow : Window
             [
                 new(["Wheel", "+", "-"], "Zoom"),
                 new(["Home"], "Fit to window"),
+                new(["Ctrl+M"], "Show or hide the messages"),
                 new(["Right drag"], "Pan with any tool"),
                 new(["Right-click"], "Map menu: copy a teleport command"),
             ]),

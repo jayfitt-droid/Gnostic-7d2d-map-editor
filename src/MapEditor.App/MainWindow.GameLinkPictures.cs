@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 using MapEditor.Core.Validate;
 
@@ -52,9 +53,9 @@ public partial class MainWindow
             {
                 for (int i = 0; i < targets.Count && SameProject() && !token.IsCancellationRequested; i++)
                 {
-                    _vm.Status = batch
+                    _vm.Report(batch
                         ? $"Picture {i + 1} of {targets.Count}... Press Esc to cancel. {lastFailure}".TrimEnd()
-                        : "Taking picture...";
+                        : "Taking picture...", MessageKind.Progress);
 
                     var (path, error) = await CapturePictureAsync(targets[i], pictures, game.World, SameProject, token);
                     if (path is not null) saved++;
@@ -64,7 +65,8 @@ public partial class MainWindow
                         lastFailure = $"Picture {i + 1} ({targets[i].Name}) failed. {error}";
                     }
                     if (!batch)
-                        _vm.Status = path is not null ? $"Picture saved to {path}" : error ?? "Picture capture cancelled.";
+                        _vm.Report(path is not null ? $"Picture saved to {path}" : error ?? "Picture capture cancelled.",
+                            error is not null ? MessageKind.Error : MessageKind.Normal);
                 }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -80,7 +82,8 @@ public partial class MainWindow
             {
                 string result = token.IsCancellationRequested || !SameProject() ? "Pictures cancelled." : "Pictures complete.";
                 string location = saved > 0 ? $" Folder: {pictures}." : "";
-                _vm.Status = $"{result} {saved} saved, {failed} failed.{location} {lastFailure}".TrimEnd();
+                _vm.Report($"{result} {saved} saved, {failed} failed.{location} {lastFailure}".TrimEnd(),
+                    failed > 0 ? MessageKind.Warning : MessageKind.Normal);
             }
         });
     }
