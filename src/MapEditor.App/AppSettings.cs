@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
 using MapEditor.Core.Generate;
+using MapEditor.Core.IO;
 
 namespace MapEditor.App;
 
@@ -101,19 +102,24 @@ public sealed class AppSettings
     public double? WindowLeft { get; set; }
     public double? WindowTop { get; set; }
 
+    /// <summary>
+    /// Reads the settings. A value that can't be read uses its default and the others are kept (#246); each reset is
+    /// written to crash.log, with a copy of the file as it was.
+    /// </summary>
     public static AppSettings Load()
     {
         AppSettings settings;
+        var notes = new List<string>();
         try
         {
-            settings = File.Exists(FilePath)
-                ? JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings()
-                : new AppSettings();
+            settings = TolerantJson.ReadFile<AppSettings>(FilePath, notes);
         }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            App.LogError(ex);
             settings = new AppSettings();
         }
+        foreach (string note in notes) App.LogNote(note);
 
         settings.AfterExport = GameLinkRebuild.ExportPreference(settings.AfterExport, settings.OpenInGameAfterExport);
         settings.OpenInGameAfterExport = null;
@@ -130,7 +136,7 @@ public sealed class AppSettings
 
     /// <summary>
     /// Writes the settings to a temporary file and moves it into place, so a crash mid-write can't leave a broken file
-    /// (which <see cref="Load"/> would replace with defaults). A failure is logged, not thrown: it must never turn a
+    /// (which <see cref="Load"/> would read as defaults). A failure is logged, not thrown: it must never turn a
     /// save, export or open that worked into a reported failure (#18). Returns whether the settings were written.
     /// </summary>
     public bool Save()
