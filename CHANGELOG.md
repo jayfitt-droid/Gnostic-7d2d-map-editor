@@ -2,6 +2,22 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.4.0-rc.2 (2026-11-27)
+
+The second release candidate for v2.4.0. It has all the changes in [v2.4.0-rc.1](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/tag/v2.4.0-rc.1), and this fix. Only copies of a test version update to it. To try it, download it from the releases page.
+
+**This editor needs Gnostic Game Link 1.1.0**, the same as v2.4.0-rc.1. If you do not have it, download `GnosticGameLink-1.1.0.zip` from the release page and extract it into `%AppData%\7DaysToDie\Mods`.
+
+### Fixes
+
+- **Build World** and **Generate terrain** kept the towns from the **Town** tool, the POIs, roads, spawn points and bridges at their old height. On the new ground, a town could float above the ground or go into it. This also happened in v2.3.0. Now new terrain removes everything on the new ground, also the items that you put with the tools. For **Only an area**, it removes only the items in the area and near it. The editor asks before it starts, and Undo puts everything back. ([#302](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/302))
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- If you open two editor windows, they share one recovery copy and one settings file. Closing one window can remove the other window's recovery copy or its new town presets. ([#137](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/137), [#138](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/138))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
+
 ## v2.4.0-rc.1 (2026-11-26)
 
 A release candidate for v2.4.0: a test version before the full release. Only copies of a test version update to it. To try it, download it from the releases page.
