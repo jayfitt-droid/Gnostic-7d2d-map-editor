@@ -18,12 +18,12 @@ namespace MapEditor.Core.Tests;
 /// </summary>
 public sealed class SaveCompatibilityTests : IDisposable
 {
-    public static TheoryData<string> Samples => ["v1.2.0", "v1.2.1", "v2.0.0-beta.1", "v2.0.0-beta.3", "v2.0.0-beta.4", "v2.0.0", "v2.1.0", "v2.2.0-rc.1", "v2.2.0-rc.2", "v2.2.0-rc.3", "v2.2.0", "v2.3.0-rc.1", "v2.3.0-rc.2", "v2.3.0-rc.3", "v2.3.0", "v2.4.0-rc.1", "v2.4.0-rc.2"];
+    public static TheoryData<string> Samples => ["v1.2.0", "v1.2.1", "v2.0.0-beta.1", "v2.0.0-beta.3", "v2.0.0-beta.4", "v2.0.0", "v2.1.0", "v2.2.0-rc.1", "v2.2.0-rc.2", "v2.2.0-rc.3", "v2.2.0", "v2.3.0-rc.1", "v2.3.0-rc.2", "v2.3.0-rc.3", "v2.3.0", "v2.4.0-rc.1", "v2.4.0-rc.2", "v2.4.0-rc.3"];
 
     /// <summary>Samples made with a playtest pin and its receipt (the sample tool adds them from v2.4.0 on).</summary>
-    private static readonly HashSet<string> PinSamples = ["v2.4.0-rc.2"];
+    private static readonly HashSet<string> PinSamples = ["v2.4.0-rc.2", "v2.4.0-rc.3"];
 
-    public static TheoryData<string> PresetSamples => ["v2.0.0-beta.1", "v2.0.0-beta.3", "v2.0.0-beta.4", "v2.0.0", "v2.1.0", "v2.2.0-rc.1", "v2.2.0-rc.2", "v2.2.0-rc.3", "v2.2.0", "v2.3.0-rc.1", "v2.3.0-rc.2", "v2.3.0-rc.3", "v2.3.0", "v2.4.0-rc.1", "v2.4.0-rc.2"];
+    public static TheoryData<string> PresetSamples => ["v2.0.0-beta.1", "v2.0.0-beta.3", "v2.0.0-beta.4", "v2.0.0", "v2.1.0", "v2.2.0-rc.1", "v2.2.0-rc.2", "v2.2.0-rc.3", "v2.2.0", "v2.3.0-rc.1", "v2.3.0-rc.2", "v2.3.0-rc.3", "v2.3.0", "v2.4.0-rc.1", "v2.4.0-rc.2", "v2.4.0-rc.3"];
 
     /// <summary>
     /// Saved values that change on purpose when a sample is saved again, by sample and JSON path. For paths other
