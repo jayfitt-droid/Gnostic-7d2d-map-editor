@@ -694,7 +694,7 @@ If two islands have no straight crossing within the longest bridge, the editor d
 
 ### Stage 5: Wilderness POIs and gravel roads
 
-This stage puts POIs outside the towns. It also connects them to the roads with gravel roads. Where a gravel road has a step across it, the stage changes the step into a short ramp, as the Highways stage does. A gravel road up a very steep hill stays steep.
+This stage puts POIs outside the towns. It also connects them to the roads with gravel roads. A gravel road goes around a steep hill when it can. Where the road is still too steep, the stage cuts into the hill and fills the dips. Then the road rises no more than 1 m in 4 m (25%). If every route from a POI to a road is too steep, the POI gets no gravel road. The status line tells you how many POIs have no road. Where a gravel road has a step across it, the stage changes the step into a short ramp, as the Highways stage does.
 
 In each biome, the editor first uses free 150 m cells far from towns. Each cell gets the wilderness POI that fits best. The ground must be dry, flat enough, and in one biome.
 
