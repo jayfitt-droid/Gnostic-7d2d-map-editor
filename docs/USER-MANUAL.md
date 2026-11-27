@@ -222,7 +222,7 @@ If you close the editor or install an update, click **Cancel** in either message
 
 Use **Ctrl+Z** and **Ctrl+Y** in Land mode to undo and redo changes to the drawing. After **Build World**, press **Ctrl+Z** to put back the previous ground. The editor goes back to Land mode with your boxes, so you can change them and click **Build World** again. Press **Ctrl+Y** to build the world again. If you click **Cancel**, the map shows the boxes as dashed outlines until you build the world.
 
-To open a saved drawing, go to **Generate > Terrain** and click **Edit land**. **Build World** makes the terrain again for the whole map. Run the later Generate stages again when you need them. **Cancel** discards your changes to the drawing. If you have just started a new world, **Cancel** closes it and returns to the start screen.
+To open a saved drawing, go to **Generate > Terrain** and click **Edit land**. **Build World** makes the terrain again for the whole map. It removes everything on the map, also the towns and bridges that you drew with the **Town** and **Bridge** tools. Run the later Generate stages again when you need them. **Cancel** discards your changes to the drawing. If you have just started a new world, **Cancel** closes it and returns to the start screen.
 
 ### Open a world
 
@@ -415,7 +415,7 @@ Click the deck or a ramp to select the bridge. The editor shows an outline aroun
 
 A ramp that comes to a town or a POI stops at its edge, level with its ground. **Car wrecks** puts a wreck on the deck about every 100 to 150 m. **Rebuild all** builds all your bridges again with the current rules, as one undo step.
 
-The tool lists only its own bridges in the project. The Highways stage keeps its own bridges and does not touch these. The stages keep their roads and POIs off your bridges and their ramps.
+The tool lists only its own bridges in the project. The Highways stage keeps its own bridges and does not touch these. The stages keep their roads and POIs off your bridges and their ramps. Stages 2 to 5 build your bridges again when they run. New terrain (stage 1 or **Build World**) removes them, because their shores changed. Draw them again on the new ground.
 
 In the game, the ground beside a bridge has a small groove where it meets the deck, and a small pit around each pillar. The game makes these gaps, for every bridge: changing the heights does not remove them. They are only a visual problem: vehicles and players cross the ends without catching.
 
@@ -475,7 +475,7 @@ The stages and the tools change the same world. You can use them in any mix:
 
 - Run a stage, then change its result with a tool.
 - Make something with a tool, and a later stage uses it.
-- Run a stage again later. The other stages and your tool work stay.
+- Run a stage again later. The other stages and your tool work stay. Stage 1 is different: new terrain removes everything on it (see Stage 1).
 
 These are some examples:
 
@@ -564,11 +564,13 @@ The stage needs a biome map. If the world has no biome map, paint biomes first.
 - **Plan the biomes again for this land** (under **More settings**): the editor makes the biome layout from **New World** again, for the land shape. The editor ticks this setting when you change the shape. It replaces the biomes that you painted. Undo puts them back. This setting shows only for a world with a generated biome layout from **New World**. When you tick it, a **Biome seed** row shows. Its **Re-roll** makes a new biome layout on the ground that you have, and the terrain does not change. A **Layout** row also shows, where you can select a different layout, for example **One biome per island** for **Several islands**.
 - **Where**:
   - **Whole map** makes all of the terrain again.
-  - **Only an area** makes only the tiles in a rectangle. Click **Select area**, then drag on the map. The new tiles blend into the land around them. Prefabs and roads do not move.
+  - **Only an area** makes only the tiles in a rectangle. Click **Select area**, then drag on the map. The new tiles blend into the land around them.
 
 On an island or a peninsula, sea tiles get no plains, hills or mountains.
 
 Click **Generate** to make the terrain.
+
+New terrain removes everything on the new ground: towns, POIs, bridges, roads and spawn points. This includes the items that you put with the tools, for example a city from the **Town** tool or a bridge from the **Bridge** tool. These items cannot stay, because the ground under them changed. For **Only an area**, the editor removes the items in the area and near it. The editor asks before it starts. Undo puts everything back.
 
 New terrain for the whole map removes the planned towns of stage 2 that are not pinned, because their ground changed. A pinned town stays if its ground can still hold it. Undo puts the towns back.
 
@@ -740,7 +742,7 @@ To stop the offer without starting the tour, select **Don't show again**, then c
 5. Run stages 2, 3, 4, 5 and 6.
 6. Press **F7** to validate. Then press **Ctrl+E** to export.
 
-To change the land later, go to **Generate > Terrain** and click **Edit land**. **Build World** clears the later stages. Run them again.
+To change the land later, go to **Generate > Terrain** and click **Edit land**. **Build World** clears the later stages and removes everything on the map. Run the stages again, and draw your towns and bridges again.
 
 ### New spawns for a world that you have
 
