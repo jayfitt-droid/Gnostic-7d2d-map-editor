@@ -109,6 +109,8 @@ public static class WorldValidator
                 issues.Add(new(IssueSeverity.Warning, $"Spawn point at {s.X:0}, {s.Z:0} is under water.", gx, gz, Fix: new IssueFix(FixKind.MoveSpawn, Spawn: s)));
         }
 
+        CheckRoadSteps(world, library, issues);
+
         if (library.Count == 0)
         {
             issues.Add(new(IssueSeverity.Info, "The game folder is not set, so prefabs were not checked."));
@@ -178,6 +180,24 @@ public static class WorldValidator
         if (!trader)
             issues.Add(new(IssueSeverity.Warning, "There is no trader, so the game's trader quests will have nowhere to go."));
         return issues;
+    }
+
+    /// <summary>
+    /// Warns once for each spot where two neighbouring road pixels are more than one block apart (#312): the game shows a
+    /// wall across the road. Pixels under a prefab are left out, since the game shows the prefab's own ground there.
+    /// </summary>
+    private static void CheckRoadSteps(World world, PrefabLibrary library, List<ValidationIssue> issues)
+    {
+        if (world.Roads is null) return;
+        var spots = RoadSteps.Spots(RoadSteps.Find(world, new GridRect(0, 0, world.Size, world.Size), RoadSteps.UnderPrefab(world, library)));
+        foreach (var spot in spots.OrderByDescending(s => s.Max(t => t.Step)).Take(MaxIssues))
+        {
+            var (x, z, step) = spot.MaxBy(s => s.Step);
+            issues.Add(new(IssueSeverity.Warning,
+                $"There is a step of {step:0.0} m across the road. Vehicles can't drive over it. Use the Smooth tool on it.", x, z));
+        }
+        if (spots.Count > MaxIssues)
+            issues.Add(new(IssueSeverity.Info, $"… and {spots.Count - MaxIssues:N0} more road steps."));
     }
 
     /// <summary>The share of <paramref name="cells"/> under water, in percent.</summary>

@@ -230,6 +230,39 @@ public sealed class HighwayStageTests
     }
 
     [Fact]
+    public void A_highway_from_a_raised_street_tile_has_no_step_across_it()
+    {
+        // The tiles' ground is 11 m above the land: each highway runs down from its exit and turns on the slope (#312).
+        var world = Flat();
+        Roadside(world, 6, 6);
+        Roadside(world, 12, 8);
+        Assert.Equal(51, Library.Find("rwg_tile_gateway_straight")!.RoadLevelAbove(world.Prefabs[0].Position.Y));
+        var ground = (ushort[])world.Height.Data.Clone();
+        var roads = new List<HighwayRoad>();
+        Run(world, new HighwayOptions { Wiggle = 0 }, roads);
+        Assert.NotEmpty(roads);
+
+        // Neighbouring road pixels outside the tiles are no more than half a block apart: in the game a one-block step
+        // still shows as a ridge.
+        var tiles = world.Prefabs.Select(p => PrefabPlacer.Footprint(world, p, Library)).ToList();
+        bool Open(int x, int z) => world.Roads![x, z] != (byte)RoadType.None && !tiles.Exists(t => t.Contains(x, z));
+        float worst = 0;
+        for (int z = 0; z < Size - 1; z++)
+            for (int x = 0; x < Size - 1; x++)
+            {
+                if (!Open(x, z)) continue;
+                float h = World.HeightToMetres(world.Height[x, z]);
+                if (Open(x + 1, z)) worst = Math.Max(worst, MathF.Abs(h - World.HeightToMetres(world.Height[x + 1, z])));
+                if (Open(x, z + 1)) worst = Math.Max(worst, MathF.Abs(h - World.HeightToMetres(world.Height[x, z + 1])));
+            }
+        Assert.InRange(worst, 0, 0.5f);
+
+        // The ramps are part of each road's record, so taking the roads down puts the land back.
+        HighwayStage.TakeDown(world, roads, new EditSession("Down", world));
+        Assert.Equal(ground, world.Height.Data);
+    }
+
+    [Fact]
     public void Take_down_restores_every_cell_of_a_wide_bank()
     {
         const int size = 1024, centre = 675, acrossOldCapture = 704;

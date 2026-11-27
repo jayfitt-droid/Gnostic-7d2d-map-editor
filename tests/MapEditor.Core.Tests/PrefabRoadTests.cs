@@ -81,6 +81,28 @@ public sealed class PrefabRoadTests
     }
 
     [Fact]
+    public void Validate_warns_at_a_step_across_a_road_away_from_prefabs()
+    {
+        // Two lengths of road meet 2 m apart in height at x = 300, far from any prefab (#312).
+        var world = WorldWithStrip();
+        for (int z = 295; z < 305; z++)
+            for (int x = 300; x < 600; x++)
+                world.Height[x, z] = World.MetresToHeight(45);
+        var tile = new PrefabInfo("rwg_tile_test_straight", "RWGTiles", new Int3(150, 22, 150), -12, 0, 0, ["streettile"], null);
+        var library = PrefabLibrary.Of([tile]);
+
+        var issue = Assert.Single(WorldValidator.Validate(world, library), i => i.Message.Contains("step of 2.0 m across the road"));
+        Assert.Equal(IssueSeverity.Warning, issue.Severity);
+        Assert.InRange(issue.X!.Value, 299, 300);
+        Assert.InRange(issue.Z!.Value, 295, 304);
+        Assert.Null(issue.Fix);
+
+        // Under a prefab the game shows the prefab's own ground, so a step there is not the road's.
+        world.Prefabs.Add(new PrefabInstance { Name = tile.Name, Position = new Int3(world.GridToWorld(225), 40, world.GridToWorld(250)) });
+        Assert.DoesNotContain(WorldValidator.Validate(world, library), i => i.Message.Contains("across the road"));
+    }
+
+    [Fact]
     public void Validate_skips_the_road_level_warning_for_a_bridge_over_a_road()
     {
         var world = WorldWithStrip();
