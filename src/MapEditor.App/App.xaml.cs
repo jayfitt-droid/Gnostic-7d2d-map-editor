@@ -40,7 +40,7 @@ public partial class App : Application
                 if (File.Exists(CrashLogPath) && new FileInfo(CrashLogPath).Length > MaxLogBytes)
                     File.Move(CrashLogPath, Path.ChangeExtension(CrashLogPath, ".old.log"), overwrite: true);
                 string note = count == RepeatsLogged ? $"(Seen {RepeatsLogged} times; further repeats this run aren't logged.){Environment.NewLine}" : "";
-                File.AppendAllText(CrashLogPath, $"[{DateTime.Now:u}] {error}{Environment.NewLine}{note}{Environment.NewLine}");
+                File.AppendAllText(CrashLogPath, $"[{MapEditor.Core.Messages.CrashLog.FormatTime(DateTimeOffset.Now)}] {error}{Environment.NewLine}{note}{Environment.NewLine}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
