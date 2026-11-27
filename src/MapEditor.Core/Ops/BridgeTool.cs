@@ -273,17 +273,34 @@ public static class BridgeTool
     {
         float deck = plan.DeckTop;
         var path = new RoadPath([ramp.From, ramp.To], RoadType.Asphalt, BridgeOp.Width / 2f);
+        var line = RoadOp.Centreline(path.Points, RoadOp.CornerRounding(path.Type));
+        var direction = Direction(plan, atStart);
         var library = plan.Kit.Library ?? PrefabLibrary.Of([plan.Kit.Tile, plan.Kit.End, .. plan.Kit.Wrecks.Select(w => w.Info)]);
-        // A prefab in the way (a town's street tile, a POI): the ramp ends at its edge, level with its ground there, as the
-        // highway stage's roads meet prefabs. It climbs (or drops) at one even grade on the way, the gentlest the room allows.
-        if (ramp.Ends == RampEnd.Prefab)
-        {
-            float ground = PrefabAhead(world, plan, ramp.From, Direction(plan, atStart), ramp.Length)!.Value.Ground;
-            return HighwayStage.Capture(world, path, () =>
-                RoadOp.Draw(world, path, session, (_, line) => HeldProfile(line, deck, ground, Math.Max(0, ramp.Length - HeldLevel)), library));
-        }
         return HighwayStage.Capture(world, path, () =>
-            RoadOp.Draw(world, path, session, (w, line) => ApproachProfile(w, line, path.Type, deck, null, ramp.Length), library));
+        {
+            float[] profile;
+            // A prefab in the way (a town's street tile, a POI): the ramp ends at its edge, level with its ground there, as the
+            // highway stage's roads meet prefabs. It climbs (or drops) at one even grade on the way, the gentlest the room allows.
+            if (ramp.Ends == RampEnd.Prefab)
+            {
+                float ground = PrefabAhead(world, plan, ramp.From, direction, ramp.Length)!.Value.Ground;
+                profile = HeldProfile(line, deck, ground, Math.Max(0, ramp.Length - HeldLevel));
+            }
+            else
+            {
+                profile = ApproachProfile(world, line, path.Type, deck, null, ramp.Length);
+            }
+            RoadOp.Draw(world, path, line, profile, session, library, CellEdits);
+        });
+
+        (bool Paint, bool Grade) CellEdits(int key)
+        {
+            // The round cap can overlap a road beyond the ramp. Keep the road's grade there.
+            var centre = new Vector2(key % world.Size + 0.5f, key / world.Size + 0.5f);
+            bool keepGrade = Vector2.Dot(centre - ramp.To, direction) > 0
+                && (RoadType)world.Roads!.Data[key] is RoadType.Gravel or RoadType.Asphalt;
+            return (true, !keepGrade);
+        }
     }
 
     private static Vector2 Direction(BridgePlan plan, bool atStart) =>
@@ -430,7 +447,7 @@ public static class BridgeTool
         return deck + (ground - deck) * (t * t * (3 - 2 * t));
     }
 
-    /// <summary>Takes a bridge out: the ground under its footings and ramps goes back as it was, and its pieces are removed.</summary>
+    /// <summary>Removes the bridge pieces and restores the ground under its footings and ramps where it still matches the record.</summary>
     public static void TakeDown(World world, PlacedBridge bridge, EditSession session)
     {
         for (int i = bridge.Grounds.Count - 1; i >= 0; i--) HighwayStage.Restore(world, bridge.Grounds[i], session);
@@ -460,7 +477,7 @@ public static class BridgeTool
     }
 
     /// <summary>
-    /// Moves, lengthens or shortens a bridge (or changes its height): takes it down, which puts the ground back, and
+    /// Moves, lengthens or shortens a bridge (or changes its height): takes it down, restoring the ground where it can, and
     /// builds it again at <paramref name="line"/> and <paramref name="y"/>, in its place in the list.
     /// </summary>
     public static PlacedBridge Replace(World world, BridgeKit kit, List<PlacedBridge> bridges, PlacedBridge old, BridgeLine line, int y, EditSession session, bool wrecks = true)

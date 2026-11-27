@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Numerics;
 using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
@@ -217,6 +218,108 @@ public sealed class BridgeToolTests : IDisposable
         BridgeTool.Remove(world, list, bridge, new EditSession("Take down", world));
         Assert.Empty(list);
         AssertSame(before, world);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    public void Rebuilding_a_bridge_keeps_its_join_with_a_drawn_road_smooth(int dip)
+    {
+        const int z = 300;
+        var world = Strait();
+        for (int x = 0; x < Size; x++)
+        {
+            int d = Math.Min(Math.Abs(x - SeaFrom), Math.Abs(x - SeaTo));
+            float shore = (d - 40) / 15f;
+            ushort height = TerrainBrush.ToRaw(x is >= SeaFrom and < SeaTo
+                ? 18 : 34 + 0.04f * d - dip * MathF.Exp(-shore * shore));
+            world.Height.BeforeChange(new GridRect(x, 0, x + 1, Size));
+            for (int row = 0; row < Size; row++) world.Height[x, row] = height;
+        }
+
+        var list = new List<PlacedBridge>();
+        var bridge = BuildAcrossSea(world, list, new EditSession("Bridge", world), z);
+        Assert.NotNull(bridge.StartRampLength);
+        var end = RoadEnds.Find(world.Roads!, new Vector2(bridge.Start - bridge.StartRampLength.Value, z), 20);
+        Assert.NotNull(end);
+        var road = new RoadPath([end.Point, new Vector2(160, z)], RoadType.Asphalt, 6);
+        RoadOp.Draw(world, road, new EditSession("Road", world), library: Library);
+
+        float WorstStep() => Enumerable.Range(151, 386 - 150)
+            .Max(x => World.HeightToMetres((ushort)Math.Abs(world.Height[x, z] - world.Height[x - 1, z])));
+
+        float before = WorstStep();
+        Assert.Equal((1, 0), BridgeTool.RebuildEvery(world, Kit, list, new EditSession("Rebuild", world)));
+        float after = WorstStep();
+        Assert.True(after <= before + 0.05f, $"Worst step before rebuild: {before:F2} m. After: {after:F2} m.");
+    }
+
+    [Fact]
+    public void Taking_a_bridge_down_keeps_later_height_and_road_changes()
+    {
+        const int z = 300;
+        var world = Strait();
+        var roads = world.Roads!;
+        var expected = Take(world);
+        var list = new List<PlacedBridge>();
+        var bridge = BuildAcrossSea(world, list, new EditSession("Bridge", world), z);
+        Assert.NotNull(bridge.StartRampLength);
+        int length = (int)bridge.StartRampLength.Value;
+        var cells = Enumerable.Range(bridge.Start - length, length)
+            .Where(x => roads[x, z] == (byte)RoadType.Asphalt && world.Height[x, z] != expected.Height[x + z * Size])
+            .Take(2).ToArray();
+        Assert.Equal(2, cells.Length);
+        int regraded = cells[0], repainted = cells[1];
+
+        world.Height.BeforeChange(new GridRect(regraded, z, regraded + 1, z + 1));
+        roads.BeforeChange(new GridRect(repainted, z, repainted + 1, z + 1));
+        world.Height[regraded, z] = 10000;
+        roads[repainted, z] = (byte)RoadType.Gravel;
+        expected.Height[regraded + z * Size] = world.Height[regraded, z];
+        expected.Roads[regraded + z * Size] = (byte)RoadType.Asphalt;
+        expected.Roads[repainted + z * Size] = (byte)RoadType.Gravel;
+
+        BridgeTool.Remove(world, list, bridge, new EditSession("Take down", world));
+        Assert.Empty(list);
+        AssertSame(expected, world);
+    }
+
+    [Fact]
+    public void Legacy_ground_records_still_restore_deltas_and_road_bytes()
+    {
+        var world = Strait();
+        world.Height.BeforeChange(new GridRect(10, 20, 12, 21));
+        world.Roads!.BeforeChange(new GridRect(10, 20, 11, 21));
+        world.Height[10, 20] = 2000;
+        world.Height[11, 20] = 40000;
+        world.Roads![10, 20] = (byte)RoadType.Asphalt;
+
+        using var bytes = new MemoryStream();
+        using (var writer = new BinaryWriter(new DeflateStream(bytes, CompressionLevel.Optimal, leaveOpen: true)))
+        {
+            void Run(byte kind, int x)
+            {
+                writer.Write(kind);
+                writer.Write(20);
+                writer.Write(x);
+                writer.Write(1);
+            }
+
+            Run(1, 10);
+            writer.Write((short)150);
+            Run(3, 11);
+            writer.Write(-35000);
+            Run(2, 10);
+            writer.Write((byte)RoadType.Gravel);
+            writer.Write((byte)0);
+        }
+
+        var ground = bytes.ToArray();
+        Assert.Equal((20, 10, 1), Assert.Single(HighwayStage.RoadRuns(ground)));
+        HighwayStage.Restore(world, ground, new EditSession("Restore old record", world));
+        Assert.Equal(2150, world.Height[10, 20]);
+        Assert.Equal(5000, world.Height[11, 20]);
+        Assert.Equal((byte)RoadType.Gravel, world.Roads[10, 20]);
     }
 
     [Fact]
