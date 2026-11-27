@@ -2,19 +2,17 @@
 
 **A Windows map editor for 7 Days to Die. Edit a world the game generated, build one by hand, or generate a complete world in six stages and change any part of it.**
 
-## New in v2.3.0
+## New in v2.4.0
 
-**A new look: Modern.** Settings > Theme has a Modern theme. It has a slim title bar, one row of tools with their names, and a side bar on either side of the map. Flat, the layout you know, stays the default.
+**Play-test in one step.** With Gnostic Game Link 1.1.0, export opens the playtest save in the game, or rebuilds only the area around you. Type `pin` in the game console to leave a note on the editor's map.
 
-**Draw your own land.** Drag boxes of land and water on an empty map, give each coast its own shape, and build the world from your drawing.
+**Take pictures.** Right-click a POI, and the game takes a picture of it from above. Take a whole group from Multi-select or the Issues tab.
 
-**Gnostic Game Link.** A new, optional mod connects the editor to the game. Teleport to any spot or issue, add a waypoint to a POI, and see where you are on the editor's map. It has its own page on this site: [Gnostic Game Link](https://7daystodiemods.com/mods/gnostic-game-link-7d2d-3x).
+**Copy and paste.** Copy a POI, a spawn or a whole Multi-select group, turn it, and paste it anywhere, also in another project.
 
-**Multi-select.** Select the POIs, traders, street tiles and spawns in a box, then move, turn, raise or delete them as one group.
+**Ruler and world statistics.** Measure length, height and slope on the map. The World tab counts biomes, POIs by tier and biome, towns, traders and road length.
 
-**History.** The History tab lists each edit, Generate stage, save and export. Click an entry to go to it on the map, or undo back to it.
-
-Also town presets, a world grid in map images, project icons in File Explorer and a simpler Generate panel. The [changelog](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md) lists every change.
+Also guided tours, bridges that you can resize, an update check at start, and highways that join other roads and slope gently into the ground. The [changelog](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md) lists every change.
 
 ## Features
 
@@ -43,11 +41,12 @@ Also town presets, a world grid in map images, project icons in File Explorer an
 - Search the POIs in your world. Each match gets a ring on the map, and a click zooms to it.
 - Place, move, turn, raise and replace POIs, traders and street tiles. They snap to street tiles and sit level with the road.
 - Select a group of POIs, traders, street tiles and spawns in a box, and move, turn, raise or delete them together.
+- Copy and paste a POI, a spawn or a whole group, also into another project.
 - Draw a whole town on the 150 m street-tile grid.
 - Place player spawn points.
 
 **Play-test in the game**
-- Install the optional Gnostic Game Link mod. Then teleport to any spot or issue, add a waypoint to a POI, and see your player on the map.
+- Install the optional Gnostic Game Link 1.1.0 mod. Then open the playtest save from Export, teleport to any spot or issue, add a waypoint to a POI, take pictures of POIs from above, drop `pin` notes in the game, and see your player on the map.
 - **Rebuild the area around the player** changes your save for good. Use the playtest save, or back up your save first. The Game Link page explains how.
 
 **Safe to use**
@@ -59,6 +58,7 @@ Also town presets, a world grid in map images, project icons in File Explorer an
 
 **Easy to learn**
 - Two layouts: Flat (ribbon, palette, brush sliders and status bar) and Modern (one row of tools and a side bar). Both have light and dark modes that follow Windows.
+- Guided tours in the Help menu, a Ruler (K) for length and slope, and world statistics on the World tab.
 - Export the whole map as a PNG picture.
 - Package your maps and their custom prefabs as a mod zip to share.
 - A full [user manual](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/USER-MANUAL.md).

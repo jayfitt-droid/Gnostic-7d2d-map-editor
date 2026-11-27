@@ -2,19 +2,17 @@
 
 [b]A Windows map editor for 7 Days to Die. Edit a world the game generated, build one by hand, or generate a complete world in six stages and change any part of it.[/b]
 
-[size=5][b]New in v2.3.0[/b][/size]
+[size=5][b]New in v2.4.0[/b][/size]
 
-[b]A new look: Modern.[/b] [b]Settings > Theme[/b] has a Modern theme. It has a slim title bar, one row of tools with their names, and a side bar on either side of the map. Flat, the layout you know, stays the default.
+[b]Play-test in one step.[/b] With Gnostic Game Link 1.1.0, export opens the playtest save in the game, or rebuilds only the area around you. Type [font=Courier New]pin[/font] in the game console to leave a note on the editor's map.
 
-[b]Draw your own land.[/b] Drag boxes of land and water on an empty map, give each coast its own shape, and build the world from your drawing.
+[b]Take pictures.[/b] Right-click a POI, and the game takes a picture of it from above. Take a whole group from Multi-select or the Issues tab.
 
-[b]Gnostic Game Link.[/b] A new, optional mod connects the editor to the game. Teleport to any spot or issue, add a waypoint to a POI, and see where you are on the editor's map. It has its own page on this site: [url=https://www.nexusmods.com/7daystodie/mods/14147]Gnostic Game Link[/url].
+[b]Copy and paste.[/b] Copy a POI, a spawn or a whole Multi-select group, turn it, and paste it anywhere, also in another project.
 
-[b]Multi-select.[/b] Select the POIs, traders, street tiles and spawns in a box, then move, turn, raise or delete them as one group.
+[b]Ruler and world statistics.[/b] Measure length, height and slope on the map. The World tab counts biomes, POIs by tier and biome, towns, traders and road length.
 
-[b]History.[/b] The History tab lists each edit, Generate stage, save and export. Click an entry to go to it on the map, or undo back to it.
-
-Also town presets, a world grid in map images, project icons in File Explorer and a simpler Generate panel. The [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md]changelog[/url] lists every change.
+Also guided tours, bridges that you can resize, an update check at start, and highways that join other roads and slope gently into the ground. The [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/CHANGELOG.md]changelog[/url] lists every change.
 
 [size=5][b]Features[/b][/size]
 
@@ -52,13 +50,14 @@ Also town presets, a world grid in map images, project icons in File Explorer an
 [*]Search the POIs in your world. Each match gets a ring on the map, and a click zooms to it.
 [*]Place, move, turn, raise and replace POIs, traders and street tiles. They snap to street tiles and sit level with the road.
 [*]Select a group of POIs, traders, street tiles and spawns in a box, and move, turn, raise or delete them together.
+[*]Copy and paste a POI, a spawn or a whole group, also into another project.
 [*]Draw a whole town on the 150 m street-tile grid.
 [*]Place player spawn points.
 [/list]
 
 [b]Play-test in the game[/b]
 [list]
-[*]Install the optional Gnostic Game Link mod. Then teleport to any spot or issue, add a waypoint to a POI, and see your player on the map.
+[*]Install the optional Gnostic Game Link 1.1.0 mod. Then open the playtest save from Export, teleport to any spot or issue, add a waypoint to a POI, take pictures of POIs from above, drop [font=Courier New]pin[/font] notes in the game, and see your player on the map.
 [*][b]Rebuild the area around the player[/b] changes your save for good. Use the playtest save, or back up your save first. The Game Link page explains how.
 [/list]
 
@@ -66,7 +65,7 @@ Also town presets, a world grid in map images, project icons in File Explorer an
 [list]
 [*]Undo and redo for every edit.
 [*]A History tab with every edit, save and export. Click an entry to go to it, or undo back to it.
-[*]Projects (.7dmap) save in about a second. Autosave every 5 minutes, with recovery after a crash.
+[*]Projects ([font=Courier New].7dmap[/font]) save in about a second. Autosave every 5 minutes, with recovery after a crash.
 [*][b]Validate[/b] (F7) finds overlapping or flooded POIs, missing traders or spawns, prefabs off the map, POIs that don't meet their road, bridge problems and spawns far from the first trader.
 [*]Export writes all files first and only then replaces the old ones, so a failed export never breaks a world.
 [/list]
@@ -74,6 +73,7 @@ Also town presets, a world grid in map images, project icons in File Explorer an
 [b]Easy to learn[/b]
 [list]
 [*]Two layouts: Flat (ribbon, palette, brush sliders and status bar) and Modern (one row of tools and a side bar). Both have light and dark modes that follow Windows.
+[*]Guided tours in the Help menu, a Ruler (K) for length and slope, and world statistics on the World tab.
 [*]Export the whole map as a PNG picture.
 [*]Package your maps and their custom prefabs as a mod zip to share.
 [*]A full [url=https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/blob/main/docs/USER-MANUAL.md]user manual[/url].
@@ -124,7 +124,7 @@ The editor finds the game through Steam. If it can't, use [b]Settings > Game Fol
 [list=1]
 [*][b]New World[/b] (Ctrl+N), or [b]Open[/b] (Ctrl+O) an existing world's [font=Courier New]map_info.xml[/font] or [font=Courier New]dtm.raw[/font].
 [*]Use the tools, the [b]Generate[/b] panel, or both.
-[*][b]Save[/b] (Ctrl+S) as a .7dmap project while you work.
+[*][b]Save[/b] (Ctrl+S) as a [font=Courier New].7dmap[/font] project while you work.
 [*][b]Export[/b] (Ctrl+E) into the game's [font=Courier New]GeneratedWorlds[/font] folder.
 [*]Start a [b]new game[/b] on the world.
 [/list]
