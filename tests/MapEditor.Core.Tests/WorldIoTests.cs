@@ -185,6 +185,48 @@ public sealed class WorldIoTests : IDisposable
     }
 
     [Fact]
+    public void Minus_signs_of_other_region_formats_are_read_and_written_back_as_plain_minus()
+    {
+        // As v2.3.0 and older wrote prefab positions with a Swedish (U+2212), Arabic (U+061C -), Hebrew (U+200E -) or
+        // Persian (U+200E U+2212) region format (#316).
+        const string Minus = "\u2212", ArabicMark = "\u061C", LeftToRight = "\u200E";
+        WorldWriter.Write(MakeWorld(), _dir);
+        File.WriteAllText(Path.Combine(_dir, WorldFiles.Prefabs), $"""
+            <prefabs>
+              <decoration type="model" name="swedish" position="{Minus}120,45,{Minus}300" rotation="1" />
+              <decoration type="model" name="arabic" position="{ArabicMark}-121,46,{ArabicMark}-301" rotation="{Minus}0" />
+              <decoration type="model" name="hebrew" position="{LeftToRight}-122,47,{LeftToRight}-302" rotation="2" />
+              <decoration type="model" name="persian" position="{LeftToRight}{Minus}123,48,{LeftToRight}{Minus}303" rotation="3" />
+            </prefabs>
+            """);
+        File.WriteAllText(Path.Combine(_dir, WorldFiles.Spawns), $"""
+            <spawnpoints>
+              <spawnpoint position="{Minus}5,41,{Minus}6" rotation="0,{Minus}90,0" />
+            </spawnpoints>
+            """);
+
+        var world = WorldReader.Read(_dir);
+
+        Assert.Empty(world.Warnings);
+        Assert.Equal(
+            [("swedish", new Int3(-120, 45, -300), 1), ("arabic", new Int3(-121, 46, -301), 0),
+             ("hebrew", new Int3(-122, 47, -302), 2), ("persian", new Int3(-123, 48, -303), 3)],
+            world.Prefabs.Select(p => (p.Name, p.Position, p.Rotation)));
+        var spawn = Assert.Single(world.Spawns);
+        Assert.Equal((-5f, 41f, -6f, -90f), (spawn.X, spawn.Y, spawn.Z, spawn.RotationY));
+
+        string export = Path.Combine(_dir, "export");
+        WorldWriter.Write(world, export);
+        string prefabs = File.ReadAllText(Path.Combine(export, WorldFiles.Prefabs));
+        string spawns = File.ReadAllText(Path.Combine(export, WorldFiles.Spawns));
+        Assert.Contains("position=\"-120,45,-300\"", prefabs);
+        Assert.Contains("position=\"-123,48,-303\"", prefabs);
+        Assert.Contains("position=\"-5,41,-6\"", spawns);
+        Assert.Contains("rotation=\"0,-90,0\"", spawns);
+        Assert.All(new[] { prefabs, spawns }, text => Assert.True(text.All(char.IsAscii), text));
+    }
+
+    [Fact]
     public void Pngs_are_written_north_up_and_raw_south_up()
     {
         var world = MakeWorld();
