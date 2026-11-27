@@ -26,8 +26,8 @@ public sealed class SaveCompatibilityTests : IDisposable
     public static TheoryData<string> PresetSamples => ["v2.0.0-beta.1", "v2.0.0-beta.3", "v2.0.0-beta.4", "v2.0.0", "v2.1.0", "v2.2.0-rc.1", "v2.2.0-rc.2", "v2.2.0-rc.3", "v2.2.0", "v2.3.0-rc.1", "v2.3.0-rc.2", "v2.3.0-rc.3", "v2.3.0", "v2.4.0-rc.1", "v2.4.0-rc.2"];
 
     /// <summary>
-    /// Saved values that a migration changes on purpose, by sample and JSON path. Add a path here only together with
-    /// the migration in ProjectStore.Load and a test of what it turns the old value into.
+    /// Saved values that change on purpose when a sample is saved again, by sample and JSON path. For paths other
+    /// than $.Format, add an entry only with its migration in ProjectStore.Load and a test of the migrated value.
     /// </summary>
     private static readonly Dictionary<string, string[]> Migrated = new()
     {
@@ -50,6 +50,9 @@ public sealed class SaveCompatibilityTests : IDisposable
         ["v2.3.0-rc.2"] = ["$.Format"],
         ["v2.3.0-rc.3"] = ["$.Format"],
         ["v2.3.0"] = ["$.Format"],
+        // Format 7 adds new ground record kinds. Existing records keep their bytes.
+        ["v2.4.0-rc.1"] = ["$.Format"],
+        ["v2.4.0-rc.2"] = ["$.Format"],
     };
 
     private readonly string _dir = Directory.CreateTempSubdirectory("mapeditor-compat-").FullName;
@@ -125,14 +128,14 @@ public sealed class SaveCompatibilityTests : IDisposable
     }
 
     [Fact]
-    public void New_project_declares_format_six()
+    public void New_project_declares_format_seven()
     {
         var world = ProjectStore.Load(SamplePath("v2.2.0" + ProjectStore.Extension), out var settings);
         string path = Path.Combine(_dir, "current" + ProjectStore.Extension);
         ProjectStore.Save(world, path, settings);
         using var manifest = ReadManifest(path);
-        Assert.Equal(6, ProjectStore.FormatVersion);
-        Assert.Equal(6, manifest.RootElement.GetProperty("Format").GetInt32());
+        Assert.Equal(7, ProjectStore.FormatVersion);
+        Assert.Equal(7, manifest.RootElement.GetProperty("Format").GetInt32());
     }
 
     [Fact]

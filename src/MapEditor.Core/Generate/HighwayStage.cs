@@ -1435,8 +1435,8 @@ public static partial class HighwayStage
     private const int Block = 64;
 
     /// <summary>
-    /// Runs <paramref name="draw"/> and returns what it changed, compressed: as row runs, every height cell that
-    /// differs afterwards with the change that undoes it, and every road cell with its value before.
+    /// Runs <paramref name="draw"/> and returns the changed cells as compressed row runs, with each cell's value
+    /// before and after the draw. Height runs (kind 4) come before road runs (kind 5).
     /// </summary>
     internal static byte[] Capture(World world, RoadPath road, Action draw) =>
         Capture(world, road, RoadOp.Centreline(road.Points, RoadOp.CornerRounding(road.Type)), draw);
@@ -1501,22 +1501,23 @@ public static partial class HighwayStage
                             int x0 = x;
                             while (x < r.X1 && (heights ? world.Height[x, z] != heightBefore[b][(z - r.Z0) * width + x - r.X0]
                                        : world.Roads[x, z] != roadBefore[b][(z - r.Z0) * width + x - r.X0])) x++;
-                            // Heights as the change to undo, which is small along a road and packs well (kind 1, 16 bits).
-                            // A change too big for 16 bits (over about 127 m, a deep cut or a tall footing) is written
-                            // as kind 3, 32 bits, so it comes back exactly; saves from before #22 only hold kinds 1 and 2.
-                            bool wide = heights && Enumerable.Range(x0, x - x0).Any(i =>
-                                heightBefore[b][(z - r.Z0) * width + i - r.X0] - world.Height[i, z] is < short.MinValue or > short.MaxValue);
-                            w.Write(heights ? (wide ? (byte)3 : (byte)1) : (byte)2);
+                            w.Write(heights ? (byte)4 : (byte)5);
                             w.Write(z);
                             w.Write(x0);
                             w.Write(x - x0);
                             for (int i = x0; i < x; i++)
                             {
                                 int oi = (z - r.Z0) * width + i - r.X0;
-                                int delta = heightBefore[b][oi] - world.Height[i, z];
-                                if (!heights) w.Write(roadBefore[b][oi]);
-                                else if (wide) w.Write(delta);
-                                else w.Write((short)delta);
+                                if (heights)
+                                {
+                                    w.Write(heightBefore[b][oi]);
+                                    w.Write(world.Height[i, z]);
+                                }
+                                else
+                                {
+                                    w.Write(roadBefore[b][oi]);
+                                    w.Write(world.Roads[i, z]);
+                                }
                             }
                         }
                     }
@@ -1537,41 +1538,66 @@ public static partial class HighwayStage
             byte kind = r.ReadByte();
             if (kind == 0) break;
             int z = r.ReadInt32(), x0 = r.ReadInt32(), n = r.ReadInt32();
-            if (kind == 2) runs.Add((z, x0, n));
+            if (kind is 2 or 5) runs.Add((z, x0, n));
             for (int i = 0; i < n; i++)
             {
-                if (kind == 1) r.ReadInt16();
-                else if (kind == 3) r.ReadInt32();
+                if (kind is 1 or 5) r.ReadInt16();
+                else if (kind is 3 or 4) r.ReadInt32();
                 else r.ReadByte();
             }
         }
         return runs;
     }
 
-    /// <summary>Writes back what <see cref="Capture"/> recorded.</summary>
+    /// <summary>Restores cells that still match the recorded values. Legacy records restore without checking.</summary>
     internal static void Restore(World world, byte[] ground, EditSession session)
     {
         if (ground.Length == 0) return;
         world.Roads ??= new Grid<byte>(world.Size, world.Size);
         using var r = new BinaryReader(new DeflateStream(new MemoryStream(ground), CompressionMode.Decompress));
+        HashSet<int>? changedHeights = null;
         while (true)
         {
             byte kind = r.ReadByte();
             if (kind == 0) break;
             int z = r.ReadInt32(), x0 = r.ReadInt32(), n = r.ReadInt32();
             var rect = new GridRect(x0, z, x0 + n, z + 1);
-            if (kind is 1 or 3)
+            if (kind is 1 or 3 or 4)
             {
                 session.Touch(world.Height, rect);
                 var row = world.Height.Row(z);
-                for (int i = 0; i < n; i++)
-                    row[x0 + i] = (ushort)Math.Clamp(row[x0 + i] + (kind == 1 ? r.ReadInt16() : r.ReadInt32()), 0, ushort.MaxValue);
+                if (kind == 4)
+                {
+                    for (int x = x0; x < rect.X1; x++)
+                    {
+                        ushort before = r.ReadUInt16(), after = r.ReadUInt16();
+                        if (row[x] == after) row[x] = before;
+                        else (changedHeights ??= []).Add(x + z * world.Size);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < n; i++)
+                        row[x0 + i] = (ushort)Math.Clamp(row[x0 + i] + (kind == 1 ? r.ReadInt16() : r.ReadInt32()), 0, ushort.MaxValue);
+                }
             }
             else
             {
                 session.Touch(world.Roads, rect);
                 var row = world.Roads.Row(z);
-                for (int i = 0; i < n; i++) row[x0 + i] = r.ReadByte();
+                if (kind == 5)
+                {
+                    for (int x = x0; x < rect.X1; x++)
+                    {
+                        byte before = r.ReadByte(), after = r.ReadByte();
+                        // A later road can regrade a cell while leaving the same paint on it.
+                        if (row[x] == after && changedHeights?.Contains(x + z * world.Size) != true) row[x] = before;
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < n; i++) row[x0 + i] = r.ReadByte();
+                }
             }
         }
     }

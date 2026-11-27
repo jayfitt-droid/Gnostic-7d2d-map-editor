@@ -25,6 +25,7 @@ public static class ProjectStore
     /// their spawns stage keeps working as before.
     /// 5 (v2.3.0): <see cref="Ops.LandShapeKind.Drawn"/> and its drawing. Older projects have no drawing.
     /// 6 (v2.4.0): <see cref="ProjectSettings.Pins"/>, the playtest notes from Game Link. Older projects have none.
+    /// 7 (v2.4.0): Ground records store values before and after edits (#306). Older records are still supported.
     /// </summary>
     /// <remarks>
     /// Users keep projects from every release, and each release must open them all. project.json holds the records
@@ -39,7 +40,7 @@ public static class ProjectStore
     /// SaveCompatibilityTests load a project saved by each release (tests/.../SaveSamples) and fail when a value is
     /// lost or changes meaning. For each release, add a sample with tools/save-samples/make-sample.ps1.
     /// </remarks>
-    public const int FormatVersion = 6;
+    public const int FormatVersion = 7;
 
     private const string ManifestEntry = "project.json";
     private const string HistoryFile = "history.jsonl";
