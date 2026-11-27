@@ -652,6 +652,8 @@ The game's rules connect each town exit to the nearest of its three nearest town
 
 A highway joins an existing road when both roads go the same way. The highway uses that part of the road.
 
+Where a new road meets, crosses or runs on an existing road, the existing road keeps its height. The new road slopes up or down to that height, also on a causeway.
+
 Roads leave room for their shoulders and for the ground to slope back to the nearby terrain. They meet street tiles at the street exits.
 
 **Settings:**
