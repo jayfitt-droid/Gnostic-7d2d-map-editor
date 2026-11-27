@@ -2,6 +2,26 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.4.0-rc.3 (2026-11-27)
+
+The third release candidate for v2.4.0. It has all the changes in [v2.4.0-rc.1](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/tag/v2.4.0-rc.1) and [v2.4.0-rc.2](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/tag/v2.4.0-rc.2), and this fix. Only copies of a test version update to it. To try it, download it from the releases page.
+
+**This editor needs Gnostic Game Link 1.1.0**, the same as v2.4.0-rc.1 and rc.2. If you do not have it, download `GnosticGameLink-1.1.0.zip` from the release page and extract it into `%AppData%\7DaysToDie\Mods`.
+
+### Fixes
+
+- A road that you drew from the end of a **Bridge** tool ramp got a ridge and a drop where it meets the ramp. This occurred after the next Generate run, because Generate builds these bridges again and put back the old ground under the ramps. This also happened in v2.3.0. Now the editor keeps the ground and roads that you changed after you built a bridge. This also applies when you move a bridge or take it down. A bridge from an older version uses the old way one more time. On an older map, click **Rebuild all** in the **Bridge** tool. Then draw each join again with the **Road** tool. ([#306](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/306))
+
+### Changes
+
+- Projects that you save with this version do not open in v2.4.0-rc.2 or older versions. ([#306](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/306))
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- If you open two editor windows, they share one recovery copy and one settings file. Closing one window can remove the other window's recovery copy or its new town presets. ([#137](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/137), [#138](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/138))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
+
 ## v2.4.0-rc.2 (2026-11-27)
 
 The second release candidate for v2.4.0. It has all the changes in [v2.4.0-rc.1](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/tag/v2.4.0-rc.1), and this fix. Only copies of a test version update to it. To try it, download it from the releases page.
