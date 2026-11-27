@@ -42,7 +42,7 @@ public static class WorldXml
                         else problem ??= $"position \"{attr.Value}\" isn't three numbers";
                         break;
                     case "rotation":
-                        if (int.TryParse(attr.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int rotation)) prefab.Rotation = rotation;
+                        if (int.TryParse(PlainMinus(attr.Value), NumberStyles.Integer, CultureInfo.InvariantCulture, out int rotation)) prefab.Rotation = rotation;
                         else problem ??= $"rotation \"{attr.Value}\" isn't a whole number";
                         break;
                     // Only "true" changes how the game reads Y; anything else is kept as it was.
@@ -180,13 +180,22 @@ public static class WorldXml
     {
         values = new float[count];
         if (string.IsNullOrWhiteSpace(text)) return false;
-        var parts = text.Split(',');
+        var parts = PlainMinus(text).Split(',');
         if (parts.Length < count) return false;
         for (int i = 0; i < count; i++)
             if (!float.TryParse(parts[i].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out values[i])
                 || !float.IsFinite(values[i]) || MathF.Abs(values[i]) > 1_000_000) return false;
         return true;
     }
+
+    /// <summary>
+    /// <paramref name="text"/> with the minus signs of other region formats turned into "-" (#316). Up to v2.3.0 a
+    /// prefab position was written in the region format, so a world exported with a Swedish or Finnish one has
+    /// "-120,45,-300" with U+2212 for each "-", and one exported with an Arabic, Hebrew or Persian one has an invisible
+    /// direction mark (U+061C, U+200E or U+200F) next to its minus sign.
+    /// </summary>
+    private static string PlainMinus(string text) =>
+        text.Replace('\u2212', '-').Replace("\u200E", "").Replace("\u200F", "").Replace("\u061C", "");
 
     private static string F(float v) => v.ToString("R", CultureInfo.InvariantCulture);
 }
