@@ -115,6 +115,12 @@ public sealed class BiomeMaskRecord
 public sealed record TerrainResult(TerrainType[] Plan, int Stamps, BiomeMaskRecord Mask, bool BiomesPlanned = false);
 
 /// <summary>
+/// What a terrain run took down besides the Generate stages' items: prefabs, spawn points, whether any road pixels
+/// (<see cref="TerrainStage.TakeDownBuilt"/>), and the Bridge tool's bridges.
+/// </summary>
+public sealed record BuiltTakenDown(int Prefabs, int Spawns, bool Roads, int Bridges = 0);
+
+/// <summary>
 /// RWG's terrain (WorldBuilder.GenerateTerrainTiles, GenerateBaseStamps and GenerateTerrainFromTiles): each 256 m tile
 /// is given plains, hills or mountains by the weights, then clusters of the game's stamps raise them, plains in
 /// 1024 m blocks, hills in 512 m blocks and mountains per tile. Mountains also spread their biome where their stamp
@@ -133,6 +139,82 @@ public static class TerrainStage
     internal static GridRect BlendRegion(GridRect areaMetres, int worldSize) =>
         new GridRect(areaMetres.X0 - Feather, areaMetres.Z0 - Feather, areaMetres.X1 + Feather, areaMetres.Z1 + Feather)
             .Clamp(worldSize, worldSize);
+
+    /// <summary>
+    /// The cells a terrain run gives new ground: the whole world, or the selected <paramref name="area"/> (in 256 m
+    /// tiles) with its blend band.
+    /// </summary>
+    public static GridRect RunRegion(GridRect? area, int worldSize)
+    {
+        if (area is not { } a) return new GridRect(0, 0, worldSize, worldSize);
+        int tiles = worldSize / TileSize;
+        return BlendRegion(a.Clamp(tiles, tiles).Scale(TileSize), worldSize);
+    }
+
+    /// <summary>
+    /// Whether anything is built in <paramref name="region"/>: a prefab whose footprint overlaps it, a road pixel or a
+    /// spawn point. <see cref="TakeDownBuilt"/> takes these down.
+    /// </summary>
+    public static bool HasBuilt(World world, PrefabLibrary library, GridRect region) =>
+        world.Prefabs.Any(p => Overlaps(PrefabPlacer.Footprint(world, p, library), region))
+        || world.Spawns.Any(s => InRegion(world, s, region))
+        || world.Roads is { } roads && RoadBlocks(roads, region).Any();
+
+    /// <summary>
+    /// Takes down everything built in <paramref name="region"/> for new ground, as part of <paramref name="session"/>:
+    /// every prefab whose footprint overlaps it, every spawn point in it and every road pixel in it. Nothing built there
+    /// would sit right on the new ground. The Generate stages and the Bridge tool's bridges are taken down first, so this
+    /// takes what is left.
+    /// </summary>
+    public static BuiltTakenDown TakeDownBuilt(World world, PrefabLibrary library, GridRect region, EditSession session)
+    {
+        region = region.Clamp(world.Size, world.Size);
+        int prefabs = 0, spawns = 0;
+        bool roads = false;
+        if (world.Prefabs.Any(p => Overlaps(PrefabPlacer.Footprint(world, p, library), region)))
+        {
+            session.TouchList(world.Prefabs, p => p.Clone(), region);
+            prefabs = world.Prefabs.RemoveAll(p => Overlaps(PrefabPlacer.Footprint(world, p, library), region));
+        }
+        if (world.Spawns.Any(s => InRegion(world, s, region)))
+        {
+            session.TouchList(world.Spawns, s => s.Clone(), region);
+            spawns = world.Spawns.RemoveAll(s => InRegion(world, s, region));
+        }
+        if (world.Roads is { } grid)
+        {
+            // Only the blocks with road pixels are kept for undo (a 16k map's road layer is 256 MiB).
+            foreach (var block in RoadBlocks(grid, region).ToList())
+            {
+                session.Touch(grid, block);
+                for (int z = block.Z0; z < block.Z1; z++) grid.Row(z)[block.X0..block.X1].Clear();
+                roads = true;
+            }
+        }
+        return new(prefabs, spawns, roads);
+    }
+
+    /// <summary>The parts of <paramref name="region"/>, in undo-sized blocks, that hold a road pixel.</summary>
+    private static IEnumerable<GridRect> RoadBlocks(Grid<byte> roads, GridRect region)
+    {
+        region = region.Clamp(roads.Width, roads.Height);
+        const int block = EditSession.TileSize;
+        for (int z0 = region.Z0 / block * block; z0 < region.Z1; z0 += block)
+            for (int x0 = region.X0 / block * block; x0 < region.X1; x0 += block)
+            {
+                var rect = new GridRect(Math.Max(x0, region.X0), Math.Max(z0, region.Z0),
+                    Math.Min(x0 + block, region.X1), Math.Min(z0 + block, region.Z1));
+                bool any = false;
+                for (int z = rect.Z0; z < rect.Z1 && !any; z++)
+                    any = roads.Row(z)[rect.X0..rect.X1].ContainsAnyExcept((byte)0);
+                if (any) yield return rect;
+            }
+    }
+
+    private static bool Overlaps(GridRect a, GridRect b) => a.X0 < b.X1 && a.X1 > b.X0 && a.Z0 < b.Z1 && a.Z1 > b.Z0;
+
+    private static bool InRegion(World world, SpawnPoint s, GridRect region) =>
+        region.Contains(world.WorldToGrid((int)MathF.Floor(s.X)), world.WorldToGrid((int)MathF.Floor(s.Z)));
 
     /// <summary>
     /// Generates the terrain into <paramref name="world"/> as part of <paramref name="session"/>.

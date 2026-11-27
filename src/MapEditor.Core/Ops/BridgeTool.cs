@@ -540,6 +540,16 @@ public static class BridgeTool
         return dropped;
     }
 
+    /// <summary>
+    /// Whether <paramref name="bridge"/> is in or near <paramref name="region"/>: its deck, or the longest ramp it could
+    /// have (<see cref="KeepClearArea"/>), overlaps it. New ground there takes the bridge down (#302).
+    /// </summary>
+    public static bool Near(PlacedBridge bridge, GridRect region, int worldSize)
+    {
+        var r = KeepClearArea(bridge, worldSize);
+        return r.X0 < region.X1 && r.X1 > region.X0 && r.Z0 < region.Z1 && r.Z1 > region.Z0;
+    }
+
     /// <summary>Whether a bridge at <paramref name="line"/> lies inside the world.</summary>
     public static bool Fits(BridgeLine line, int worldSize) =>
         line.Pieces >= MinPieces && line.Start >= 0 && line.End <= worldSize

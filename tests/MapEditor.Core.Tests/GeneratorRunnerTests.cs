@@ -222,10 +222,39 @@ public sealed class GeneratorRunnerTests : IDisposable
     }
 
     [Fact]
-    public void Running_the_terrain_stage_with_a_tool_bridge_takes_it_down_and_builds_it_on_the_new_ground()
+    public void Running_the_terrain_stage_takes_a_tool_bridge_down_for_good_and_undo_puts_it_back()
     {
-        var cancel = TestContext.Current.CancellationToken;
-        AssertStageKeepsToolBridges((stages, session) => stages.Terrain(session, cancel: cancel).Changes);
+        var world = Forest();
+        var settings = NewSettings();
+        var undo = new UndoStack();
+        var edits = new EditRunner(undo);
+        var bridges = new List<PlacedBridge>();
+        AddBridge(world, bridges, edits);
+        var original = bridges[0].Clone();
+        var heightBefore = world.Height.Data.ToArray();
+        var roadsBefore = world.Roads!.Data.ToArray();
+        int piecesBefore = world.Prefabs.Count;
+        var generator = new GeneratorStages(world, settings, _data with { Prefabs = StageLibrary }, bridges);
+        StageRun<TerrainRunResult>? run = null;
+
+        Assert.True(edits.Run(world, "Generate terrain", session => run = generator.Terrain(session, cancel: TestContext.Current.CancellationToken)));
+
+        // A bridge fits the old shores, so new ground takes it down and does not build it again (#302).
+        Assert.NotNull(run);
+        Assert.Empty(bridges);
+        Assert.Empty(world.Prefabs);
+        Assert.Equal(1, run.Result.Built.Bridges);
+        Assert.Equal(0, run.Changes.BridgesRebuilt);
+        Assert.Equal(0, run.Changes.BridgesDropped);
+        Assert.False(world.Roads.Data.AsSpan().ContainsAnyExcept((byte)0));
+
+        Assert.Equal("Generate terrain", undo.Undo()?.Name);
+        var back = Assert.Single(bridges);
+        Assert.Equal((original.Where, original.Y), (back.Where, back.Y));
+        Assert.Equal(original.Grounds, back.Grounds);
+        Assert.Equal(piecesBefore, world.Prefabs.Count);
+        Assert.Equal(heightBefore, world.Height.Data);
+        Assert.Equal(roadsBefore, world.Roads.Data);
     }
 
     [Fact]
@@ -268,19 +297,26 @@ public sealed class GeneratorRunnerTests : IDisposable
             }
         }));
 
-        int rebuilt = stage == GeneratorStage.Spawns ? 0 : 1;
+        // New ground takes the tool bridge down for good (#302); the other stages build it again, and Spawns leaves it.
+        int rebuilt = stage is GeneratorStage.Spawns or GeneratorStage.Terrain ? 0 : 1;
         Assert.Equal(new StageChanges(towns, features, roads, pois, spawns, BridgesRebuilt: rebuilt), changes);
         var expectedDone = GeneratorRunner.Order.Where(s => s <= lastDone || stage == GeneratorStage.TownSites && s == GeneratorStage.Features);
         Assert.Equal(expectedDone, settings.Done.Order());
-        var after = Assert.Single(bridges);
-        Assert.Equal(bridge.Where, after.Where);
-        if (rebuilt == 0) Assert.Same(bridge, after);
-        else Assert.NotSame(bridge, after);
-        Assert.All(after.Prefabs, p => Assert.Contains(world.Prefabs, p.Matches));
+        if (stage == GeneratorStage.Terrain) Assert.Empty(bridges);
+        else
+        {
+            var after = Assert.Single(bridges);
+            Assert.Equal(bridge.Where, after.Where);
+            if (rebuilt == 0) Assert.Same(bridge, after);
+            else Assert.NotSame(bridge, after);
+            Assert.All(after.Prefabs, p => Assert.Contains(world.Prefabs, p.Matches));
+        }
         Assert.Equal(pois == 0 ? 1 : 0, settings.PlacedWilderness.Count(p => p.Drawn));
         Assert.Equal(roads == 1 ? 0 : 1, settings.PlacedRoads.Count);
         Assert.DoesNotContain(world.Spawns, p => p.X == -700);
-        Assert.Contains(world.Spawns, p => p.X == 0 && p.Z == 0);
+        // New ground also takes down the spawn point placed by hand (#302); the other stages keep it.
+        if (stage == GeneratorStage.Terrain) Assert.Empty(world.Spawns);
+        else Assert.Contains(world.Spawns, p => p.X == 0 && p.Z == 0);
         if (stage == GeneratorStage.Spawns)
         {
             Assert.Equal(2, added);
@@ -593,6 +629,105 @@ public sealed class GeneratorRunnerTests : IDisposable
         Assert.Same(outsideFeature, Assert.Single(settings.PlacedFeatures));
         Assert.Equal(TerrainType.Mountains, settings.TerrainPlan[0]);
         Assert.Equal([GeneratorStage.Terrain, GeneratorStage.TownSites, GeneratorStage.Features], settings.Done.Order());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void New_ground_takes_down_everything_built_and_undo_puts_it_back(bool buildWorld)
+    {
+        var (world, _, bridges, generator) = WithCompletedStages();
+        var undo = new UndoStack();
+        var edits = new EditRunner(undo);
+        var cancel = TestContext.Current.CancellationToken;
+        // A town from the Town tool or from RWG has no saved site, and a POI, a road and a spawn point placed by hand.
+        Assert.True(edits.Run(world, "Place by hand", session =>
+        {
+            session.TouchList(world.Prefabs, p => p.Clone(), new GridRect(0, 0, Size, Size));
+            session.TouchList(world.Spawns, p => p.Clone(), new GridRect(0, 0, Size, Size));
+            session.Touch(world.Roads!, new GridRect(1500, 1500, 1510, 1501));
+            world.Prefabs.Add(new PrefabInstance { Name = "rwg_tile_downtown_cap", Position = new Int3(400, 35, -600) });
+            world.Prefabs.Add(new PrefabInstance { Name = "rwg_tile_downtown_cap", Position = new Int3(550, 35, -600) });
+            world.Prefabs.Add(new PrefabInstance { Name = "unknown_poi", Position = new Int3(-300, 35, 600) });
+            world.Roads!.Row(1500)[1500..1510].Fill(1);
+            world.Spawns.Add(new SpawnPoint { X = 500, Y = 35, Z = 500 });
+        }));
+        var prefabsBefore = world.Prefabs.Select(p => (p.Name, p.Position)).ToArray();
+        var roadsBefore = world.Roads!.Data.ToArray();
+        int spawnsBefore = world.Spawns.Count;
+        Assert.True(TerrainStage.HasBuilt(world, StageLibrary, TerrainStage.RunRegion(null, Size)));
+        StageRun<TerrainRunResult>? run = null;
+
+        string name = buildWorld ? "Build World" : "Generate terrain";
+        Assert.True(edits.Run(world, name, session => run = generator.Terrain(session, buildingWorld: buildWorld, cancel: cancel)));
+
+        Assert.NotNull(run);
+        // Nothing built is left, the tool bridge included.
+        Assert.Empty(world.Prefabs);
+        Assert.Empty(bridges);
+        Assert.Empty(world.Spawns);
+        Assert.False(world.Roads.Data.AsSpan().ContainsAnyExcept((byte)0));
+        Assert.Equal(new BuiltTakenDown(4, 2, true, 1), run.Result.Built);
+        Assert.Equal(1, run.Changes.Towns);
+        Assert.Equal(0, run.Changes.BridgesRebuilt);
+
+        Assert.Equal(name, undo.Undo()?.Name);
+        Assert.Equal(prefabsBefore, world.Prefabs.Select(p => (p.Name, p.Position)));
+        Assert.Equal(roadsBefore, world.Roads.Data);
+        Assert.Equal(spawnsBefore, world.Spawns.Count);
+        Assert.Single(bridges);
+    }
+
+    [Fact]
+    public void An_area_terrain_run_takes_down_only_what_is_built_in_or_near_the_area()
+    {
+        var world = Forest();
+        var settings = NewSettings();
+        int tiles = Size / TerrainStage.TileSize;
+        settings.TerrainPlan = Enumerable.Repeat(TerrainType.Plains, tiles * tiles).ToArray();
+        settings.Done.Add(GeneratorStage.Terrain);
+        var bridges = new List<PlacedBridge>();
+        var generator = new GeneratorStages(world, settings, _data with { Prefabs = StageLibrary }, bridges);
+        var edits = new EditRunner(new UndoStack());
+        var area = new GridRect(1, 1, 2, 2);
+        var region = TerrainStage.RunRegion(area, Size);
+        Assert.Equal(new GridRect(256 - TerrainStage.Feather, 256 - TerrainStage.Feather, 512 + TerrainStage.Feather, 512 + TerrainStage.Feather), region);
+        Assert.False(TerrainStage.HasBuilt(world, StageLibrary, region));
+
+        Assert.True(edits.Run(world, "Place by hand", session =>
+        {
+            session.TouchList(world.Prefabs, p => p.Clone(), new GridRect(0, 0, Size, Size));
+            session.TouchList(world.Spawns, p => p.Clone(), new GridRect(0, 0, Size, Size));
+            session.Touch(world.Roads!, new GridRect(0, 0, Size, Size));
+            // In the blend band (the tile's west edge is 10 m inside it), and one tile clear of it.
+            world.Prefabs.Add(new PrefabInstance { Name = "rwg_tile_downtown_cap", Position = new Int3(world.GridToWorld(region.X1 - 10), 35, world.GridToWorld(300)) });
+            world.Prefabs.Add(new PrefabInstance { Name = "rwg_tile_downtown_cap", Position = new Int3(world.GridToWorld(region.X1 + 1), 35, world.GridToWorld(300)) });
+            world.Spawns.Add(new SpawnPoint { X = world.GridToWorld(300), Y = 35, Z = world.GridToWorld(300) });
+            world.Spawns.Add(new SpawnPoint { X = world.GridToWorld(1500), Y = 35, Z = world.GridToWorld(1500) });
+            world.Roads![300, 300] = 1;
+            world.Roads[1500, 1500] = 1;
+        }));
+        Assert.True(TerrainStage.HasBuilt(world, StageLibrary, region));
+        var near = new BridgeLine(false, 400, 300, 4);
+        Assert.True(edits.Run(world, "Bridge", session =>
+            BridgeTool.Add(world, BridgeKitForStages, bridges, near, BridgeTool.AutoY(world, near), session)));
+        AddBridge(world, bridges, edits);
+        Assert.True(BridgeTool.Near(bridges[0], region, Size));
+        Assert.False(BridgeTool.Near(bridges[1], region, Size));
+        StageRun<TerrainRunResult>? run = null;
+
+        Assert.True(edits.Run(world, "Generate area", session =>
+            run = generator.Terrain(session, area: area, cancel: TestContext.Current.CancellationToken)));
+
+        Assert.NotNull(run);
+        Assert.Equal(new BuiltTakenDown(1, 1, true, 1), run.Result.Built);
+        Assert.Equal(1, run.Changes.BridgesRebuilt);
+        var far = Assert.Single(bridges);
+        Assert.Equal(StageBridge, far.Where);
+        Assert.Equal(world.GridToWorld(region.X1 + 1), Assert.Single(world.Prefabs, p => !far.Prefabs.Any(b => b.Matches(p))).Position.X);
+        Assert.Equal(world.GridToWorld(1500), Assert.Single(world.Spawns).X);
+        Assert.Equal(0, world.Roads![300, 300]);
+        Assert.Equal(1, world.Roads[1500, 1500]);
     }
 
     [Fact]
