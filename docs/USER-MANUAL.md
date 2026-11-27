@@ -411,7 +411,7 @@ Roads make their flat parts level to whole metres. Prefabs also sit at whole met
 3. Over water the beams are 5 m above the water, as the Highways stage builds them. Over land the deck is level with the higher end's ground. To use another height, change **Deck height** before you build.
 4. Press **Enter** to build it. Press **Esc** to cancel it. Press **Esc** again to go back to **Select**. The bridge, its footings and a ramp road from each end down to the ground are one undo step.
 
-Click the deck or a ramp to select the bridge. The editor shows an outline around the deck and ramps. Drag the middle of the deck to move the bridge along its line. Drag a ramp or the end of the deck to make the bridge longer or shorter. Change **Deck height** to rebuild the bridge at a different height. Press **Delete** to take down the bridge, its footings and its ramps. This also puts the ground back as it was.
+Click the deck or a ramp to select the bridge. The editor shows an outline around the deck and ramps. Drag the middle of the deck to move the bridge along its line. Drag a ramp or the end of the deck to make the bridge longer or shorter. Change **Deck height** to rebuild the bridge at a different height. Press **Delete** to take down the bridge, its footings and its ramps. The editor puts back the ground under the bridge and ramps. If you changed the ground after you built the bridge, for example when you drew a road, those changes stay. For bridges from older versions, this applies after the editor rebuilds them.
 
 A ramp that comes to a town or a POI stops at its edge, level with its ground. **Car wrecks** puts a wreck on the deck about every 100 to 150 m. **Rebuild all** builds all your bridges again with the current rules, as one undo step.
 
