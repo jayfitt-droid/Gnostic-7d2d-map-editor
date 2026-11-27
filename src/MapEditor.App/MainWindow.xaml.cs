@@ -2540,7 +2540,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        bool hasBuilt = world.Prefabs.Count > 0 || world.Roads?.Data.AsSpan().ContainsAnyExcept((byte)0) == true;
         var options = g.Settings.Terrain.Clone();
         var drawingBefore = g.Settings.Terrain.Shape.Drawing;
         if (drawing is not null) options.Shape.Drawing = drawing;
@@ -2555,6 +2554,10 @@ public partial class MainWindow : Window
         bool hasFeatures = gen?.PlacedFeatures.Any(f => f.Drawn) == true;
         bool hasRoads = gen?.PlacedRoads.Count > 0;
         bool hasWild = gen?.PlacedWilderness.Any(p => p.Drawn) == true;
+        // Nothing built stays on new ground: POIs and towns from other tools, roads and spawn points come down too (#302).
+        var region = TerrainStage.RunRegion(area, world.Size);
+        bool hasOther = TerrainStage.HasBuilt(world, library, region)
+                        || _projectSettings.Bridges.Any(b => BridgeTool.Near(b, region, world.Size));
         int downCount = areaMetres is { } ar
             ? builtSites.Count(s => s.Bounds.X0 < ar.X1 && s.Bounds.X1 > ar.X0 && s.Bounds.Z0 < ar.Z1 && s.Bounds.Z1 > ar.Z0)
             : builtSites.Count;
@@ -2572,9 +2575,10 @@ public partial class MainWindow : Window
             hasFeatures ? "lakes, rivers, canyons and craters will be taken out (pinned ones come back on the next Features run)" : null,
             hasRoads ? "every highway will be taken out" : null,
             hasWild ? "every wilderness POI and gravel road will be taken out (pinned ones come back on the next Wilderness run)" : null,
+            hasOther ? "every other POI, street tile, bridge, road and spawn point will be taken down" : null,
         }.Where(t => t is not null));
         if (later.Length > 0 && ThemedMessageBox.Show(this,
-                $"New ground clears the later stages: {(area is null ? "" : "in or near the area, ")}{later}.\n\n{action}?",
+                $"New ground clears everything built on it: {(area is null ? "" : "in or near the area, ")}{later}.\n\n{action}?",
                 action, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
         var stages = StagesFor(world, g.Settings);
@@ -2620,7 +2624,7 @@ public partial class MainWindow : Window
             return;
         }
         g.RefreshFeatures();
-        var (result, sitesCleared, sitesUnusable) = run.Result;
+        var (result, sitesCleared, sitesUnusable, built) = run.Result;
         int featuresOut = run.Changes.Features, takenDown = run.Changes.Towns;
         NoteHighwaysTakenDown(run.Changes);
         if (featuresOut > 0)
@@ -2659,10 +2663,24 @@ public partial class MainWindow : Window
         _townTools.Refresh();
         _genTools.Refresh();
         _vm.Status = $"Generated the terrain for {where} in {sw.Elapsed.TotalSeconds:0.0} s.{biomesNote} Undo (Ctrl+Z) puts the old ground back."
-                     + (hasBuilt && world.Prefabs.Count > 0 ? " Prefabs and roads stayed where they were; check they still sit right (Validate, F7)." : "")
+                     + BuiltNote(built)
                      + BridgeNote(run.Changes);
         CloseIfWaiting();
         if (gen?.Sites.Any(s => !s.Built) == true) await ReplanTownsAsync();
+    }
+
+    /// <summary>The status note for what else a terrain run took down: other POIs, bridges, spawn points and roads (#302).</summary>
+    private static string BuiltNote(BuiltTakenDown built)
+    {
+        var parts = new List<string>();
+        if (built.Prefabs > 0) parts.Add(built.Prefabs == 1 ? "1 other POI" : $"{built.Prefabs:N0} other POIs and street tiles");
+        if (built.Bridges > 0) parts.Add(built.Bridges == 1 ? "1 bridge" : $"{built.Bridges:N0} bridges");
+        if (built.Spawns > 0) parts.Add(built.Spawns == 1 ? "1 spawn point" : $"{built.Spawns:N0} spawn points");
+        if (built.Roads) parts.Add("the roads");
+        if (parts.Count == 0) return "";
+        string list = parts.Count == 1 ? parts[0] : string.Join(", ", parts.Take(parts.Count - 1)) + " and " + parts[^1];
+        bool one = parts.Count == 1 && (built.Prefabs == 1 || built.Bridges == 1 || built.Spawns == 1);
+        return $" {char.ToUpperInvariant(list[0])}{list[1..]} {(one ? "was" : "were")} taken down for the new ground.";
     }
 
     // ---- heightmap import/export -------------------------------------------

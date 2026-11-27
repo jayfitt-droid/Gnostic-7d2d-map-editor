@@ -18,8 +18,11 @@ public sealed record TownPlanResult(TownSiteResult SitePlan, List<PlannedTown> T
 /// <summary>The towns built and the number of feature stamps directly in their way.</summary>
 public sealed record TownBuildResult(List<PlannedTown> Towns, int FeaturesInTheWay);
 
-/// <summary>The new ground and its effect on planned town sites.</summary>
-public sealed record TerrainRunResult(TerrainResult Terrain, int SitesCleared, int SitesUnusable);
+/// <summary>
+/// The new ground, its effect on planned town sites, and what else built was taken down for it (prefabs, spawn points
+/// and roads the Generate stages did not place).
+/// </summary>
+public sealed record TerrainRunResult(TerrainResult Terrain, int SitesCleared, int SitesUnusable, BuiltTakenDown Built);
 
 /// <summary>
 /// Runs one Generate stage inside a caller's edit, including the take-downs it needs and the rebuilding of tool bridges.
@@ -45,11 +48,24 @@ public sealed class GeneratorStages(World world, GeneratorSettings settings, Gen
         GeneratorEditState.Touch(session, settings);
         var (taken, changes) = TakeDownForRun(GeneratorStage.Highways, session);
         int tiles = world.Size / TerrainStage.TileSize;
-        GridRect? blendRegion = area is { } selection
-            ? TerrainStage.BlendRegion(selection.Clamp(tiles, tiles).Scale(TerrainStage.TileSize), world.Size)
-            : null;
+        var region = TerrainStage.RunRegion(area, world.Size);
+        GridRect? blendRegion = area is null ? null : region;
+        // A Bridge tool bridge fits the old shores, so new ground takes it down for good; bridges further away are built
+        // again as for the other stages (#302). TakeDownAll recorded the list for undo.
+        int bridgesDown = 0;
+        if (!_addOnly && bridges is not null)
+            foreach (var b in taken.Where(b => BridgeTool.Near(b, region, world.Size)).ToList())
+            {
+                bridges.Remove(b);
+                taken.Remove(b);
+                bridgesDown++;
+            }
         int features = _addOnly ? 0 : FeatureStage.TakeDown(world, settings.PlacedFeatures, blendRegion, data.Stamps, session);
         int towns = _addOnly ? 0 : TakeDownTowns(settings.Sites, blendRegion, session);
+        // Nothing else built stays on the new ground either: towns from the Town tool or from RWG, POIs and roads placed
+        // by hand, spawn points (#302).
+        var built = (_addOnly ? new BuiltTakenDown(0, 0, false) : TerrainStage.TakeDownBuilt(world, data.Prefabs, region, session))
+            with { Bridges = bridgesDown };
         var result = TerrainStage.Run(world, options, data.Stamps, data.Mixer, _addOnly ? settings.PaintedTerrain : null,
             area, previousMask, session, progress, cancel, replan);
         changes = RestoreBridges(taken, session, changes with { Features = features, Towns = towns });
@@ -75,7 +91,7 @@ public sealed class GeneratorStages(World world, GeneratorSettings settings, Gen
         if (features > 0 && !settings.PlacedFeatures.Any(f => f.Drawn)) settings.Done.Remove(GeneratorStage.Features);
         if (towns + cleared + unusable > 0 && !settings.Sites.Any(s => s.Built)) settings.Done.Remove(GeneratorStage.TownSites);
         if (result.BiomesPlanned && settings.Biomes is { } planned) planned.PlannedFor = options.Shape.Clone();
-        return new(new(result, cleared, unusable), changes, result.Stamps, []);
+        return new(new(result, cleared, unusable, built), changes, result.Stamps, []);
     }
 
     /// <summary>Picks new sites around the ones kept and plans their towns without editing the world.</summary>
