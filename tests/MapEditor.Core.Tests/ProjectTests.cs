@@ -262,6 +262,49 @@ public sealed class ProjectTests : IDisposable
         Assert.Null(copy.Biomes);
     }
 
+    private static long ManifestBytes(string path)
+    {
+        using var zip = ZipFile.OpenRead(path);
+        return zip.GetEntry("project.json")!.Length;
+    }
+
+    [Fact]
+    public void A_project_json_over_the_limit_is_not_saved_and_the_old_file_stays()
+    {
+        string path = Path.Combine(_dir, "big" + ProjectStore.Extension);
+        ProjectStore.Save(MakeWorld(), path);
+        byte[] old = File.ReadAllBytes(path);
+        var world = MakeWorld();
+        world.Prefabs.Add(new PrefabInstance { Name = "house_02", Position = new Int3(1, 2, 3), Type = "model" });
+        string measured = Path.Combine(_dir, "measured" + ProjectStore.Extension);
+        ProjectStore.Save(world, measured);
+        long limit = ManifestBytes(measured) - 1;
+
+        var ex = Assert.Throws<IOException>(() =>
+            ProjectStore.Save(world, path, null, snapshot: null, maxManifestBytes: limit));
+
+        Assert.StartsWith("The project is too large to save", ex.Message);
+        Assert.Equal(old, File.ReadAllBytes(path));
+        Assert.False(File.Exists(path + ".tmp"));
+        Assert.Single(ProjectStore.Load(path).Prefabs);
+    }
+
+    [Fact]
+    public void A_project_json_at_the_limit_saves_and_loads()
+    {
+        var world = MakeWorld();
+        string measured = Path.Combine(_dir, "measured" + ProjectStore.Extension);
+        ProjectStore.Save(world, measured);
+        long limit = ManifestBytes(measured);
+        string path = Path.Combine(_dir, "fits" + ProjectStore.Extension);
+
+        ProjectStore.Save(world, path, null, snapshot: null, maxManifestBytes: limit);
+
+        Assert.Equal(limit, ManifestBytes(path));
+        Assert.False(File.Exists(path + ".tmp"));
+        Assert.Empty(WorldComparer.Compare(world, ProjectStore.Load(path)));
+    }
+
     [Fact]
     public void Not_a_project_is_rejected()
     {

@@ -61,7 +61,7 @@ public static class ProjectStore
     /// <summary>Most bytes one extra file, and all of them together, may hold when a project is loaded.</summary>
     public const long MaxExtraFileBytes = 256L << 20, MaxExtraBytes = 1L << 30;
 
-    /// <summary>Largest project.json read, in bytes.</summary>
+    /// <summary>Largest project.json read, in bytes. Save refuses a larger one, so every saved project opens again.</summary>
     private const long MaxManifestBytes = 256L << 20;
     private const long MaxHistoryBytes = 64L << 20;
 
@@ -160,7 +160,7 @@ public static class ProjectStore
         Save(snapshot.World, path, settings, snapshot);
 
     internal static void Save(World world, string path, ProjectSettings? settings, WorldSnapshot? snapshot,
-        long maxHistoryBytes = MaxHistoryBytes)
+        long maxHistoryBytes = MaxHistoryBytes, long maxManifestBytes = MaxManifestBytes)
     {
         // Load refuses these, so a project saved with one could never be opened again (#22). WorldWriter checks the same.
         foreach (var name in world.ExtraFiles.Keys)
@@ -215,6 +215,11 @@ public static class ProjectStore
                 foreach (var (file, image) in passthrough) WriteBytes(zip, PassthroughDir + file, image.Pixels);
                 foreach (var (file, bytes) in world.ExtraFiles) WriteBytes(zip, ExtraDir + file, bytes);
             }
+            // Load refuses a larger project.json, so keep the old file rather than replace it with one that can't open (#315).
+            using (var written = ZipFile.OpenRead(temp))
+                if (written.GetEntry(ManifestEntry)!.Length > maxManifestBytes)
+                    throw new IOException(
+                        $"The project is too large to save (project.json would be over {maxManifestBytes >> 20} MiB).");
             File.Move(temp, full, overwrite: true);
         }
         catch
