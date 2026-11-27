@@ -37,6 +37,12 @@ public sealed class AppSettings
     /// <summary>Whether View > Mini Map is on.</summary>
     public bool ShowMiniMap { get; set; } = true;
 
+    /// <summary>Whether the Messages panel was open when the editor last closed (#225).</summary>
+    public bool ShowMessages { get; set; }
+
+    /// <summary>The Messages panel's height (DIPs); 0 for the default.</summary>
+    public double MessagesHeight { get; set; }
+
     /// <summary>Projects (.7dmap) and world folders opened or saved lately, newest first.</summary>
     public List<string> RecentFiles { get; set; } = [];
 

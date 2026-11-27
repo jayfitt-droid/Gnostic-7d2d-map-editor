@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows;
 using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 
 namespace MapEditor.App;
@@ -44,7 +45,7 @@ public partial class MainWindow
             if (_closeWhenIdle) return null;
             if (reply.Status is null && GameLinkWorld.IsModMismatch(reply.Error))
             {
-                _vm.Status = GameLinkErrorText(reply.Error);
+                _vm.Report(GameLinkErrorText(reply.Error), MessageKind.Error);
                 return null;
             }
             if (reply.Status is not { } status) return false;
@@ -57,12 +58,12 @@ public partial class MainWindow
 
             if (GameLinkReadinessError(status) is { } error)
             {
-                _vm.Status = GameLinkErrorText(error);
+                _vm.Report(GameLinkErrorText(error), MessageKind.Error);
                 return null;
             }
             if (status.Save.Length == 0)
             {
-                _vm.Status = "Game Link could not identify the current save. Install the mod that matches this editor.";
+                _vm.Report("Game Link could not identify the current save. Install the mod that matches this editor.", MessageKind.Error);
                 return null;
             }
 
@@ -80,9 +81,9 @@ public partial class MainWindow
             if (_closeWhenIdle) return null;
             if (confirmed is null)
             {
-                _vm.Status = GameLinkWorld.IsModMismatch(confirmReply.Error)
+                _vm.Report(GameLinkWorld.IsModMismatch(confirmReply.Error)
                     ? GameLinkErrorText(confirmReply.Error)
-                    : "Export cancelled. Game Link could not verify the current save.";
+                    : "Export cancelled. Game Link could not verify the current save.", MessageKind.Error);
                 return null;
             }
             if (confirmed.State != GameLinkState.Ready ||
@@ -112,7 +113,7 @@ public partial class MainWindow
             var leave = await _gameLink.LeaveAsync(wait.Token);
             if (leave.OperationId is not { } id)
             {
-                _vm.Status = GameLinkErrorText(leave.Error);
+                _vm.Report(GameLinkErrorText(leave.Error), MessageKind.Error);
                 return null;
             }
 
@@ -187,7 +188,7 @@ public partial class MainWindow
                 ShowGameLinkStatus(status.Status, status.Error);
                 if (status.Status is null && GameLinkWorld.IsModMismatch(status.Error))
                 {
-                    _vm.Status = "The world was exported. " + GameLinkErrorText(status.Error);
+                    _vm.Report("The world was exported. " + GameLinkErrorText(status.Error), MessageKind.Warning);
                     return;
                 }
                 if (status.Status is null)
@@ -206,7 +207,7 @@ public partial class MainWindow
                 operationId = open.OperationId;
                 if (operationId is null)
                 {
-                    _vm.Status = PlaytestError(open.Error);
+                    _vm.Report(PlaytestError(open.Error), MessageKind.Error);
                     return;
                 }
             }
@@ -240,7 +241,7 @@ public partial class MainWindow
                     _vm.Status = BlockedPlaytestMessage(save, result.Reason);
                     break;
                 case GameLinkWaitState.Failed when result.Reason != "timeout":
-                    _vm.Status = PlaytestFailure(result.Reason);
+                    _vm.Report(PlaytestFailure(result.Reason), MessageKind.Error);
                     break;
                 default:
                     _vm.Status = launched && !linked && GameWindow.IsRunning()
@@ -253,7 +254,7 @@ public partial class MainWindow
         catch (OperationCanceledException) when (wait.IsCancellationRequested) { }
         catch (Exception ex) when (IsBadInput(ex) || ex is Win32Exception or InvalidOperationException)
         {
-            _vm.Status = $"Could not open '{save}' in the game. {ex.Message}";
+            _vm.Report($"Could not open '{save}' in the game. {ex.Message}", MessageKind.Error);
         }
         finally
         {

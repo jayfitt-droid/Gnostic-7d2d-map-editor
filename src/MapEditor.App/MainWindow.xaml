@@ -5,6 +5,7 @@
         xmlns:local="clr-namespace:MapEditor.App"
         xmlns:gamelink="clr-namespace:MapEditor.Core.GameLink;assembly=MapEditor.Core"
         xmlns:ops="clr-namespace:MapEditor.Core.Ops;assembly=MapEditor.Core"
+        xmlns:messages="clr-namespace:MapEditor.Core.Messages;assembly=MapEditor.Core"
         Title="{x:Static local:App.ProductName}" Width="1400" Height="900" MinWidth="1000" MinHeight="480">
     <Window.Resources>
         <local:HistoryActionLabelConverter x:Key="HistoryActionLabel" />
@@ -412,9 +413,11 @@
         <KeyBinding Key="Z" Modifiers="Control" Command="{x:Static local:MainWindow.UndoCommand}" />
         <KeyBinding Key="Y" Modifiers="Control" Command="{x:Static local:MainWindow.RedoCommand}" />
         <KeyBinding Key="Z" Modifiers="Control+Shift" Command="{x:Static local:MainWindow.RedoCommand}" />
+        <KeyBinding Key="M" Modifiers="Control" Command="{x:Static local:MainWindow.MessagesCommand}" />
     </Window.InputBindings>
     <Window.CommandBindings>
         <CommandBinding Command="{x:Static local:MainWindow.NewWorldCommand}" Executed="NewWorld_Executed" CanExecute="CanOpen_CanExecute" />
+        <CommandBinding Command="{x:Static local:MainWindow.MessagesCommand}" Executed="Messages_Executed" />
         <CommandBinding Command="{x:Static local:MainWindow.OpenCommand}" Executed="Open_Executed" CanExecute="CanOpen_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.OpenWorldCommand}" Executed="OpenWorld_Executed" CanExecute="CanOpen_CanExecute" />
         <CommandBinding Command="{x:Static local:MainWindow.SaveCommand}" Executed="Save_Executed" CanExecute="HasWorld_CanExecute" />
@@ -526,6 +529,7 @@
                     <MenuItem Header="_Tool Options" IsCheckable="True" IsChecked="{Binding ShowToolOptions}" />
                     <MenuItem Header="_Mini Map" IsCheckable="True" IsChecked="{Binding ShowMiniMap}" />
                     <MenuItem Header="_Side Panel" IsCheckable="True" IsChecked="{Binding ShowSidePanel}" />
+                    <MenuItem Header="M_essages" IsCheckable="True" IsChecked="{Binding ShowMessages}" InputGestureText="Ctrl+M" />
                     <MenuItem Header="Side Bar on the Ri_ght" IsCheckable="True" IsChecked="{Binding SideBarOnRight}"
                               Visibility="{Binding IsModernTheme, Converter={StaticResource BoolToVisibility}}" />
                     <MenuItem Header="_World Info" Click="WorldInfo_Click" />
@@ -1005,6 +1009,10 @@
         <Border DockPanel.Dock="Bottom" Padding="8,2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <ToggleButton Style="{StaticResource FlatButton}" Padding="4" Margin="8,0" IsChecked="{Binding ShowMessages}"
+                                  ToolTip="Show or hide the messages (Ctrl+M)" AutomationProperties.Name="Messages">
+                        <Path Data="{x:Static local:Icons.Messages}" Style="{StaticResource IconPath}" Width="16" Height="16" />
+                    </ToggleButton>
                     <Border Width="24" Margin="0,0,8,0" Background="Transparent" ToolTip="{Binding GameLinkIndicator.Text}"
                             AutomationProperties.Name="{Binding GameLinkIndicator.Text}"
                             Visibility="{Binding GameLinkInstalled, Converter={StaticResource BoolToVisibility}}">
@@ -2291,6 +2299,83 @@
                     </ControlTemplate>
                 </Thumb.Template>
             </Thumb>
+            </Grid>
+        </Border>
+
+        <!-- Messages panel (#225): every status message of this session, under the map. It docks after the rail and the
+             side panel, so they keep their full height. -->
+        <Border x:Name="MessagesPanel" DockPanel.Dock="Bottom" Height="{Binding MessagesHeight}" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                Visibility="{Binding ShowMessages, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="12,4,4,0">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Style="{StaticResource FlatButton}" Content="Copy" Padding="8,2" Click="CopyMessages_Click"
+                                    ToolTip="Copy the selected lines, or all lines, as text" AutomationProperties.Name="Copy messages" />
+                            <Button Style="{StaticResource FlatButton}" Content="Clear" Padding="8,2" Click="ClearMessages_Click"
+                                    ToolTip="Remove all lines" AutomationProperties.Name="Clear messages" />
+                            <Button Style="{StaticResource FlatButton}" Content="&#x2715;" Padding="8,2" Click="CloseMessages_Click"
+                                    ToolTip="Hide the messages (Ctrl+M)" AutomationProperties.Name="Close messages" />
+                        </StackPanel>
+                        <TextBlock Text="Messages" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ListBox x:Name="MessagesList" ItemsSource="{Binding Messages.Lines}" SelectionMode="Extended" Margin="4,2,4,4"
+                             Background="Transparent" BorderThickness="0" KeyDown="MessagesList_KeyDown"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="True"
+                             ScrollViewer.ScrollChanged="MessagesList_ScrollChanged"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                             AutomationProperties.Name="Messages">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="8,1" />
+                                <Setter Property="MinHeight" Value="0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Kind}" Value="{x:Static messages:MessageKind.Routine}">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel TextElement.FontSize="12">
+                                    <TextBlock DockPanel.Dock="Left" Text="{Binding TimeText}" MinWidth="44" Margin="0,0,8,0"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <!-- Errors and warnings have the Issues icons and colours; other lines keep the space empty. -->
+                                    <Path x:Name="KindIcon" DockPanel.Dock="Left" Width="14" Height="14" Margin="0,1,6,0" VerticalAlignment="Top"
+                                          Visibility="Hidden" Style="{StaticResource IconPath}" />
+                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                                </DockPanel>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Kind}" Value="{x:Static messages:MessageKind.Error}">
+                                        <Setter TargetName="KindIcon" Property="Data" Value="{x:Static local:Icons.IssueError}" />
+                                        <Setter TargetName="KindIcon" Property="Stroke" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                        <Setter TargetName="KindIcon" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="KindIcon" Property="AutomationProperties.Name" Value="Error" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Kind}" Value="{x:Static messages:MessageKind.Warning}">
+                                        <Setter TargetName="KindIcon" Property="Data" Value="{x:Static local:Icons.ActivityIssues}" />
+                                        <Setter TargetName="KindIcon" Property="Stroke" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                        <Setter TargetName="KindIcon" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="KindIcon" Property="AutomationProperties.Name" Value="Warning" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+                <!-- Drag the top edge to make the panel taller or shorter. -->
+                <Thumb x:Name="MessagesEdge" VerticalAlignment="Top" Height="6" Cursor="SizeNS" DragDelta="MessagesEdge_DragDelta"
+                       ToolTip="Drag to resize the messages" AutomationProperties.Name="Resize messages">
+                    <Thumb.Template>
+                        <ControlTemplate TargetType="Thumb">
+                            <Border Background="Transparent" />
+                        </ControlTemplate>
+                    </Thumb.Template>
+                </Thumb>
             </Grid>
         </Border>
 

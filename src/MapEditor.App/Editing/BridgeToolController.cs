@@ -4,6 +4,7 @@ using System.Windows.Input;
 using MapEditor.App.Map;
 using MapEditor.Core.Edit;
 using MapEditor.Core.GameData;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
 
@@ -238,7 +239,7 @@ public sealed class BridgeToolController
     private BridgeKit? Kit()
     {
         if (BridgeKit.From(_vm.Prefabs) is { } kit) return kit;
-        _vm.Status = $"The game's {BridgeOp.Tile} and {BridgeOp.End} prefabs weren't found. Check the game folder.";
+        _vm.Report($"The game's {BridgeOp.Tile} and {BridgeOp.End} prefabs weren't found. Check the game folder.", MessageKind.Warning);
         return null;
     }
 

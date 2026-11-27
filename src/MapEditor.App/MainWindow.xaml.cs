@@ -11,6 +11,7 @@ using MapEditor.Core.GameData;
 using MapEditor.Core.GameLink;
 using MapEditor.Core.Generate;
 using MapEditor.Core.IO;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Model;
 using MapEditor.Core.Ops;
 using MapEditor.Core.Rendering;
@@ -191,6 +192,9 @@ public partial class MainWindow : Window
             _vm.SideBarOnRight = _settings.SideBarOnRight;
             if (_settings.SidePanelWidth > 0)
                 _vm.SidePanelWidth = Math.Clamp(_settings.SidePanelWidth, MainViewModel.MinSidePanelWidth, MainViewModel.MaxSidePanelWidth);
+            _vm.ShowMessages = _settings.ShowMessages;
+            if (_settings.MessagesHeight > 0)
+                _vm.MessagesHeight = Math.Clamp(_settings.MessagesHeight, MainViewModel.MinMessagesHeight, MainViewModel.MaxMessagesHeight);
             _vm.Favourites = new HashSet<string>(_settings.FavouritePrefabs, StringComparer.OrdinalIgnoreCase);
             LoadPresets();
             LoadTownPresets();
@@ -241,7 +245,7 @@ public partial class MainWindow : Window
         {
             App.LogError(ex);
             UseNoGameData($"{folder}\nCouldn't be read, so biomes, prefabs and stamps are unavailable: {ex.Message}");
-            _vm.Status = "Couldn't read the game folder: " + ex.Message;
+            _vm.Report("Couldn't read the game folder: " + ex.Message, MessageKind.Error);
             return;
         }
         _install = install;
@@ -289,7 +293,7 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or System.Xml.XmlException or UnauthorizedAccessException)
         {
             _vm.Mixer = RwgMixer.Empty;
-            _vm.Status = "Could not read rwgmixer.xml, so the Town tool is unavailable: " + ex.Message;
+            _vm.Report("Could not read rwgmixer.xml, so the Town tool is unavailable: " + ex.Message, MessageKind.Warning);
         }
         // The wilderness card shows the counts for this world size.
         _vm.Generate.Mixer = _vm.Mixer;
@@ -439,7 +443,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) when (IsBadInput(ex))
         {
-            _vm.Status = "Failed to open the project";
+            _vm.Report("Failed to open the project", MessageKind.Error);
             ThemedMessageBox.Show(this, ex.Message, "Open", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
@@ -495,7 +499,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) when (IsBadInput(ex))
         {
-            _vm.Status = "Failed to load world";
+            _vm.Report("Failed to load world", MessageKind.Error);
             ThemedMessageBox.Show(this, ex.Message, "Open World", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -736,7 +740,7 @@ public partial class MainWindow : Window
                 PlayerOverlay.SetMarker(oldPlayerMarker);
                 ReportPlayerTrackingStatus(oldPlayerTrackingStatus);
             }
-            _vm.Status = "Save failed";
+            _vm.Report("Save failed", MessageKind.Error);
             ThemedMessageBox.Show(this, ex.Message, "Save", MessageBoxButton.OK, MessageBoxImage.Error);
             return false;
         }
@@ -938,7 +942,7 @@ public partial class MainWindow : Window
                 world.Spawns.Remove(addedSpawn);
                 Map.InvalidateVisual();
             }
-            _vm.Status = "Export failed";
+            _vm.Report("Export failed", MessageKind.Error);
             ThemedMessageBox.Show(this, ex.Message, "Export World", MessageBoxButton.OK, MessageBoxImage.Error);
             return (false, false);
         }
@@ -1016,7 +1020,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) when (IsWriteError(ex))
         {
-            _vm.Status = "Teleport list not saved";
+            _vm.Report("Teleport list not saved", MessageKind.Error);
             ThemedMessageBox.Show(this, ex.Message, "Save Teleport List", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -1164,13 +1168,13 @@ public partial class MainWindow : Window
             using var snapshot = WorldSnapshot.Take(world);
             var settings = CopyProjectSettings();
             if (await _autosaves.SaveAsync(snapshot, settings))
-                _vm.Status = $"Autosaved at {DateTime.Now:t}.";
+                _vm.Report($"Autosaved at {DateTime.Now:t}.", MessageKind.Routine);
         }
         catch (Exception ex)
         {
             // Autosave runs on a timer; whatever goes wrong, it must not take the editor and the work with it.
             App.LogError(ex);
-            _vm.Status = "Autosave failed: " + ex.Message;
+            _vm.Report("Autosave failed: " + ex.Message, MessageKind.Error);
         }
         finally
         {
@@ -1368,6 +1372,8 @@ public partial class MainWindow : Window
         _settings.SidePanelWidth = _vm.SidePanelWidth;
         _settings.ShowSidePanel = _vm.ShowSidePanel;
         _settings.SideBarOnRight = _vm.SideBarOnRight;
+        _settings.ShowMessages = _vm.ShowMessages;
+        _settings.MessagesHeight = _vm.MessagesHeight;
         SaveWindowPlacement();
         _settings.Save();
     }
@@ -1527,7 +1533,7 @@ public partial class MainWindow : Window
             App.LogError(ex);
             g.Planned = [];
             g.TownStatusShort = "Planning failed";
-            _vm.Status = $"Couldn't plan the towns: {ex.Message}. The world hasn't changed.";
+            _vm.Report($"Couldn't plan the towns: {ex.Message}. The world hasn't changed.", MessageKind.Error);
             _genTools.Refresh();
             g.IsRunning = false;
             _vm.IsBusy = false;
@@ -1588,7 +1594,7 @@ public partial class MainWindow : Window
             App.LogError(ex);
             g.TownStatusShort = "Planning failed";
             g.TownStatus = $"Planning failed: {ex.Message}";
-            _vm.Status = $"Couldn't plan the towns: {ex.Message}. The world and the sites list haven't changed.";
+            _vm.Report($"Couldn't plan the towns: {ex.Message}. The world and the sites list haven't changed.", MessageKind.Error);
             g.IsRunning = false;
             _vm.IsBusy = false;
             CloseIfWaiting();
@@ -2726,7 +2732,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) when (IsWriteError(ex))
         {
-            _vm.Status = "Heightmap export failed";
+            _vm.Report("Heightmap export failed", MessageKind.Error);
             ThemedMessageBox.Show(this, ex.Message, "Export Heightmap", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -2751,11 +2757,11 @@ public partial class MainWindow : Window
 
         string path = save.FileName;
         _vm.IsBusy = true;
-        _vm.Status = "Drawing the map image...";
+        _vm.Report("Drawing the map image...", MessageKind.Progress);
         try
         {
             var sw = Stopwatch.StartNew();
-            var progress = new Progress<double>(f => _vm.Status = $"Drawing the map image... {f:P0}");
+            var progress = new Progress<double>(f => _vm.Report($"Drawing the map image... {f:P0}", MessageKind.Progress));
             var biomes = _vm.Biomes;
             var prefabs = _vm.Prefabs;
             await Task.Run(() => new MapImage(world, biomes, prefabs, options).WritePng(path, progress));
@@ -2764,7 +2770,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex) when (IsWriteError(ex) || ex is OutOfMemoryException)
         {
-            _vm.Status = "Map image export failed";
+            _vm.Report("Map image export failed", MessageKind.Error);
             ThemedMessageBox.Show(this, ex.Message, "Export Map Image", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -2918,7 +2924,7 @@ public partial class MainWindow : Window
         _prefabTools.Refresh();
         _townTools.Refresh();
         _multiSelect.Refresh();
-        _vm.Status = $"{e.Session.Name} failed; nothing was changed.";
+        _vm.Report($"{e.Session.Name} failed; nothing was changed.", MessageKind.Error);
         // Shown after the input event that ran the edit, so a stroke's mouse handling isn't cut off by a dialog.
         string message = $"{e.Session.Name} failed, so it was undone and the world is as it was.\n\n{e.Error.Message}"
                          + $"\n\nDetails were written to {App.CrashLogPath}.";
@@ -3309,7 +3315,7 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             App.LogError(ex);
-            _vm.Status = "Update failed: " + ex.Message;
+            _vm.Report("Update failed: " + ex.Message, MessageKind.Error);
         }
         finally
         {
@@ -3344,7 +3350,7 @@ public partial class MainWindow : Window
         {
             _closeConfirmed = false;
             if (ex is not (System.Net.Http.HttpRequestException or IOException)) App.LogError(ex);
-            _vm.Status = "Update failed: " + ex.Message;
+            _vm.Report("Update failed: " + ex.Message, MessageKind.Error);
         }
         finally
         {
@@ -3355,7 +3361,7 @@ public partial class MainWindow : Window
     private void CheckUpdatesAtStart_Click(object sender, RoutedEventArgs e)
     {
         _settings.CheckForUpdatesAtStart = CheckUpdatesAtStartItem.IsChecked;
-        if (!_settings.Save()) _vm.Status = "Couldn't save the update setting. Details are in crash.log.";
+        if (!_settings.Save()) _vm.Report("Couldn't save the update setting. Details are in crash.log.", MessageKind.Warning);
     }
 
     /// <summary>Offers an update after start-up work has finished.</summary>
@@ -3538,7 +3544,8 @@ public partial class MainWindow : Window
         if (AltTurnsOffSnapping(e)) return;
         // Leave typing in text boxes alone.
         if (e.Handled || Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase or PasswordBox) return;
-        if (Keyboard.Modifiers == ModifierKeys.Control && _clipboard.HandleShortcut(e.Key))
+        // Ctrl+C in the Messages list copies its lines, not the selected prefabs.
+        if (Keyboard.Modifiers == ModifierKeys.Control && !MessagesList.IsKeyboardFocusWithin && _clipboard.HandleShortcut(e.Key))
         {
             e.Handled = true;
             return;
@@ -3774,7 +3781,7 @@ public partial class MainWindow : Window
         }
         catch (System.Runtime.InteropServices.ExternalException)
         {
-            _vm.Status = "Couldn't copy: another program is using the clipboard. Try again.";
+            _vm.Report("Couldn't copy: another program is using the clipboard. Try again.", MessageKind.Warning);
         }
     }
 
@@ -3904,7 +3911,7 @@ public partial class MainWindow : Window
         var names = _vm.Favourites.Order(StringComparer.OrdinalIgnoreCase).ToList();
         if (names.SequenceEqual(_settings.FavouritePrefabs, StringComparer.OrdinalIgnoreCase)) return;
         _settings.FavouritePrefabs = names;
-        if (!_settings.Save()) _vm.Status = "Couldn't save favourites; they'll be lost when the editor closes. Details are in crash.log.";
+        if (!_settings.Save()) _vm.Report("Couldn't save favourites; they'll be lost when the editor closes. Details are in crash.log.", MessageKind.Warning);
     }
     private void PrefabTurnLeft_Click(object sender, RoutedEventArgs e) => WithMapFocus(() => _prefabTools.Rotate(1));
     private void PrefabTurnRight_Click(object sender, RoutedEventArgs e) => WithMapFocus(() => _prefabTools.Rotate(-1));

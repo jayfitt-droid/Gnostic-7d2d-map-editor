@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using MapEditor.App.Editing;
 using MapEditor.Core.Generate;
+using MapEditor.Core.Messages;
 using MapEditor.Core.Ops;
 using MapEditor.Core.Tours;
 
@@ -112,7 +113,7 @@ public partial class MainWindow
         bool dismissed = TourOffer.IsDismissed(_settings.TourOfferDismissed, started, TourTip.SuppressOffer);
         if (dismissed == _settings.TourOfferDismissed) return;
         _settings.TourOfferDismissed = dismissed;
-        if (!_settings.Save()) _vm.Status = "Couldn't save the tour setting. Details are in crash.log.";
+        if (!_settings.Save()) _vm.Report("Couldn't save the tour setting. Details are in crash.log.", MessageKind.Warning);
     }
 
     private void RecordTourAction(TourCondition action)
