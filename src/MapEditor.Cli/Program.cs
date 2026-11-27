@@ -7,6 +7,12 @@ using MapEditor.Core.Ops;
 using MapEditor.Core.Rendering;
 using MapEditor.Core.Validate;
 
+// --help or -h anywhere prints the usage and does nothing else (#337).
+if (args.Any(a => a is "--help" or "-h")) return Help(args[0]);
+// A folder or file named like an option is a mistake, such as "new --seed 5" with the folder left out (#337).
+if (PathArguments(args).FirstOrDefault(a => a.StartsWith("--")) is { } option)
+    return BadArguments($"'{option}' is an option, not a folder or file name. Put the folder or file name first.");
+
 try
 {
     return args switch
@@ -33,7 +39,33 @@ catch (Exception ex) when (ex is IOException or InvalidDataException or Unauthor
 
 static int Usage()
 {
-    Console.Error.WriteLine("""
+    Console.Error.WriteLine(UsageText());
+    return 2;
+}
+
+/// <summary>
+/// Prints the usage of the command named by <paramref name="command"/> to standard output, or all of it when
+/// <paramref name="command"/> names no command.
+/// </summary>
+static int Help(string command)
+{
+    static string? CommandOf(string line) => line.StartsWith("mapeditor-cli ") ? line.Split(' ')[1] : null;
+    var lines = UsageText().ReplaceLineEndings("\n").Split('\n');
+    var block = lines.SkipWhile(l => CommandOf(l) != command).TakeWhile((l, i) => i == 0 || CommandOf(l) is null).ToList();
+    Console.WriteLine(block.Count > 0 ? string.Join(Environment.NewLine, block) : UsageText());
+    return 0;
+}
+
+/// <summary>The arguments of <paramref name="args"/> that must name a folder or file: the words after the command.</summary>
+static IEnumerable<string> PathArguments(string[] args) => args.Length == 0 ? [] : args.Skip(1).Take(args[0] switch
+{
+    "info" or "validate" or "topview" or "new" => 1,
+    "roundtrip" or "render" or "export" or "compare" => 2,
+    _ => 0,
+});
+
+static string UsageText() => """
+        Add --help or -h to a command to see only its usage.
         mapeditor-cli info <worldFolder> [--game <gameFolder>]
             Print world statistics. Read biome names and prefab data from the selected game folder
             or the first detected install.
@@ -82,9 +114,7 @@ static int Usage()
             --bridge-max <20-4000>     With --bridges: the longest bridge, in metres (default 1500).
             --shortcut-bridges         With --bridges: also bridge islands that are many bridges apart by road.
             --project <file.7dmap>     Also save a project, with the Generate settings, to carry on in the app.
-        """);
-    return 2;
-}
+        """;
 
 static int New(string output, string[] args)
 {
@@ -298,7 +328,7 @@ static List<GeneratorStage> Stages(string list)
 static int BadArguments(string message)
 {
     Console.Error.WriteLine(message);
-    Console.Error.WriteLine("Run mapeditor-cli with no arguments to see the options.");
+    Console.Error.WriteLine("Run mapeditor-cli --help to see the options.");
     return 2;
 }
 
