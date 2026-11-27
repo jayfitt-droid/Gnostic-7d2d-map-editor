@@ -673,6 +673,8 @@ Where a new road meets, crosses or runs on an existing road, the existing road k
 
 Roads leave room for their shoulders and for the ground to slope back to the nearby terrain. They meet street tiles at the street exits.
 
+A highway can turn sharply on a slope or meet another highway at a different height. There, the stage changes the step across the road into a short ramp. It does this for steps of more than one block. Within 60 m of a street exit, it also does this for steps of more than half a block.
+
 **Settings:**
 
 - **Route wiggle** (under **More settings**): how much the seed bends the routes, in %. The default is 15%. Set 0 to turn off these bends.
@@ -780,6 +782,7 @@ Validate also checks:
 
 - **Bridges**: steps at the deck ends, roads to each end, steep approaches, ground under the deck, footings and the room under the beams.
 - **The opening quest's trader**: the game's first quest sends each new player to one forest trader. Validate warns if there is no such trader, or if a spawn is 750 m or more from it.
+- **Steps across roads**: a difference in height of more than one block between two adjacent metres of road. Vehicles cannot drive over the step. Use the **Smooth** tool on it. Validate skips road under a prefab, because the game shows the prefab's ground there.
 
 Some issues have a **Fix** button. Click it to fix the issue. Then Validate runs again. Press **Ctrl+Z** to undo a fix.
 
