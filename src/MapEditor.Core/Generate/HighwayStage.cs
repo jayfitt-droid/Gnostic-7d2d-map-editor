@@ -691,7 +691,6 @@ public static partial class HighwayStage
         public List<int> Cells { get; } = [];
         public Exit? FromExit { get; }
         public Exit? ToExit { get; }
-        public bool JoinsRoad { get; init; }
         public bool Country => Kind == HighwayKind.Country;
         public BridgePlan? Bridge { get; init; }
     }
@@ -952,15 +951,16 @@ public static partial class HighwayStage
     /// RWG's road heights (Path.ProcessPath) on the editor's centreline: the ground, points over the route's average
     /// + 8 m pulled 30% toward it (highways), then smoothed (50 passes at RWG's 10 m spacing for highways, 4 for
     /// country roads), keeping to a prefab's ground in and within 20 m of it. Plus the editor's: at least 1 m over water on a
-    /// causeway, and whole-metre flats beside prefabs.
+    /// causeway, whole-metre flats beside prefabs, and the height of any earlier pavement the road joins, crosses or runs on.
     /// </summary>
-    internal static float[] RwgProfile(World world, List<Vector2> line, bool country, PathGrid grid, bool joinsRoad = false)
+    internal static float[] RwgProfile(World world, List<Vector2> line, bool country, PathGrid grid)
     {
         var (heights, floor) = RoadOp.GroundWithCauseways(world, line);
         var held = line.Select(grid.HoldAt).ToArray();
-        // Use the existing pavement's height where a road joins or crosses it (#34).
+        // Use the existing pavement's height where a road joins, crosses or shares it (#34), also where a highway shares
+        // a stretch too short to be split into join pieces (#313).
         var pavement = new bool[line.Count];
-        if ((country || joinsRoad) && world.Roads is { } roads)
+        if (world.Roads is { } roads)
             for (int i = 0; i < line.Count; i++)
             {
                 int x = Math.Clamp((int)line[i].X, 0, world.Size - 1), z = Math.Clamp((int)line[i].Y, 0, world.Size - 1);
@@ -1062,7 +1062,7 @@ public static partial class HighwayStage
             var path = new RoadPath(p.Points, type, radius);
             var road = new HighwayRoad { Kind = p.Kind, Type = type, Radius = radius, Points = [.. p.Points.Select(v => new[] { v.X, v.Y })] };
             var line = p.Line;
-            var profile = RwgProfile(world, line, p.Country, grid, p.JoinsRoad);
+            var profile = RwgProfile(world, line, p.Country, grid);
             var previousPaint = world.Roads;
             var start = line[0];
             var end = line[^1];
@@ -1074,8 +1074,9 @@ public static partial class HighwayStage
                 if (!streetCells[index])
                 {
                     byte existing = previousPaint?.Data[index] ?? 0;
-                    // Keep the existing road's grade. New asphalt covers its gravel shoulder at the join.
-                    return p.JoinsRoad && IsRoad(existing) ? (existing != (byte)RoadType.Asphalt, false) : (true, true);
+                    // Keep the existing road's grade wherever the new road meets it (#313). New asphalt covers its
+                    // gravel shoulder at the join.
+                    return IsRoad(existing) ? (existing != (byte)RoadType.Asphalt, false) : (true, true);
                 }
                 int x = index % size, z = index / size;
                 var centre = new Vector2(x + 0.5f, z + 0.5f);
