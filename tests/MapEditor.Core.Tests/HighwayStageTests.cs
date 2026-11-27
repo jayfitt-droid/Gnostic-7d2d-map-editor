@@ -263,6 +263,61 @@ public sealed class HighwayStageTests
     }
 
     [Fact]
+    public void Easing_leaves_the_steps_of_a_road_further_off_as_they_were()
+    {
+        // The new road runs east along z = 100 and has a 1.5 m step at x = 250. Another road 25 m to the north, inside the
+        // same 32 m squares the new road touches, has its own step at x = 260 (#312).
+        const int size = 512;
+        var world = new World { Name = "T", Size = size, Height = new Grid<ushort>(size, size), Roads = new Grid<byte>(size, size) };
+        Array.Fill(world.Height.Data, TerrainBrush.ToRaw(40));
+        foreach (var (z0, z1, stepAt) in new[] { (91, 110, 250), (125, 135, 260) })
+            for (int z = z0; z < z1; z++)
+                for (int x = 50; x < 450; x++)
+                {
+                    world.Roads[x, z] = (byte)RoadType.Asphalt;
+                    world.Height[x, z] = TerrainBrush.ToRaw(x < stepAt ? 40 : 41.5f);
+                }
+        var other = Enumerable.Range(125, 10).Select(z => world.Height.Row(z).ToArray()).ToList();
+
+        RoadSteps.Ease(world, [new Vector2(50, 100.5f), new Vector2(450, 100.5f)], HighwayStage.HighwayRadius, PrefabLibrary.Empty, new EditSession("Ease", world));
+
+        // The new road's step is now a ramp...
+        for (int x = 240; x < 260; x++)
+            Assert.InRange(MathF.Abs(World.HeightToMetres(world.Height[x + 1, 100]) - World.HeightToMetres(world.Height[x, 100])), 0, 0.5f);
+        // ...and the other road keeps its ground.
+        for (int z = 125; z < 135; z++)
+            Assert.Equal(other[z - 125], world.Height.Row(z).ToArray());
+    }
+
+    [Fact]
+    public void Easing_fades_back_into_the_ground_round_it()
+    {
+        // A road along z = 100 with a 3 m step at x = 250, and a bank north of it rising 6 m to a higher road. The bank
+        // lifts the mean ground next to the road's edge, so easing that stopped short would leave a new step (#312).
+        const int size = 512;
+        var world = new World { Name = "T", Size = size, Height = new Grid<ushort>(size, size), Roads = new Grid<byte>(size, size) };
+        for (int z = 0; z < size; z++)
+            for (int x = 0; x < size; x++)
+            {
+                float road = x < 250 ? 40 : 43;
+                world.Height[x, z] = TerrainBrush.ToRaw(z < 110 ? road : z < 118 ? road + (46 - road) * (z - 109) / 9f : 46);
+                if (z is >= 91 and < 110 or >= 118 and < 128 && x is >= 50 and < 450) world.Roads[x, z] = (byte)RoadType.Asphalt;
+            }
+
+        RoadSteps.Ease(world, [new Vector2(50, 100.5f), new Vector2(450, 100.5f)], HighwayStage.HighwayRadius, PrefabLibrary.Empty, new EditSession("Ease", world));
+
+        float worst = 0;
+        for (int z = 91; z < 110; z++)
+            for (int x = 50; x < 449; x++)
+            {
+                float h = World.HeightToMetres(world.Height[x, z]);
+                worst = Math.Max(worst, MathF.Abs(World.HeightToMetres(world.Height[x + 1, z]) - h));
+                if (z < 109) worst = Math.Max(worst, MathF.Abs(World.HeightToMetres(world.Height[x, z + 1]) - h));
+            }
+        Assert.InRange(worst, 0, 0.5f);
+    }
+
+    [Fact]
     public void Take_down_restores_every_cell_of_a_wide_bank()
     {
         const int size = 1024, centre = 675, acrossOldCapture = 704;

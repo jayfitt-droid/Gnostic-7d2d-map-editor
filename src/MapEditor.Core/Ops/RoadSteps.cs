@@ -158,8 +158,8 @@ public static class RoadSteps
     }
 
     /// <summary>
-    /// Ramps the ground across each step on the road along <paramref name="line"/> (its pixels within
-    /// <paramref name="radius"/> + 1 m of the line, and pixels of other roads beside them): steps over
+    /// Ramps the ground across each step on the road along <paramref name="line"/>, one with a pixel within
+    /// <paramref name="radius"/> + 1 m of the line (so also a step to another road right beside it): steps over
     /// <see cref="EaseStep"/> within <see cref="ExitReach"/> of a street tile's exit, and steps over
     /// <see cref="PrefabPlacer.RoadStep"/> anywhere. Each cell near a step takes the average ground of a square round
     /// it, wide enough that the step rises no more than <see cref="EaseGrade"/> per metre. Prefab footprints keep their
@@ -171,15 +171,31 @@ public static class RoadSteps
         if (world.Roads is null || line.Count == 0) return GridRect.Empty;
         int size = world.Size, across = (size + Bucket - 1) / Bucket;
         var blocks = new HashSet<int>();
-        int reach = (int)MathF.Ceiling(radius) + 1;
-        foreach (var p in line)
+        // The cells within radius + 1 m of the centreline: a step counts only if one of its pixels is among them, so
+        // other roads' steps further off stay as they are.
+        var onRoad = new HashSet<int>();
+        float reach = radius + 1;
+        for (int i = 0; i < line.Count; i++)
         {
-            var r = new GridRect((int)p.X - reach, (int)p.Y - reach, (int)p.X + reach + 1, (int)p.Y + reach + 1).Clamp(size, size);
+            var a = line[i];
+            var b = line[Math.Min(i + 1, line.Count - 1)];
+            var ab = b - a;
+            float inverseLengthSq = 1 / Math.Max(ab.LengthSquared(), 1e-6f);
+            var r = new GridRect((int)MathF.Floor(MathF.Min(a.X, b.X) - reach), (int)MathF.Floor(MathF.Min(a.Y, b.Y) - reach),
+                (int)MathF.Ceiling(MathF.Max(a.X, b.X) + reach) + 1, (int)MathF.Ceiling(MathF.Max(a.Y, b.Y) + reach) + 1).Clamp(size, size);
             if (r.IsEmpty) continue;
+            for (int z = r.Z0; z < r.Z1; z++)
+                for (int x = r.X0; x < r.X1; x++)
+                {
+                    var c = new Vector2(x + 0.5f, z + 0.5f);
+                    float t = Math.Clamp(Vector2.Dot(c - a, ab) * inverseLengthSq, 0, 1);
+                    if (Vector2.DistanceSquared(c, a + ab * t) <= reach * reach) onRoad.Add(x + z * size);
+                }
             for (int bz = r.Z0 / Bucket; bz <= (r.Z1 - 1) / Bucket; bz++)
                 for (int bx = r.X0 / Bucket; bx <= (r.X1 - 1) / Bucket; bx++)
                     blocks.Add(bx + bz * across);
         }
+        bool OnRoad(int x, int z) => onRoad.Contains(x + z * size) || onRoad.Contains(x + 1 + z * size) || onRoad.Contains(x + (z + 1) * size);
 
         var locked = UnderPrefab(world, library);
         var nearExit = NearStreetExit(world, library);
@@ -188,7 +204,7 @@ public static class RoadSteps
         {
             var steps = blocks.SelectMany(b => Find(world, new GridRect(b % across * Bucket, b / across * Bucket,
                 b % across * Bucket + Bucket, b / across * Bucket + Bucket), locked, EaseStep))
-                .Where(s => s.Step > PrefabPlacer.RoadStep || nearExit(s.X + s.Z * size)).ToList();
+                .Where(s => OnRoad(s.X, s.Z) && (s.Step > PrefabPlacer.RoadStep || nearExit(s.X + s.Z * size))).ToList();
             if (steps.Count == 0) break;
             foreach (var spot in Spots(steps))
             {
@@ -202,23 +218,32 @@ public static class RoadSteps
     }
 
     /// <summary>
-    /// Sets each cell within <paramref name="r"/> of a step to the mean of the square of side 2r + 1 round it. Cells
-    /// where <paramref name="locked"/> is true keep their height and count for nothing in the mean.
+    /// Sets each cell within <paramref name="r"/> of a step to the mean of the square of side 2r + 1 round it, then fades
+    /// back to the ground as it was by 2r, so the eased area meets the ground round it without a seam: on rugged ground a
+    /// square's mean can be metres off the ground itself. Cells where <paramref name="locked"/> is true keep their height
+    /// and count for nothing in the mean.
     /// </summary>
     private static GridRect Blur(World world, List<(int X, int Z, float Step)> spot, int r, Func<int, bool> locked, EditSession session)
     {
         int size = world.Size;
+        int fade = 2 * r;
         // The step's other pixel is one east or north of it.
-        var band = new GridRect(spot.Min(s => s.X) - r, spot.Min(s => s.Z) - r, spot.Max(s => s.X) + 2 + r, spot.Max(s => s.Z) + 2 + r)
-            .Clamp(size, size);
+        var band = new GridRect(spot.Min(s => s.X) - fade, spot.Min(s => s.Z) - fade, spot.Max(s => s.X) + 2 + fade,
+            spot.Max(s => s.Z) + 2 + fade).Clamp(size, size);
         var source = new GridRect(band.X0 - r, band.Z0 - r, band.X1 + r, band.Z1 + r).Clamp(size, size);
         int bw = band.X1 - band.X0, bh = band.Z1 - band.Z0, sw = source.X1 - source.X0, sh = source.Z1 - source.Z0;
 
-        var near = new bool[bw * bh];
+        // Each cell's distance from the nearest step, in metres along x or z, whichever is more.
+        var distance = new int[bw * bh];
+        Array.Fill(distance, int.MaxValue);
         foreach (var (x, z, _) in spot)
-            for (int cz = Math.Max(band.Z0, z - r); cz < Math.Min(band.Z1, z + r + 2); cz++)
-                for (int cx = Math.Max(band.X0, x - r); cx < Math.Min(band.X1, x + r + 2); cx++)
-                    near[cx - band.X0 + (cz - band.Z0) * bw] = true;
+            for (int cz = Math.Max(band.Z0, z - fade); cz < Math.Min(band.Z1, z + fade + 2); cz++)
+                for (int cx = Math.Max(band.X0, x - fade); cx < Math.Min(band.X1, x + fade + 2); cx++)
+                {
+                    int d = Math.Max(Math.Max(x - cx, cx - x - 1), Math.Max(Math.Max(z - cz, cz - z - 1), 0));
+                    int i = cx - band.X0 + (cz - band.Z0) * bw;
+                    distance[i] = Math.Min(distance[i], d);
+                }
 
         // Summed heights and cell counts, so each square's mean takes four lookups of each.
         var sum = new long[(sw + 1) * (sh + 1)];
@@ -246,15 +271,17 @@ public static class RoadSteps
         for (int z = band.Z0; z < band.Z1; z++)
             for (int x = band.X0; x < band.X1; x++)
             {
-                if (!near[x - band.X0 + (z - band.Z0) * bw] || locked(x + z * size)) continue;
+                int from = distance[x - band.X0 + (z - band.Z0) * bw];
+                if (from > fade || locked(x + z * size)) continue;
                 int x0 = Math.Max(source.X0, x - r) - source.X0, x1 = Math.Min(source.X1, x + r + 1) - source.X0;
                 int z0 = Math.Max(source.Z0, z - r) - source.Z0, z1 = Math.Min(source.Z1, z + r + 1) - source.Z0;
                 int a = x0 + z0 * (sw + 1), b = x1 + z0 * (sw + 1), c = x0 + z1 * (sw + 1), d = x1 + z1 * (sw + 1);
                 long total = sum[d] - sum[c] - sum[b] + sum[a];
                 int cells = count[d] - count[c] - count[b] + count[a];
-                var mean = (ushort)Math.Round((double)total / cells);
-                if (world.Height[x, z] == mean) continue;
-                world.Height[x, z] = mean;
+                double weight = from <= r ? 1 : (double)(fade + 1 - from) / (fade + 1 - r);
+                var eased = (ushort)Math.Round(world.Height[x, z] + weight * ((double)total / cells - world.Height[x, z]));
+                if (world.Height[x, z] == eased) continue;
+                world.Height[x, z] = eased;
                 changed = changed.Union(new GridRect(x, z, x + 1, z + 1));
             }
         return changed;

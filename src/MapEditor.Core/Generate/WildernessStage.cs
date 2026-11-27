@@ -822,7 +822,11 @@ public static class WildernessStage
             var path = new RoadPath(points, RoadType.Gravel, radius);
             var road = new HighwayRoad { Kind = HighwayKind.Country, Type = RoadType.Gravel, Radius = radius, Points = [.. points.Select(v => new[] { v.X, v.Y })] };
             road.Ground = HighwayStage.Capture(world, path, () =>
-                RoadOp.Draw(world, path, ctx.Session, (wd, line) => HighwayStage.RwgProfile(wd, line, true, grid), ctx.Library));
+            {
+                RoadOp.Draw(world, path, ctx.Session, (wd, line) => HighwayStage.RwgProfile(wd, line, true, grid), ctx.Library);
+                // A sharp turn on a slope, or this road over a highway, can leave a step across the road (#312).
+                RoadSteps.Ease(world, RoadOp.Centreline(path.Points, RoadOp.CornerRounding(path.Type)), radius, ctx.Library, ctx.Session);
+            });
             poi.Road = road;
             poi.RoadOrder = ctx.NextOrder++;
             grid.MarkLaidRoad(cells);
