@@ -1084,7 +1084,12 @@ public static partial class HighwayStage
                     || (Vector2.DistanceSquared(centre, end) <= radius * radius && endTiles.Any(r => r.Contains(x, z)));
                 return (paint, false);
             }
-            road.Ground = Capture(world, path, line, () => RoadOp.Draw(world, path, line, profile, session, library, CellEdits));
+            road.Ground = Capture(world, path, line, () =>
+            {
+                RoadOp.Draw(world, path, line, profile, session, library, CellEdits);
+                // A sharp turn on a slope, or this road over an earlier one, can leave a step across the road (#312).
+                RoadSteps.Ease(world, line, radius, library, session);
+            });
             added.Add(road);
             progress?.Report(0.8 + 0.2 * (i + 1) / order.Count);
         }
