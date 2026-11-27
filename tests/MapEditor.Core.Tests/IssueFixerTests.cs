@@ -131,6 +131,139 @@ public sealed class IssueFixerTests
         Assert.Equal(world.GridToWorld(200), spawn.Z);
     }
 
+    private static readonly PrefabInfo Hut = new("hut", "POIs", new Int3(5, 5, 5), -1, 0, 1, [], null);
+
+    /// <summary>
+    /// The spawn search as it was before #284: every cell of each ring's square, and a scan of every prefab for each
+    /// dry cell. The cell it picks, or null if it finds none.
+    /// </summary>
+    private static (int X, int Z)? SlowSpawnSpot(World world, PrefabLibrary library, SpawnPoint spawn)
+    {
+        int lo = IssueFixer.EdgeMargin, hi = world.Size - 1 - IssueFixer.EdgeMargin;
+        int sx = Math.Clamp(world.WorldToGrid((int)MathF.Floor(spawn.X)), lo, hi);
+        int sz = Math.Clamp(world.WorldToGrid((int)MathF.Floor(spawn.Z)), lo, hi);
+        for (int r = 0; r <= IssueFixer.SpawnSearch; r++)
+        {
+            (int X, int Z)? best = null;
+            int bestD = int.MaxValue;
+            for (int dz = -r; dz <= r; dz++)
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != r) continue;
+                    int x = sx + dx, z = sz + dz;
+                    if (x < lo || z < lo || x > hi || z > hi || dx * dx + dz * dz >= bestD) continue;
+                    bool dry = world.Water?[x, z] is not (> 0 and var w) || World.HeightToMetres(world.Height[x, z]) > w + 0.5f;
+                    if (!dry || WorldQuery.PrefabAt(world, world.GridToWorld(x), world.GridToWorld(z), library) is not null) continue;
+                    best = (x, z);
+                    bestD = dx * dx + dz * dz;
+                }
+            if (best is not null) return best;
+        }
+        return null;
+    }
+
+    private static void Lake(World world, int x0, int z0, int x1, int z1)
+    {
+        for (int z = Math.Max(0, z0); z <= Math.Min(world.Size - 1, z1); z++)
+            for (int x = Math.Max(0, x0); x <= Math.Min(world.Size - 1, x1); x++)
+            {
+                world.Height[x, z] = TerrainBrush.ToRaw(Ground - 5);
+                world.Water![x, z] = Ground;
+            }
+    }
+
+    /// <summary>A grid of huts, <paramref name="count"/> by <paramref name="count"/>, side by side from grid (x0, z0).</summary>
+    private static void Town(World world, int x0, int z0, int count)
+    {
+        for (int i = 0; i < count; i++)
+            for (int j = 0; j < count; j++)
+                world.Prefabs.Add(new PrefabInstance { Name = Hut.Name, Position = new Int3(world.GridToWorld(x0 + 5 * i), Ground, world.GridToWorld(z0 + 5 * j)) });
+    }
+
+    [Fact]
+    public void A_moved_spawn_lands_where_the_old_full_search_put_it()
+    {
+        const int size = 512;
+        // Footprints that differ in x and z, so rotation counts, and a POI the library doesn't know (1 m square).
+        var shed = new PrefabInfo("shed", "POIs", new Int3(3, 4, 7), -1, 0, 1, [], null);
+        var block = new PrefabInfo("block", "POIs", new Int3(12, 6, 9), -1, 0, 1, [], null);
+        var library = PrefabLibrary.Of([Hut, shed, block]);
+        string[] names = [Hut.Name, shed.Name, block.Name, "not_in_the_library"];
+        // Kept clear of random lakes and POIs: a square lake for ties, and a town to search several rings out of.
+        GridRect[] kept = [new(90, 90, 150, 150), new(380, 380, 450, 450)];
+        bool Clear(int x0, int z0, int x1, int z1) => kept.All(k => x1 < k.X0 || x0 > k.X1 || z1 < k.Z0 || z0 > k.Z1);
+        int farthest = 0;
+
+        for (int seed = 1; seed <= 6; seed++)
+        {
+            var rng = new Random(seed);
+            var world = new World
+            {
+                Name = "T", Size = size, Height = new Grid<ushort>(size, size), Roads = new Grid<byte>(size, size), Water = new Grid<byte>(size, size),
+            };
+            for (int i = 0; i < world.Height.Data.Length; i++) world.Height.Data[i] = TerrainBrush.ToRaw(Ground);
+            Lake(world, 110, 110, 130, 130);   // spawn at its centre: four cells tie 11 m out
+            Town(world, 390, 390, 10);         // spawn at its centre: 25 m to the nearest free cell
+            for (int n = 0; n < 30; n++)
+            {
+                int x = rng.Next(-20, size), z = rng.Next(-20, size), w = rng.Next(5, 60), d = rng.Next(5, 60);
+                if (Clear(x, z, x + w, z + d)) Lake(world, x, z, x + w, z + d);
+            }
+            for (int n = 0; n < 400; n++)
+            {
+                int x = rng.Next(-15, size + 5), z = rng.Next(-15, size + 5);
+                if (!Clear(x - 15, z - 15, x + 15, z + 15)) continue;
+                world.Prefabs.Add(new PrefabInstance
+                {
+                    Name = names[rng.Next(names.Length)], Position = new Int3(world.GridToWorld(x), Ground, world.GridToWorld(z)), Rotation = rng.Next(4),
+                });
+            }
+
+            var spawns = new List<SpawnPoint>
+            {
+                new() { X = world.GridToWorld(120), Y = Ground, Z = world.GridToWorld(120) },
+                new() { X = world.GridToWorld(414) + 0.5f, Y = Ground, Z = world.GridToWorld(414) + 0.5f },
+            };
+            for (int n = 0; n < 40; n++)
+                spawns.Add(new() { X = world.GridToWorld(rng.Next(-60, size + 60)) + (float)rng.NextDouble(), Y = Ground, Z = world.GridToWorld(rng.Next(-60, size + 60)) + (float)rng.NextDouble() });
+
+            foreach (var spawn in spawns)
+            {
+                world.Spawns.Add(spawn);
+                var expected = SlowSpawnSpot(world, library, spawn);
+                Assert.NotNull(expected);
+                var (sx, sz) = (world.WorldToGrid((int)MathF.Floor(spawn.X)), world.WorldToGrid((int)MathF.Floor(spawn.Z)));
+                farthest = Math.Max(farthest, Math.Max(Math.Abs(expected.Value.X - sx), Math.Abs(expected.Value.Z - sz)));
+
+                Assert.NotNull(IssueFixer.Apply(world, library, new IssueFix(FixKind.MoveSpawn, Spawn: spawn), new EditSession("Fix", world)));
+                Assert.Equal(expected.Value, (world.WorldToGrid((int)spawn.X), world.WorldToGrid((int)spawn.Z)));
+            }
+            // Ties go to the first cell in the old scan's order: lowest z, then lowest x.
+            Assert.Equal((120, 109), (world.WorldToGrid((int)spawns[0].X), world.WorldToGrid((int)spawns[0].Z)));
+            Assert.Equal((414, 389), (world.WorldToGrid((int)spawns[1].X), world.WorldToGrid((int)spawns[1].Z)));
+        }
+        Assert.True(farthest >= 25, $"The farthest move was only {farthest} rings.");
+    }
+
+    [Fact]
+    public void A_spawn_under_water_in_a_large_town_moves_at_once()
+    {
+        var world = Flat();
+        var library = PrefabLibrary.Of([Hut, Trader]);
+        Town(world, 352, 352, 64);   // 4096 huts, grid 352 to 671
+        Lake(world, 510, 510, 514, 514);
+        var spawn = new SpawnPoint { X = world.GridToWorld(512), Y = Ground, Z = world.GridToWorld(512) };
+        world.Spawns.Add(spawn);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        Assert.NotNull(IssueFixer.Apply(world, library, new IssueFix(FixKind.MoveSpawn, Spawn: spawn), new EditSession("Fix", world)));
+        clock.Stop();
+
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(2), $"The fix took {clock.Elapsed.TotalSeconds:0.0} s.");
+        // Just past the town's high-x side: of the two nearest free cells, the one with the lower z.
+        Assert.Equal((672, 512), (world.WorldToGrid((int)spawn.X), world.WorldToGrid((int)spawn.Z)));
+    }
+
     [Fact]
     public void Warnings_without_a_safe_fix_offer_none()
     {

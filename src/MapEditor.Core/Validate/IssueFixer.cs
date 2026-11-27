@@ -71,21 +71,30 @@ public static class IssueFixer
         int sx = Math.Clamp(world.WorldToGrid((int)MathF.Floor(spawn.X)), lo, hi);
         int sz = Math.Clamp(world.WorldToGrid((int)MathF.Floor(spawn.Z)), lo, hi);
 
+        // The cells the search can reach, and which of them a prefab stands on, found once (#284).
+        int x0 = Math.Max(lo, sx - SpawnSearch), z0 = Math.Max(lo, sz - SpawnSearch);
+        int x1 = Math.Min(hi, sx + SpawnSearch), z1 = Math.Min(hi, sz + SpawnSearch);
+        int width = x1 - x0 + 1;
+        var covered = CoveredCells(world, library, x0, z0, x1, z1);
+
         // Rings outward, nearest first within each ring.
         for (int r = 0; r <= SpawnSearch; r++)
         {
             (int X, int Z)? best = null;
             int bestD = int.MaxValue;
             for (int dz = -r; dz <= r; dz++)
-                for (int dx = -r; dx <= r; dx++)
+            {
+                // Only the cells on the ring: its whole first and last rows, and the two ends of the rows between.
+                int step = Math.Abs(dz) == r ? 1 : 2 * r;
+                for (int dx = -r; dx <= r; dx += step)
                 {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != r) continue;
                     int x = sx + dx, z = sz + dz;
                     if (x < lo || z < lo || x > hi || z > hi || dx * dx + dz * dz >= bestD) continue;
-                    if (!IsDry(world, x, z) || WorldQuery.PrefabAt(world, world.GridToWorld(x), world.GridToWorld(z), library) is not null) continue;
+                    if (!IsDry(world, x, z) || covered[(z - z0) * width + x - x0]) continue;
                     best = (x, z);
                     bestD = dx * dx + dz * dz;
                 }
+            }
             if (best is { } at)
             {
                 SpawnHelper.Move(world, spawn, at.X, at.Z, session);
@@ -93,6 +102,27 @@ public static class IssueFixer
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Which grid cells from (<paramref name="x0"/>, <paramref name="z0"/>) to (<paramref name="x1"/>, <paramref name="z1"/>),
+    /// inclusive, a shown prefab stands on, row by row: the cells <see cref="WorldQuery.PrefabAt"/> finds a prefab at.
+    /// </summary>
+    private static bool[] CoveredCells(World world, PrefabLibrary library, int x0, int z0, int x1, int z1)
+    {
+        int width = x1 - x0 + 1;
+        var covered = new bool[width * (z1 - z0 + 1)];
+        foreach (var p in world.ShownPrefabs)
+        {
+            var (fx, fz) = library.Find(p.Name)?.Footprint(p.Rotation) ?? (1, 1);
+            int px = world.WorldToGrid(p.Position.X), pz = world.WorldToGrid(p.Position.Z);
+            int ax = Math.Max(x0, px), bx = Math.Min(x1, px + fx - 1);
+            int az = Math.Max(z0, pz), bz = Math.Min(z1, pz + fz - 1);
+            if (ax > bx) continue;
+            for (int z = az; z <= bz; z++)
+                Array.Fill(covered, true, (z - z0) * width + ax - x0, bx - ax + 1);
+        }
+        return covered;
     }
 
     private static bool IsDry(World world, int x, int z) =>
