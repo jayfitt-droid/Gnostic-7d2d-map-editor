@@ -462,6 +462,103 @@ public sealed class HighwayStageTests
         Assert.All(country, r => Assert.Equal((RoadType.Gravel, HighwayStage.CountryRadius), (r.Type, r.Radius)));
     }
 
+    /// <summary>A street tile, as <see cref="Tile"/>, standing on ground at <paramref name="ground"/> m.</summary>
+    private static void TileOn(World world, string name, int cx, int cz, int rotations, int ground)
+    {
+        Tile(world, name, cx, cz, rotations);
+        var p = world.Prefabs[^1];
+        p.Position = p.Position with { Y = PrefabPlacer.PrefabY(Library.Find(name)!, ground) };
+    }
+
+    /// <summary>
+    /// A 2 km world at 40 m: two roadside towns in the south, which a highway joins, and in the north an Old West town on
+    /// ground at 70 m, with one exit, facing south. <paramref name="mesa"/>: the high ground is a mesa round the town, 500 m
+    /// across, with a 1:1 slope on every side. Otherwise it runs the width of the map, its south edge (z = 850 to 880) a 1:1
+    /// slope, but east of x = 1300 it falls at 1:10 to the plain, so a flatter way down goes round.
+    /// </summary>
+    private static World Upland(bool mesa)
+    {
+        const int size = 2048;
+        var world = new World { Name = "T", Size = size, Height = new Grid<ushort>(size, size), Water = new Grid<byte>(size, size) };
+        for (int z = 0; z < size; z++)
+            for (int x = 0; x < size; x++)
+            {
+                float ground;
+                if (mesa) ground = Math.Clamp(320 - Math.Max(Math.Abs(x - 975), Math.Abs(z - 1125)), 40, 70);
+                else
+                {
+                    float top = x < 1300 ? 70 : Math.Max(40, 70 - (x - 1300) / 10f);
+                    ground = 40 + (top - 40) * Math.Clamp((z - 850) / 30f, 0, 1);
+                }
+                world.Height[x, z] = TerrainBrush.ToRaw(ground);
+            }
+        TileOn(world, "rwg_tile_gateway_straight", 2, 3, 0, 40);
+        TileOn(world, "rwg_tile_gateway_straight", 10, 3, 0, 40);
+        TileOn(world, "rwg_tile_oldwest_cap", 6, 7, 0, 70);
+        return world;
+    }
+
+    /// <summary>The steepest grade of the ground along a road's centreline, over each stretch of 8 m or more.</summary>
+    private static float SteepestGrade(World world, HighwayRoad road)
+    {
+        List<Vector2> points = [.. road.Points.Select(p => new Vector2(p[0], p[1]))];
+        // A piece cut to meet a road keeps its drawn centreline (points about 4 m apart); a whole route keeps its control points.
+        var line = points.Zip(points.Skip(1)).All(s => Vector2.Distance(s.First, s.Second) < 6)
+            ? points
+            : RoadOp.Centreline(points, RoadOp.CornerRounding(road.Type));
+        float Ground(Vector2 p) => World.HeightToMetres(world.Height[(int)p.X, (int)p.Y]);
+        var along = new float[line.Count];
+        for (int i = 1; i < line.Count; i++) along[i] = along[i - 1] + Vector2.Distance(line[i - 1], line[i]);
+        float steepest = 0;
+        for (int i = 1, j = 0; i < line.Count; i++)
+        {
+            while (j + 1 < i && along[i] - along[j + 1] >= 8) j++;
+            if (along[i] - along[j] >= 8) steepest = Math.Max(steepest, MathF.Abs(Ground(line[i]) - Ground(line[j])) / (along[i] - along[j]));
+        }
+        return steepest;
+    }
+
+    [Fact]
+    public void A_country_road_off_a_steep_hill_goes_round_by_the_flatter_way_and_keeps_to_a_drivable_grade()
+    {
+        // Straight down to the highway is a 30 m drop on a 1:1 slope; round by the ramp in the east it is far gentler (#336).
+        var world = Upland(mesa: false);
+        var ground = (ushort[])world.Height.Data.Clone();
+        var roads = new List<HighwayRoad>();
+        var result = Run(world, new HighwayOptions { Wiggle = 0 }, roads);
+
+        Assert.Empty(result.Notes);
+        // The town keeps its link: its gravel road ends on the highway.
+        var country = Assert.Single(roads, r => r.Kind == HighwayKind.Country);
+        Assert.Equal((byte)RoadType.Asphalt, world.Roads![(int)country.Points[^1][0], (int)country.Points[^1][1]]);
+        // Nowhere along it is steeper than the cap (1 in 4), with some room for sampling whole metres.
+        float steepest = SteepestGrade(world, country);
+        Assert.True(steepest <= 0.3f, $"The country road climbs {steepest:0.00} m a metre");
+
+        HighwayStage.TakeDown(world, roads, new EditSession("Down", world));
+        Assert.Equal(ground, world.Height.Data);
+    }
+
+    [Fact]
+    public void A_town_on_a_mesa_with_no_drivable_way_down_still_gets_a_country_road_cut_to_the_cap_and_a_note()
+    {
+        // No way down keeps to the route search's limits, so the road takes RWG's route down the slope; the cap cuts it in (#336).
+        var world = Upland(mesa: true);
+        var ground = (ushort[])world.Height.Data.Clone();
+        var roads = new List<HighwayRoad>();
+        var result = Run(world, new HighwayOptions { Wiggle = 0 }, roads);
+
+        Assert.Equal(["1 country road found no way round steep hills, so it goes over them, cut and filled to 1 in 4 where the ground allows."],
+            result.Notes);
+        var country = Assert.Single(roads, r => r.Kind == HighwayKind.Country);
+        Assert.Equal((byte)RoadType.Asphalt, world.Roads![(int)country.Points[^1][0], (int)country.Points[^1][1]]);
+        float steepest = SteepestGrade(world, country);
+        Assert.True(steepest <= 0.3f, $"The country road climbs {steepest:0.00} m a metre");
+
+        HighwayStage.TakeDown(world, roads, new EditSession("Down", world));
+        Assert.Equal(ground, world.Height.Data);
+    }
+
     private const int CoastRoadZ = 555;
 
     [Fact]
