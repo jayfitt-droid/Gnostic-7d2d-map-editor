@@ -2,6 +2,10 @@
 
 Notes for the v2.1.0 Bridge tool. The bridges here are the ones the Highways stage builds (`Generate/HighwayStage.cs`); the tool will place the same pieces.
 
+## Bridge tool ramps and drawn roads
+
+Since v2.4.0, taking down a newly built bridge leaves later ground and road edits in place (#306). When Generate rebuilds the bridge, each ramp keeps the grade of existing road cells beyond its end. Bridges from older versions use their original ground records until they are rebuilt.
+
 ## Generated bridges in game
 - **Tested in game 2026-11-12** (world from `mapeditor-cli new 6144 --seed 3 --shape archipelago --islands 5 --land 40 --roughness 60 --biomes centerforest --generate --bridges`, 4 bridges, game V 3.4.0):
   - **Good:** the end pieces face the right way (caps toward the land) on north-south and east-west bridges; the 18 m highway narrowing onto the 14 m deck is fine; a houseboat fits under; fast vehicles and a bicycle cross on and off the ends without catching.
