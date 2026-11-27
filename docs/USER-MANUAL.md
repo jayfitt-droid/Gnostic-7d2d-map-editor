@@ -667,6 +667,8 @@ This stage connects the towns with asphalt highways. It uses the towns that are 
 
 The game's rules connect each town exit to the nearest of its three nearest towns. Big cities get ring roads. Towns that have no exits get gravel roads.
 
+A gravel road goes around a steep hill when it can. Where the road is still too steep, the stage cuts into the hill and fills the dips. Then the road rises no more than 1 m in 4 m (25%). If every route around the hill is too steep, the gravel road goes over the hill, so that the town keeps its road. The stage cuts and fills the ground on that road too. The status line tells you how many gravel roads go over steep hills. Near a town, a POI or another road, a gravel road must stay at their height, so there it can be steeper than 25%. Highways do not change: they keep the game's heights.
+
 A highway joins an existing road when both roads go the same way. The highway uses that part of the road.
 
 Where a new road meets, crosses or runs on an existing road, the existing road keeps its height. The new road slopes up or down to that height, also on a causeway.
