@@ -579,15 +579,25 @@ public static partial class HighwayStage
     /// RWG's A* from <paramref name="start"/> to any of <paramref name="goals"/>: 8-way on the 10 m grid, no step
     /// rising more than 11 m (country roads 12 m), height costing extra (highways more), no cutting a blocked corner,
     /// within 2 km of the ends. Extras: the seeded wiggle, cheaper along roads, costlier beside them and over water.
-    /// Returns the cells, start first, or null.
+    /// With <paramref name="climb"/>, its limits replace the step limit and height cost. Returns the cells, start first, or null.
     /// </summary>
-    internal static List<int>? FindPath(PathGrid grid, int start, IReadOnlyList<int> goals, bool country, bool clearStreets = false) =>
-        Search(grid, start, goals, country, clearStreets, !country && grid.HasRoads, out bool exhausted)
+    internal static List<int>? FindPath(PathGrid grid, int start, IReadOnlyList<int> goals, bool country, bool clearStreets = false,
+        Climb? climb = null) =>
+        Search(grid, start, goals, country, clearStreets, !country && grid.HasRoads, climb, out bool exhausted)
         // Keep the original search available for a route whose road-sharing search spends its node budget.
-        ?? (exhausted && !country && grid.HasRoads ? Search(grid, start, goals, country, clearStreets, false, out _) : null);
+        ?? (exhausted && !country && grid.HasRoads ? Search(grid, start, goals, country, clearStreets, false, climb, out _) : null);
+
+    /// <summary>
+    /// A route search's limits on climbing, for a road that must stay drivable up a hill (stage 5's driveways, #332).
+    /// Grades are metres of rise per metre, between the centres of neighbouring 10 m cells.
+    /// </summary>
+    /// <param name="MaxGrade">The steepest step the route may take.</param>
+    /// <param name="FreeGrade">The grade a step climbs at no extra cost.</param>
+    /// <param name="RiseCost">The extra cost of each metre a step climbs over <paramref name="FreeGrade"/>, in cells of travel.</param>
+    internal sealed record Climb(float MaxGrade, float FreeGrade, float RiseCost);
 
     private static List<int>? Search(PathGrid grid, int start, IReadOnlyList<int> goals, bool country, bool clearStreets,
-        bool shareRoads, out bool exhausted)
+        bool shareRoads, Climb? climb, out bool exhausted)
     {
         exhausted = false;
         if (goals.Count == 0) return null;
@@ -614,6 +624,8 @@ public static partial class HighwayStage
             return best * (shareRoads ? SharingHeuristic : 1.4f);
         }
         bool Blocked(int c) => (grid.Flags[c] & (PathGrid.Blocked | clearance)) != 0;
+        // With climbing limits, the height the road keeps to: round a prefab, its held ground, as the profile has it.
+        float Ground(int c) => climb is not null && !float.IsNaN(grid.Hold[c]) ? grid.Hold[c] : grid.Height[c];
 
         var open = new PriorityQueue<int, float>();
         s.G[start] = 0;
@@ -638,7 +650,7 @@ public static partial class HighwayStage
                 return null;
             }
             int nx0 = node % w, nz0 = node / w;
-            float hNode = grid.Height[node];
+            float hNode = Ground(node);
             for (int k = 0; k < 8; k++)
             {
                 var (dx, dz) = Neighbours8[k];
@@ -652,10 +664,20 @@ public static partial class HighwayStage
                 bool diagonal = dx != 0 && dz != 0;
                 // A diagonal step may not cut past a blocked cell.
                 if (diagonal && !goal && (Blocked(nx0 + dx + nz0 * w) || Blocked(nx0 + (nz0 + dz) * w))) continue;
-                float dh = MathF.Abs(grid.Height[nb] - hNode);
-                if (dh > maxStep) continue;
-                float heightCost = (country ? dh : MathF.Max(0, dh - 0.5f) * 3) * 0.2f;
-                float move = (diagonal ? 1.414214f : 1f) * grid.Wiggle[nb];
+                float dh = MathF.Abs(Ground(nb) - hNode);
+                float run = diagonal ? 1.414214f : 1f;
+                float heightCost;
+                if (climb is not null)
+                {
+                    if (dh > climb.MaxGrade * run * Step) continue;
+                    heightCost = MathF.Max(0, dh - climb.FreeGrade * run * Step) * climb.RiseCost;
+                }
+                else
+                {
+                    if (dh > maxStep) continue;
+                    heightCost = (country ? dh : MathF.Max(0, dh - 0.5f) * 3) * 0.2f;
+                }
+                float move = run * grid.Wiggle[nb];
                 byte f = grid.Flags[nb];
                 if (shareRoads) move *= grid.RoadCost(node, nb, k);
                 else if (grid.LegacyRoad[nb]) move *= 0.5f;
@@ -953,8 +975,17 @@ public static partial class HighwayStage
     /// country roads), keeping to a prefab's ground in and within 20 m of it. Plus the editor's: at least 1 m over water on a
     /// causeway, whole-metre flats beside prefabs, and the height of any earlier pavement the road joins, crosses or runs on.
     /// </summary>
-    internal static float[] RwgProfile(World world, List<Vector2> line, bool country, PathGrid grid)
+    internal static float[] RwgProfile(World world, List<Vector2> line, bool country, PathGrid grid) =>
+        RwgProfile(world, line, country, grid, null, out _);
+
+    /// <summary>
+    /// <see cref="RwgProfile(World, List{Vector2}, bool, PathGrid)"/>, then with <paramref name="maxGrade"/> the grade capped
+    /// (<see cref="CapGrade"/>), keeping the held ground and pavement. <paramref name="kept"/> is false where two of those
+    /// are too steep for the cap between them.
+    /// </summary>
+    internal static float[] RwgProfile(World world, List<Vector2> line, bool country, PathGrid grid, float? maxGrade, out bool kept)
     {
+        kept = true;
         var (heights, floor) = RoadOp.GroundWithCauseways(world, line);
         var held = line.Select(grid.HoldAt).ToArray();
         // Use the existing pavement's height where a road joins, crosses or shares it (#34), also where a highway shares
@@ -990,7 +1021,80 @@ public static partial class HighwayStage
         RoadOp.LevelFlats(heights, line, floor);
         for (int i = 0; i < heights.Length; i++)
             if (pavement[i]) heights[i] = held[i];
+        if (maxGrade is { } grade) kept = CapGrade(heights, line, hold, floor, grade);
         return heights;
+    }
+
+    /// <summary>
+    /// Caps a road profile's grade at <paramref name="grade"/> metres of rise per metre (#332). Points marked in
+    /// <paramref name="fixedAt"/> keep their height. Between them, the road cuts into a crest and fills a dip by the same
+    /// amount, which keeps the deepest cut or fill as small as it can be: each point goes halfway between the highest profile
+    /// that keeps to the grade without rising over the old one and the lowest that keeps to it without dipping under the old
+    /// one. Where two fixed points are too steep for the cap, the road between them climbs evenly from one to the other,
+    /// and the result is false. No point goes below its <paramref name="floor"/>.
+    /// </summary>
+    internal static bool CapGrade(float[] heights, IReadOnlyList<Vector2> line, bool[] fixedAt, float[] floor, float grade)
+    {
+        int n = heights.Length;
+        bool kept = true;
+        if (n < 2) return kept;
+        var along = new float[n];
+        for (int i = 1; i < n; i++) along[i] = along[i - 1] + Vector2.Distance(line[i - 1], line[i]);
+        var under = new float[n];
+        var over = new float[n];
+        for (int s = 0; s < n; s++)
+        {
+            if (fixedAt[s]) continue;
+            int e = s;
+            while (e + 1 < n && !fixedAt[e + 1]) e++;
+            int a = s - 1, b = e + 1;
+            if (a >= 0 && b < n && MathF.Abs(heights[b] - heights[a]) > grade * (along[b] - along[a]))
+            {
+                kept = false;
+                float run = Math.Max(along[b] - along[a], 1e-3f);
+                for (int i = s; i <= e; i++)
+                    heights[i] = heights[a] + (heights[b] - heights[a]) * (along[i] - along[a]) / run;
+            }
+            else
+            {
+                // The highest profile that keeps to the grade and never rises over the old one, and the lowest that never
+                // dips under it, over the stretch and its fixed ends.
+                int lo = Math.Max(a, 0), hi = Math.Min(b, n - 1);
+                for (int i = lo; i <= hi; i++)
+                {
+                    under[i] = over[i] = heights[i];
+                    if (i == lo) continue;
+                    float d = grade * (along[i] - along[i - 1]);
+                    under[i] = Math.Min(under[i], under[i - 1] + d);
+                    over[i] = Math.Max(over[i], over[i - 1] - d);
+                }
+                for (int i = hi - 1; i >= lo; i--)
+                {
+                    float d = grade * (along[i + 1] - along[i]);
+                    under[i] = Math.Min(under[i], under[i + 1] + d);
+                    over[i] = Math.Max(over[i], over[i + 1] - d);
+                }
+                for (int i = s; i <= e; i++)
+                {
+                    // Keep to the grade from each fixed end.
+                    float low = float.NegativeInfinity, high = float.PositiveInfinity;
+                    if (a >= 0)
+                    {
+                        low = heights[a] - grade * (along[i] - along[a]);
+                        high = heights[a] + grade * (along[i] - along[a]);
+                    }
+                    if (b < n)
+                    {
+                        low = Math.Max(low, heights[b] - grade * (along[b] - along[i]));
+                        high = Math.Min(high, heights[b] + grade * (along[b] - along[i]));
+                    }
+                    heights[i] = Math.Min(Math.Max((under[i] + over[i]) / 2, low), high);
+                }
+            }
+            for (int i = s; i <= e; i++) heights[i] = Math.Max(heights[i], floor[i]);
+            s = e;
+        }
+        return kept;
     }
 
     /// <summary>RWG's Path.RoundOffCorners, four times, on the route's control points.</summary>

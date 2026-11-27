@@ -256,6 +256,114 @@ public sealed class WildernessStageTests
         if (townGround == 40) Assert.True(checkedPois > 0);
     }
 
+    /// <summary>
+    /// A 1 km world at 40 m with a highway along z = 200 and a plateau at 70 m north of z = 320, its edge a 1:1 slope.
+    /// <paramref name="ramp"/>: east of x = 500 the plateau falls at 1:10 to the plain, so a flatter way down goes round.
+    /// </summary>
+    private static World Plateau(bool ramp)
+    {
+        const int size = 1024;
+        var world = new World { Name = "T", Size = size, Height = new Grid<ushort>(size, size), Water = new Grid<byte>(size, size) };
+        world.Biomes = new IndexedLayer(new Grid<byte>(size / 4, size / 4), [Forest]);
+        for (int z = 0; z < size; z++)
+            for (int x = 0; x < size; x++)
+            {
+                float top = !ramp || x < 500 ? 70 : Math.Max(40, 70 - (x - 500) / 10f);
+                world.Height[x, z] = TerrainBrush.ToRaw(40 + (top - 40) * Math.Clamp((z - 290) / 30f, 0, 1));
+            }
+        RoadOp.Draw(world, new RoadPath([new Vector2(50, 200), new Vector2(size - 50, 200)], RoadType.Asphalt, 9), new EditSession("Road", world));
+        return world;
+    }
+
+    /// <summary>The steepest grade of the ground along a road's centreline, over each 8 m (two centreline points).</summary>
+    private static float SteepestGrade(World world, HighwayRoad road)
+    {
+        var line = RoadOp.Centreline([.. road.Points.Select(p => new Vector2(p[0], p[1]))], RoadOp.CornerRounding(road.Type));
+        float Ground(Vector2 p) => World.HeightToMetres(world.Height[(int)p.X, (int)p.Y]);
+        float steepest = 0;
+        for (int i = 2; i < line.Count; i++)
+            steepest = Math.Max(steepest, MathF.Abs(Ground(line[i]) - Ground(line[i - 2])) / Math.Max(1, Vector2.Distance(line[i], line[i - 2])));
+        return steepest;
+    }
+
+    [Fact]
+    public void A_driveway_off_a_steep_plateau_goes_round_by_the_flatter_way_and_keeps_to_a_drivable_grade()
+    {
+        // Straight down to the highway is a 30 m drop on a 1:1 slope; round by the ramp in the east it is far gentler (#332).
+        var world = Plateau(ramp: true);
+        var ground = (ushort[])world.Height.Data.Clone();
+        var roads = (byte[])world.Roads!.Data.Clone();
+        var pois = new List<WildernessPoi>();
+        var notes = new List<string>();
+        var poi = WildernessStage.PlaceByHand(world, Library.Find("cabin_01"), 300, 480, 0, new WildernessOptions { MaxRoad = 3000 }, pois,
+            Library, Mixer, BiomeTable.Vanilla, 5, new EditSession("Place", world), notes);
+
+        Assert.NotNull(poi?.Road);
+        Assert.Empty(notes);
+        // It reaches the highway, and nowhere along it is steeper than the cap (1 in 4), with some room for sampling whole metres.
+        var end = poi.Road.Points[^1];
+        Assert.InRange(end[1], 190, 210);
+        float steepest = SteepestGrade(world, poi.Road);
+        Assert.True(steepest <= 0.3f, $"The driveway climbs {steepest:0.00} m a metre");
+
+        // Taking the stage down puts the ground and the roads back.
+        WildernessStage.TakeDown(world, pois, new EditSession("Down", world));
+        Assert.Equal(ground, world.Height.Data);
+        Assert.Equal(roads, world.Roads.Data);
+    }
+
+    [Fact]
+    public void The_grade_cap_cuts_and_fills_between_fixed_points_and_reports_ends_too_steep_for_it()
+    {
+        // 4 m apart: level at 10 m, a 6 m bank down into a 10 m wide dip at 4 m, and back up. The ends are held.
+        var line = Enumerable.Range(0, 21).Select(i => new Vector2(4 * i, 0)).ToList();
+        float[] heights = [10, 10, 10, 10, 10, 10, 10, 10, 4, 4, 4, 4, 10, 10, 10, 10, 10, 10, 10, 10, 10];
+        var fixedAt = line.Select((_, i) => i == 0 || i == line.Count - 1).ToArray();
+        var floor = new float[line.Count];
+        var old = (float[])heights.Clone();
+
+        Assert.True(HighwayStage.CapGrade(heights, line, fixedAt, floor, 0.25f));
+        Assert.Equal(10, heights[0]);
+        Assert.Equal(10, heights[^1]);
+        for (int i = 1; i < line.Count; i++)
+            Assert.InRange(MathF.Abs(heights[i] - heights[i - 1]), 0, 0.25f * 4 + 1e-4f);
+        // The banks are cut down as far as the dip is filled up: the deepest change each way is the same.
+        float cut = Enumerable.Range(0, line.Count).Max(i => old[i] - heights[i]);
+        float fill = Enumerable.Range(0, line.Count).Max(i => heights[i] - old[i]);
+        Assert.Equal(cut, fill, 0.01f);
+        Assert.True(cut > 0);
+
+        // Held ends 12 m apart in height over 20 m: no profile keeps to the cap, so the road climbs evenly between them.
+        var shortLine = line.Take(6).ToList();
+        float[] steep = [0, 0, 0, 0, 0, 12];
+        Assert.False(HighwayStage.CapGrade(steep, shortLine, [true, false, false, false, false, true], new float[6], 0.25f));
+        Assert.Equal([0, 2.4f, 4.8f, 7.2f, 9.6f, 12], steep.Select(h => MathF.Round(h, 2)));
+    }
+
+    [Fact]
+    public void A_poi_on_a_mesa_with_no_drivable_way_down_gets_no_driveway_and_a_note()
+    {
+        // A plateau 200 m across with a 1:1 slope all round.
+        var world = Plateau(ramp: false);
+        for (int z = 0; z < world.Size; z++)
+            for (int x = 0; x < world.Size; x++)
+            {
+                float d = Math.Max(Math.Abs(x - 300), Math.Abs(z - 480));
+                world.Height[x, z] = TerrainBrush.ToRaw(Math.Clamp(170 - d, 40, 70));
+            }
+        var ground = (ushort[])world.Height.Data.Clone();
+        var pois = new List<WildernessPoi>();
+        var notes = new List<string>();
+        var poi = WildernessStage.PlaceByHand(world, Library.Find("cabin_01"), 300, 480, 0, new WildernessOptions { MaxRoad = 3000 }, pois,
+            Library, Mixer, BiomeTable.Vanilla, 5, new EditSession("Place", world), notes);
+
+        Assert.NotNull(poi);
+        Assert.Null(poi.Road);
+        Assert.Contains(notes, n => n.Contains("1 POI has no way to a road that is not blocked or too steep"));
+        WildernessStage.TakeDown(world, pois, new EditSession("Down", world));
+        Assert.Equal(ground, world.Height.Data);
+    }
+
     [Fact]
     public void A_rerun_takedown_and_undo_put_everything_back_exactly()
     {

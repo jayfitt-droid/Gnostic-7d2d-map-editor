@@ -762,6 +762,20 @@ public static class WildernessStage
     }
 
     /// <summary>
+    /// The steepest grade, in metres of rise per metre, of a gravel road from a POI (#332). Where its route is steeper, the
+    /// road cuts into the hill and fills the dip. Most of RWG's own gravel roads on hilly maps keep under it too.
+    /// </summary>
+    internal const float DrivewayGrade = 0.25f;
+
+    /// <summary>
+    /// The route search's limits for a gravel road from a POI (#332), so it goes round a steep hill rather than over it.
+    /// A step between 10 m cells may be up to twice <see cref="DrivewayGrade"/>, as one cell's sample can be a bump that the
+    /// grade cap spreads over the cells round it. Each metre a step climbs over half the cap costs as much as 80 m of travel,
+    /// so a long climb steeper than the cap, which the cap can't grade between the road's held ends, is gone round.
+    /// </summary>
+    internal static readonly HighwayStage.Climb DrivewayClimb = new(MaxGrade: 2 * DrivewayGrade, FreeGrade: DrivewayGrade / 2, RiseCost: 8);
+
+    /// <summary>
     /// WildernessPathPlanner.Plan: wider roads first, then those nearest a road; each runs RWG's country-road A* to the
     /// nearest road (asphalt or gravel, the roads laid before it included), or with no roads at all to the nearest POI.
     /// Roads that would be longer than <see cref="WildernessOptions.MaxRoad"/> aren't laid.
@@ -809,7 +823,7 @@ public static class WildernessStage
                     .OrderBy(o => Vector2.DistanceSquared(o.Lead, lead)).Take(3).Select(o => grid.CellOf(o.Lead))];
             }
             if (goals.Count == 0) { tooFar++; continue; }
-            if (HighwayStage.FindPath(grid, start, goals, country: true) is not { } cells) { noPath++; continue; }
+            if (HighwayStage.FindPath(grid, start, goals, country: true, climb: DrivewayClimb) is not { } cells) { noPath++; continue; }
             var end = grid.Centre(cells[^1]);
             var points = new List<Vector2> { exit, lead };
             points.AddRange(cells.Select(grid.Centre).Where(c => Vector2.Distance(c, lead) >= 20 && Vector2.Distance(c, end) >= 20));
@@ -820,12 +834,16 @@ public static class WildernessStage
 
             HighwayStage.RoundOffCorners(points, true);
             var path = new RoadPath(points, RoadType.Gravel, radius);
+            var line = RoadOp.Centreline(path.Points, RoadOp.CornerRounding(path.Type));
+            // Where the ground the road must keep to (round a prefab, or an earlier road) is too steep, there is no drivable way.
+            var profile = HighwayStage.RwgProfile(world, line, true, grid, DrivewayGrade, out bool drivable);
+            if (!drivable) { noPath++; continue; }
             var road = new HighwayRoad { Kind = HighwayKind.Country, Type = RoadType.Gravel, Radius = radius, Points = [.. points.Select(v => new[] { v.X, v.Y })] };
             road.Ground = HighwayStage.Capture(world, path, () =>
             {
-                RoadOp.Draw(world, path, ctx.Session, (wd, line) => HighwayStage.RwgProfile(wd, line, true, grid), ctx.Library);
+                RoadOp.Draw(world, path, line, profile, ctx.Session, ctx.Library);
                 // A sharp turn on a slope, or this road over a highway, can leave a step across the road (#312).
-                RoadSteps.Ease(world, RoadOp.Centreline(path.Points, RoadOp.CornerRounding(path.Type)), radius, ctx.Library, ctx.Session);
+                RoadSteps.Ease(world, line, radius, ctx.Library, ctx.Session);
             });
             poi.Road = road;
             poi.RoadOrder = ctx.NextOrder++;
@@ -835,7 +853,7 @@ public static class WildernessStage
         }
         if (noExit > 0) notes.Add($"{noExit} POI{(noExit == 1 ? " has" : "s have")} no road exit, so no road.");
         if (tooFar > 0) notes.Add($"{tooFar} POI{(tooFar == 1 ? " is" : "s are")} more than {maxRoad:0} m from a road, so no road.");
-        if (noPath > 0) notes.Add($"{noPath} POI{(noPath == 1 ? "" : "s")} found no way to a road.");
+        if (noPath > 0) notes.Add($"{noPath} POI{(noPath == 1 ? " has" : "s have")} no way to a road that is not blocked or too steep, so no road.");
     }
 
     /// <summary>Each cell's distance, in cells, to the nearest road cell (a breadth-first spread, 4-way).</summary>
