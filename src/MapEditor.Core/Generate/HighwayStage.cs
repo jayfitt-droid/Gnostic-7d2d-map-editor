@@ -588,13 +588,28 @@ public static partial class HighwayStage
         ?? (exhausted && !country && grid.HasRoads ? Search(grid, start, goals, country, clearStreets, false, climb, out _) : null);
 
     /// <summary>
-    /// A route search's limits on climbing, for a road that must stay drivable up a hill (stage 5's driveways, #332).
-    /// Grades are metres of rise per metre, between the centres of neighbouring 10 m cells.
+    /// A route search's limits on climbing, for a road that must stay drivable up a hill (the gravel roads of stage 4,
+    /// #336, and stage 5, #332). Grades are metres of rise per metre, between the centres of neighbouring 10 m cells.
     /// </summary>
     /// <param name="MaxGrade">The steepest step the route may take.</param>
     /// <param name="FreeGrade">The grade a step climbs at no extra cost.</param>
     /// <param name="RiseCost">The extra cost of each metre a step climbs over <paramref name="FreeGrade"/>, in cells of travel.</param>
     internal sealed record Climb(float MaxGrade, float FreeGrade, float RiseCost);
+
+    /// <summary>
+    /// The steepest grade, in metres of rise per metre, of a gravel road: stage 4's country roads (#336) and stage 5's roads
+    /// from POIs (#332). Where its route is steeper, the road cuts into the hill and fills the dip. Most of RWG's own gravel
+    /// roads on hilly maps keep under it too. Asphalt highways have no cap.
+    /// </summary>
+    internal const float GravelGrade = 0.25f;
+
+    /// <summary>
+    /// The route search's limits for a gravel road (#332, #336), so it goes round a steep hill rather than over it.
+    /// A step between 10 m cells may be up to twice <see cref="GravelGrade"/>, as one cell's sample can be a bump that the
+    /// grade cap spreads over the cells round it. Each metre a step climbs over half the cap costs as much as 80 m of travel,
+    /// so a long climb steeper than the cap, which the cap can't grade between the road's held ends, is gone round.
+    /// </summary>
+    internal static readonly Climb GravelClimb = new(MaxGrade: 2 * GravelGrade, FreeGrade: GravelGrade / 2, RiseCost: 8);
 
     private static List<int>? Search(PathGrid grid, int start, IReadOnlyList<int> goals, bool country, bool clearStreets,
         bool shareRoads, Climb? climb, out bool exhausted)
@@ -732,16 +747,19 @@ public static partial class HighwayStage
         return route;
     }
 
-    /// <summary>Keeps the usual route if it clears the tiles. Otherwise reroutes with room for its paint and grading.</summary>
+    /// <summary>
+    /// Keeps the usual route if it clears the tiles. Otherwise reroutes with room for its paint and grading. With
+    /// <paramref name="climb"/>, both searches keep to its limits (<see cref="FindPath"/>).
+    /// </summary>
     private static RoadRoute? FindRoad(PathGrid grid, Exit from, IReadOnlyList<int> goals, bool country,
-        Func<int, (Vector2 Lead, Vector2 End, Exit? Exit)> finish)
+        Func<int, (Vector2 Lead, Vector2 End, Exit? Exit)> finish, Climb? climb = null)
     {
         int start = grid.CellOf(from.LeadPoint);
-        if (FindPath(grid, start, goals, country) is not { } cells) return null;
+        if (FindPath(grid, start, goals, country, climb: climb) is not { } cells) return null;
         if (BuildRoute(cells, round: true) is { } usual) return usual;
 
         var remaining = goals.Distinct().ToList();
-        while (FindPath(grid, start, remaining, country, clearStreets: true) is { } clearCells)
+        while (FindPath(grid, start, remaining, country, clearStreets: true, climb: climb) is { } clearCells)
         {
             // Keep the path cells near the ends if a wider curve would cut back toward a tile.
             if ((BuildRoute(clearCells, round: true) ?? BuildRoute(clearCells, round: false)) is { } clear) return clear;
@@ -885,7 +903,7 @@ public static partial class HighwayStage
             .Concat(towns.Where(t => t.SpawnGateway).SelectMany(t => t.Gateways.Where(g => !t.Exits.Any(e => e.Tile == g && e.Used))
                 .Select(g => t.Exits.FirstOrDefault(e => e.Tile == g)).OfType<Exit>()))
             .ToList();
-        int unjoined = 0;
+        int unjoined = 0, overHills = 0;
         foreach (var exit in dirt)
         {
             cancel.ThrowIfCancellationRequested();
@@ -900,20 +918,32 @@ public static partial class HighwayStage
                 goals.Add(c);
                 if (goals.Count >= 6) break;
             }
-            if (FindRoad(grid, exit, goals, true, cell =>
-                {
-                    var point = grid.RoadPoint(cell);
-                    return (point, point, null);
-                }) is not { } route)
+            (Vector2, Vector2, Exit?) OnHighway(int cell)
+            {
+                var point = grid.RoadPoint(cell);
+                return (point, point, null);
+            }
+            // A gravel road goes round steep hills (#336). With no such way, it takes RWG's route, so the town keeps its
+            // link, and its profile is still capped where the cap can grade it.
+            bool steep = false;
+            var route = FindRoad(grid, exit, goals, true, OnHighway, GravelClimb);
+            if (route is null && (route = FindRoad(grid, exit, goals, true, OnHighway)) is not null) steep = true;
+            if (route is null)
             {
                 unjoined++;
                 continue;
             }
             exit.Used = true;
             var p = new Planned(HighwayKind.Country, route, exit.Tile.Town, highwayCells[route.Cells[^1]]);
+            int laid = planned.Count;
             Commit(p);
+            // A road dropped because its town already meets connected pavement nearby lays nothing.
+            if (steep && planned.Count > laid) overHills++;
         }
         if (unjoined > 0) notes.Add($"{unjoined} town exit{(unjoined == 1 ? "" : "s")} found no way to a highway.");
+        if (overHills > 0)
+            notes.Add($"{overHills} country road{(overHills == 1 ? "" : "s")} found no way round steep hills, so "
+                      + $"{(overHills == 1 ? "it goes" : "they go")} over them, cut and filled to 1 in 4 where the ground allows.");
         progress?.Report(0.75);
 
         // Extra: join every group of towns to the rest, closest towns first.
@@ -1166,7 +1196,8 @@ public static partial class HighwayStage
             var path = new RoadPath(p.Points, type, radius);
             var road = new HighwayRoad { Kind = p.Kind, Type = type, Radius = radius, Points = [.. p.Points.Select(v => new[] { v.X, v.Y })] };
             var line = p.Line;
-            var profile = RwgProfile(world, line, p.Country, grid);
+            // A gravel road keeps to a drivable grade (#336); asphalt keeps RWG's profile.
+            var profile = RwgProfile(world, line, p.Country, grid, p.Country ? GravelGrade : null, out _);
             var previousPaint = world.Roads;
             var start = line[0];
             var end = line[^1];
