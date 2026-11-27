@@ -2,6 +2,67 @@
 
 What changed in each release of Gnostic - 7D2D Map Editor, newest first. Downloads are on the [releases page](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases). Installed copies update from **Help > Check for Updates**.
 
+## v2.4.0 (2026-11-27)
+
+This full release has all the changes since v2.3.0, with all the changes from the [release candidates](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/tag/v2.4.0-rc.3). Copies of v2.3.0 update to this version from **Help > Check for Updates**.
+
+**This editor needs Gnostic Game Link 1.1.0.** Download `GnosticGameLink-1.1.0.zip` from the release page and extract it into `%AppData%\7DaysToDie\Mods` in place of the old version. With Game Link 1.0.0, the editor shows a red Game Link plug and stops the Game Link features.
+
+### New
+
+- **Copy and paste.** In **Select**, **Ctrl+C** copies the selected prefab or spawn point. In **Multi-select**, it copies the whole group, with the spacing, directions and heights of the items. **Ctrl+V** puts the copy on the pointer: **Q** and **E** turn it, a click puts it on the map, and **Esc** cancels. You can paste in another editor window or project. Pieces of bridges are not copied. A paste and a Multi-select drag snap to nearby street tiles. Hold **Alt** to stop the snap. ([#173](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/173))
+- **Ruler.** The **Ruler** tool (**K**) measures on the map. Click to add points. Each part shows its length, height difference and slope, and the last point shows the total. Drag to measure one straight line. The Ruler does not change the world. ([#174](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/174))
+- **World statistics.** The **World** tab shows the biomes, land and water, the height range and an estimate of the road length. It also counts the POIs by tier and by biome, and the street tiles, towns, traders and spawn points. The numbers update shortly after each edit. `mapeditor-cli info` shows the same numbers. ([#175](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/175))
+- **Guided tours.** **Help > Guided tours** has two tours: **Draw your own islands** and **Stages and tools together**. Each tip points at the control to use, and the tour moves on when you do the step. After you make a new world, the editor offers the islands tour. ([#123](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/123))
+- **Resize a bridge.** In the **Bridge** tool, drag a ramp of a bridge to make the bridge longer or shorter. A selected bridge shows an outline around its deck and ramps. ([#160](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/160))
+- **Check for updates at start.** The installed editor looks for a new version when it starts, and asks if you want to install it. To stop the check, clear **Settings > Check for updates at start**. ([#155](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/155))
+- **Window position.** The editor opens where you closed it, on the same monitor. ([#150](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/150))
+
+#### Gnostic Game Link 1.1.0
+
+- **Take pictures.** Right-click a POI or a place on the map and click **Take Picture**. The game moves the player there and takes a picture from above, with the HUD hidden. The editor saves the PNG in a `<project name> pictures` folder next to the project. To take a group of pictures, use **Take pictures of selection** in **Multi-select**, or **Take pictures...** on the **Issues** tab. ([#193](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/193), [#196](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/196))
+- **Open the world in the game.** In **Export World**, select **After export > Open the playtest save in the game**. The game opens a save named `<world> Playtest`, and the editor teleports you to the centre of the map view. If the game has another save open, the editor asks first. Your other saves do not change. ([#176](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/176), [#220](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/220))
+- **Rebuild the area around the player.** In **Export World**, select **After export > Rebuild the area around the player** and set the radius. The game saves, and the editor writes the world. Then the game loads the same save and makes the area around you again from the new world. Player buildings, loot, bedrolls and land claims in that area are lost, so back up your save first. The warning shows how many chunks the game will rebuild. ([#180](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/180), [#222](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/222), [#245](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/245))
+- **Pins.** In the game, open the console and type `pin` and a note. The editor collects the pins. They show on the map and in the **Pins** list on the **Issues** tab, with **Teleport** and **Delete**. The project keeps them. ([#179](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/179))
+- **Plug colours.** The Game Link plug in the status bar has four colours. Grey: the game does not reply. Yellow: the game is not on this world. Green: the game is on this world. Red: the mod is too old, or the session check fails. Point to the plug to see why. ([#151](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/151), [#233](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/233))
+- **Session token.** Game Link accepts requests only from the editor. Each time the game starts, Game Link makes a new token that the editor reads. ([#186](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/186))
+- **Shift-Esc** stops the wait for the game before an export, the automatic teleport and the wait for a rebuild. The editor also stops the wait if the game closes. ([#220](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/220), [#234](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/234))
+
+### Changes
+
+- **Highways join roads that go the same way**, at a junction, so you do not get two roads side by side. The ground beside every road slopes gently into the terrain, with no cliffs. This applies to generated roads, town roads, bridge ramps and the **Road** tool. **The same seed now gives different highway routes.** Run **Highways** again on an existing world to get the new roads. ([#163](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/163))
+- **Towns have more space between them.** Towns from **Plan towns** keep at least one free 150 m cell between them, and the **Town** tool keeps the same gap from other towns. **The same seed can give a different town layout.** ([#210](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/210))
+- **Let towns cross biome borders** is now under **One trader per town** in the Towns stage, not under **More settings**. ([#156](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/156))
+- In the Flat theme, the strip under the ribbon has no empty line for the **Select** and **Spawn points** tools. The status bar shows the selected spawn point. ([#158](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/158), [#243](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/243))
+- Projects that you save with this version do not open in v2.3.0 or older versions. ([#306](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/306))
+
+### Fixes
+
+- **With a Swedish, Finnish, Norwegian or Lithuanian region format in Windows, an exported world lost most of its POIs** when you opened it again. To fix a world that you exported before, export it again from your project. ([#269](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/269))
+- **Build World** and **Generate terrain** kept the towns from the **Town** tool, the POIs, roads, spawn points and bridges at their old height. On the new ground, a town could float above the ground or go into it. Now new terrain removes everything on the new ground, also the items that you put with the tools. For **Only an area**, it removes only the items in the area and near it. The editor asks before it starts, and Undo puts everything back. ([#302](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/302))
+- A road that you drew from the end of a **Bridge** tool ramp got a ridge and a drop where it meets the ramp. This occurred after the next Generate run. Now the editor keeps the ground and roads that you changed after you built a bridge. This also applies when you move a bridge or take it down. On an older map, click **Rebuild all** in the **Bridge** tool, then draw each join again with the **Road** tool. ([#306](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/306))
+- When two towns stood next to each other at different heights, the game showed a wall at the edge of their street tiles. Worlds made before this fix keep their walls until you build their towns again. ([#210](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/210))
+- Highways cut through the street tiles of towns. Now roads meet street tiles only at the street exits. ([#164](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/164))
+- An undo of a whole-map **Terrain** run with a land shape left sea water on dry land. ([#271](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/271))
+- A **Terrain** run on selected tiles left towns and features beside the tiles floating or buried. Now the run takes them down, and you can build the towns again. ([#279](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/279))
+- An undo could put back the old ground but keep the newer town sites. **Plan towns** and **Re-roll** are now one undo step each. ([#139](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/139))
+- Planned town outlines went away when you left the **Generate** tab. ([#187](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/187))
+- A project with a missing world file opened with no warning. Now the editor shows which files are missing. ([#140](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/140))
+- In **Multi-select**, a turn could put a prefab on top of a POI that is not in the selection. Now the turn stops. ([#141](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/141))
+- **Esc** or a tool key during a terrain stroke kept the change with no undo step, and **Save**, **Undo** and **Close** stayed unavailable. The same keys during a drag of a spawn point or a prefab kept the move with no undo step. ([#247](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/247), [#270](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/270))
+- A bridge drag that lost the mouse built the bridge at the last pointer position. ([#249](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/249))
+- **Page Up** and **Page Down** moved a bridge piece that the Highways stage built. ([#248](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/248))
+- Validate warned about the road beside a bridge piece, and **Level road** raised the ground into the bridge. ([#280](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/280))
+- In a world from the game's RWG, the editor treated river paths as roads. A POI next to a river dropped to the riverbed. ([#281](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/281))
+- **Cancel** at the save question when you close the editor discarded your Land mode drawing. ([#273](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/273))
+- **Help > Check for Updates** could install while a stage, a save or an export ran, and a failed download could lose your unsaved work. ([#238](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/238), [#272](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/272))
+
+### Known issues
+
+- Bridges leave a gap in the ground along the deck, across each end of the deck and around each bridge post. The gaps are cosmetic: vehicles and boats can use the bridges. ([#5](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/5))
+- If you open two editor windows, they share one recovery copy and one settings file. Closing one window can remove the other window's recovery copy or its new town presets. ([#137](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/137), [#138](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/issues/138))
+- Windows SmartScreen can show "Windows protected your PC" when you start the editor. The editor is not signed. Click **More info**, then **Run anyway**.
+
 ## v2.4.0-rc.3 (2026-11-27)
 
 The third release candidate for v2.4.0. It has all the changes in [v2.4.0-rc.1](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/tag/v2.4.0-rc.1) and [v2.4.0-rc.2](https://github.com/jayfitt-droid/Gnostic-7d2d-map-editor/releases/tag/v2.4.0-rc.2), and this fix. Only copies of a test version update to it. To try it, download it from the releases page.
