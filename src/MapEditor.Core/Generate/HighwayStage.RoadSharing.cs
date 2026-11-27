@@ -330,10 +330,7 @@ public static partial class HighwayStage
         }
 
         Planned JoinedPiece(List<Vector2> piece) =>
-            new(road.Kind, new RoadRoute(piece, piece, piece.Select(grid.CellOf).ToList(), Length(piece), from, road.ToExit), road.From, road.To)
-            {
-                JoinsRoad = true,
-            };
+            new(road.Kind, new RoadRoute(piece, piece, piece.Select(grid.CellOf).ToList(), Length(piece), from, road.ToExit), road.From, road.To);
     }
 
     /// <summary>Keeps only the new pavement needed to meet a connected road or to reach a town exit.</summary>

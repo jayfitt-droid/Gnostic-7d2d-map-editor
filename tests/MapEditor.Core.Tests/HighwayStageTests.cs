@@ -295,6 +295,71 @@ public sealed class HighwayStageTests
     }
 
     [Fact]
+    public void A_highway_that_crosses_a_causeway_road_meets_it_at_its_height()
+    {
+        // An earlier road runs down the middle of the strip on a causeway 4 m over the water, carried between banks higher
+        // than that; the new highway crosses it.
+        var world = Across(100);
+        world.Roads = new Grid<byte>(Size, Size);
+        const int causeway = Size / 2, half = 8;
+        for (int z = 0; z < Size; z++)
+            for (int x = causeway - half; x <= causeway + half; x++)
+            {
+                world.Height[x, z] = TerrainBrush.ToRaw(34);
+                world.Roads[x, z] = (byte)RoadType.Asphalt;
+            }
+        var roads = new List<HighwayRoad>();
+
+        var result = Run(world, new HighwayOptions { Wiggle = 0, JoinUp = false }, roads);
+
+        Assert.Empty(result.Notes);
+        Assert.Single(roads);
+        // The causeway's pavement keeps its height under and beside the new highway (#313).
+        for (int z = 0; z < Size; z++)
+            for (int x = causeway - half; x <= causeway + half; x++)
+                Assert.Equal(TerrainBrush.ToRaw(34), world.Height[x, z]);
+        // The highway eases down to the causeway: no wall where the two pavements meet.
+        int crossing = Enumerable.Range(0, Size).First(z => world.Roads[causeway - half - 1, z] == (byte)RoadType.Asphalt);
+        Assert.InRange(MaxRoadStep(world, new GridRect(causeway - 60, crossing - 40, causeway + 60, crossing + 60)), 0, 0.3f);
+    }
+
+    [Fact]
+    public void A_highway_profile_keeps_earlier_pavement_at_its_height()
+    {
+        const int size = 512;
+        var world = new World { Name = "Crossing", Size = size, Height = new Grid<ushort>(size, size), Roads = new Grid<byte>(size, size) };
+        Array.Fill(world.Height.Data, TerrainBrush.ToRaw(40));
+        for (int z = 248; z <= 264; z++)
+        {
+            world.Height.Row(z).Fill(TerrainBrush.ToRaw(44));
+            world.Roads.Row(z).Fill((byte)RoadType.Asphalt);
+        }
+        var grid = new HighwayStage.PathGrid(world, Library, new HighwayOptions());
+        var line = RoadOp.Centreline([new(256, 40), new(256, 470)], 0);
+
+        var profile = HighwayStage.RwgProfile(world, line, country: false, grid);
+
+        var onPavement = Enumerable.Range(0, line.Count).Where(i => line[i].Y is >= 248 and < 265).ToList();
+        Assert.NotEmpty(onPavement);
+        Assert.All(onPavement, i => Assert.Equal(44, profile[i], 0.01f));
+    }
+
+    /// <summary>The largest height step, in metres, between two neighbouring road cells inside <paramref name="area"/>.</summary>
+    private static float MaxRoadStep(World world, GridRect area)
+    {
+        float most = 0;
+        for (int z = area.Z0; z < area.Z1 - 1; z++)
+            for (int x = area.X0; x < area.X1 - 1; x++)
+            {
+                if (world.Roads![x, z] == 0) continue;
+                float here = World.HeightToMetres(world.Height[x, z]);
+                if (world.Roads[x + 1, z] != 0) most = Math.Max(most, MathF.Abs(here - World.HeightToMetres(world.Height[x + 1, z])));
+                if (world.Roads[x, z + 1] != 0) most = Math.Max(most, MathF.Abs(here - World.HeightToMetres(world.Height[x, z + 1])));
+            }
+        return most;
+    }
+
+    [Fact]
     public void A_town_without_gateways_gets_a_country_road_to_the_nearest_highway()
     {
         var world = Flat();
