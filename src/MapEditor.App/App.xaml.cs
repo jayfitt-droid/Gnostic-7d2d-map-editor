@@ -27,9 +27,14 @@ public partial class App : Application
     /// Appends an exception to the crash log; best effort. A render or tile error can repeat every frame, so each
     /// distinct error is written only <see cref="RepeatsLogged"/> times a run, and the log is kept to about 1 MiB (#22).
     /// </summary>
-    public static void LogError(Exception error)
+    public static void LogError(Exception error) =>
+        Log($"{error.GetType().FullName}|{error.Message}|{error.StackTrace?.Split('\n').FirstOrDefault()}", error.ToString());
+
+    /// <summary>Appends a note that isn't an error, such as a setting that was reset, to the crash log; best effort.</summary>
+    public static void LogNote(string note) => Log(note, note);
+
+    private static void Log(string key, string entry)
     {
-        string key = $"{error.GetType().FullName}|{error.Message}|{error.StackTrace?.Split('\n').FirstOrDefault()}";
         lock (LogLock)
         {
             int count = Seen[key] = Seen.GetValueOrDefault(key) + 1;
@@ -40,7 +45,7 @@ public partial class App : Application
                 if (File.Exists(CrashLogPath) && new FileInfo(CrashLogPath).Length > MaxLogBytes)
                     File.Move(CrashLogPath, Path.ChangeExtension(CrashLogPath, ".old.log"), overwrite: true);
                 string note = count == RepeatsLogged ? $"(Seen {RepeatsLogged} times; further repeats this run aren't logged.){Environment.NewLine}" : "";
-                File.AppendAllText(CrashLogPath, $"[{MapEditor.Core.Messages.CrashLog.FormatTime(DateTimeOffset.Now)}] {error}{Environment.NewLine}{note}{Environment.NewLine}");
+                File.AppendAllText(CrashLogPath, $"[{MapEditor.Core.Messages.CrashLog.FormatTime(DateTimeOffset.Now)}] {entry}{Environment.NewLine}{note}{Environment.NewLine}");
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
