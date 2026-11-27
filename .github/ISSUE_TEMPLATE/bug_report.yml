@@ -48,6 +48,28 @@ body:
       label: Tool or stage
       description: The tool, or the Generate stage (1-6), that you used.
       placeholder: Stage 4 (Highways)
+  - type: input
+    id: coords
+    attributes:
+      label: Coordinates in the game
+      description: For a problem at one place in the game (for example a step in a road). Type the coordinates from the game's map or compass. Coordinates in a screenshot are often too small to read.
+      placeholder: 1183 E, 939 S
+  - type: input
+    id: world
+    attributes:
+      label: Exported world
+      description: The name of the world folder you exported to, in GeneratedWorlds.
+      placeholder: MyWorld
+  - type: dropdown
+    id: save
+    attributes:
+      label: Game save
+      description: A save keeps the ground of the places it already loaded, so an old save can still show a problem that an export fixed.
+      options:
+        - Not about the game
+        - A new game, started after the last export
+        - A save that was played before the last export
+        - I don't know
   - type: textarea
     id: steps
     attributes:
@@ -70,4 +92,8 @@ body:
       label: Screenshots, crash.log, project
       description: |
         If the editor crashed, attach `crash.log` from `%APPDATA%\7D2DMapEditor`.
+        For a problem in the game, attach:
+        - the project (`.7dmap`, zipped), as it was when you exported. If you changed it after the export, attach the older copy.
+        - a screenshot in the game, and a screenshot in the editor with the pointer on the same place.
+        Also say if **Validate** (F7) shows the problem.
         Drag files into this box. Zip a `.7dmap` project if the problem needs it.
